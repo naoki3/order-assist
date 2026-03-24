@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getDb, type Product } from './db';
+import { supabase } from './supabase';
 
 // ─── Order ───────────────────────────────────────────────────────────────────
 
@@ -12,31 +12,41 @@ export interface OrderItem {
 }
 
 export async function placeOrder(items: OrderItem[]) {
-  const db = getDb();
   const nonZero = items.filter((i) => i.quantity > 0);
   if (nonZero.length === 0) return { success: false, message: '発注数が0の商品しかありません' };
 
-  const result = db.prepare(
-    'INSERT INTO order_history (created_at, items) VALUES (?, ?)'
-  ).run(new Date().toISOString(), JSON.stringify(nonZero));
+  const { data: orderData, error } = await supabase
+    .from('order_history')
+    .insert({ created_at: new Date().toISOString(), items: JSON.stringify(nonZero) })
+    .select('id')
+    .single();
 
-  const orderHistoryId = result.lastInsertRowid as number;
+  if (error || !orderData) return { success: false, message: '発注に失敗しました' };
 
-  const insertIncoming = db.prepare(
-    'INSERT INTO incoming_stock (order_history_id, product_id, product_name, quantity, expected_date) VALUES (?, ?, ?, ?, ?)'
+  const orderHistoryId = orderData.id;
+  const today = new Date('2026-03-24');
+
+  const incomingRows = await Promise.all(
+    nonZero.map(async (item) => {
+      const { data: product } = await supabase
+        .from('products')
+        .select('lead_time_days')
+        .eq('id', item.productId)
+        .single();
+      const leadDays = product?.lead_time_days ?? 1;
+      const expected = new Date(today);
+      expected.setDate(today.getDate() + leadDays);
+      return {
+        order_history_id: orderHistoryId,
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        expected_date: expected.toISOString().split('T')[0],
+      };
+    })
   );
 
-  const insertIncomingTx = db.transaction(() => {
-    for (const item of nonZero) {
-      const product = db.prepare('SELECT lead_time_days FROM products WHERE id = ?').get(item.productId) as Pick<Product, 'lead_time_days'> | undefined;
-      const leadDays = product?.lead_time_days ?? 1;
-      const expected = new Date('2026-03-24');
-      expected.setDate(expected.getDate() + leadDays);
-      const expectedDate = expected.toISOString().split('T')[0];
-      insertIncoming.run(orderHistoryId, item.productId, item.productName, item.quantity, expectedDate);
-    }
-  });
-  insertIncomingTx();
+  await supabase.from('incoming_stock').insert(incomingRows);
 
   revalidatePath('/history');
   revalidatePath('/incoming');
@@ -45,19 +55,31 @@ export async function placeOrder(items: OrderItem[]) {
 
 export async function receiveIncoming(formData: FormData) {
   const id = Number(formData.get('id'));
-  const db = getDb();
 
-  const incoming = db.prepare('SELECT * FROM incoming_stock WHERE id = ?').get(id) as { product_id: number; quantity: number } | undefined;
+  const { data: incoming } = await supabase
+    .from('incoming_stock')
+    .select('product_id, quantity')
+    .eq('id', id)
+    .single();
+
   if (!incoming) return;
 
-  db.transaction(() => {
-    db.prepare(
-      "UPDATE incoming_stock SET received_at = datetime('now') WHERE id = ?"
-    ).run(id);
-    db.prepare(
-      "INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date('now')) ON CONFLICT(product_id) DO UPDATE SET current_stock = current_stock + excluded.current_stock, updated_at = excluded.updated_at"
-    ).run(incoming.product_id, incoming.quantity);
-  })();
+  await supabase
+    .from('incoming_stock')
+    .update({ received_at: new Date().toISOString() })
+    .eq('id', id);
+
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('current_stock')
+    .eq('product_id', incoming.product_id)
+    .single();
+
+  await supabase.from('inventory').upsert({
+    product_id: incoming.product_id,
+    current_stock: (inv?.current_stock ?? 0) + incoming.quantity,
+    updated_at: new Date().toISOString().split('T')[0],
+  });
 
   revalidatePath('/incoming');
   revalidatePath('/');
@@ -73,15 +95,19 @@ export async function addProduct(formData: FormData): Promise<void> {
 
   if (!name || leadTime < 1 || safetyStock < 1) return;
 
-  const db = getDb();
-  const result = db
-    .prepare('INSERT INTO products (name, lead_time_days, safety_stock_days) VALUES (?, ?, ?)')
-    .run(name, leadTime, safetyStock);
+  const { data: product } = await supabase
+    .from('products')
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock })
+    .select('id')
+    .single();
 
-  const productId = result.lastInsertRowid as number;
-  db.prepare(
-    "INSERT OR IGNORE INTO inventory (product_id, current_stock, updated_at) VALUES (?, 0, date('now'))"
-  ).run(productId);
+  if (!product) return;
+
+  await supabase.from('inventory').upsert({
+    product_id: product.id,
+    current_stock: 0,
+    updated_at: new Date().toISOString().split('T')[0],
+  });
 
   revalidatePath('/products');
   revalidatePath('/');
@@ -95,9 +121,10 @@ export async function updateProduct(formData: FormData): Promise<void> {
 
   if (!name || leadTime < 1 || safetyStock < 1) return;
 
-  getDb()
-    .prepare('UPDATE products SET name=?, lead_time_days=?, safety_stock_days=? WHERE id=?')
-    .run(name, leadTime, safetyStock, id);
+  await supabase
+    .from('products')
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock })
+    .eq('id', id);
 
   revalidatePath('/products');
   revalidatePath('/');
@@ -105,22 +132,22 @@ export async function updateProduct(formData: FormData): Promise<void> {
 
 export async function deleteProduct(formData: FormData) {
   const id = Number(formData.get('id'));
-  getDb().prepare('DELETE FROM products WHERE id=?').run(id);
+  await supabase.from('products').delete().eq('id', id);
   revalidatePath('/products');
   revalidatePath('/');
 }
 
-// ─── Inventory ───────────────────────────────────────────────────────────────
+// ─── Inventory ────────────────────────────────────────────────────────────────
 
 export async function updateStock(formData: FormData) {
   const productId = Number(formData.get('product_id'));
   const stock = Number(formData.get('current_stock'));
 
-  getDb()
-    .prepare(
-      "INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date('now')) ON CONFLICT(product_id) DO UPDATE SET current_stock=excluded.current_stock, updated_at=excluded.updated_at"
-    )
-    .run(productId, stock);
+  await supabase.from('inventory').upsert({
+    product_id: productId,
+    current_stock: stock,
+    updated_at: new Date().toISOString().split('T')[0],
+  });
 
   revalidatePath('/');
   revalidatePath('/products');
@@ -135,11 +162,9 @@ export async function upsertSale(formData: FormData): Promise<void> {
 
   if (!date || isNaN(quantity) || quantity < 0) return;
 
-  getDb()
-    .prepare(
-      'INSERT INTO sales (product_id, date, quantity) VALUES (?, ?, ?) ON CONFLICT(product_id, date) DO UPDATE SET quantity=excluded.quantity'
-    )
-    .run(productId, date, quantity);
+  await supabase
+    .from('sales')
+    .upsert({ product_id: productId, date, quantity }, { onConflict: 'product_id,date' });
 
   revalidatePath('/sales');
   revalidatePath('/');

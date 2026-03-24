@@ -1,21 +1,25 @@
-import { getDb } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { receiveIncoming } from '@/lib/actions';
 import type { IncomingStock } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export default function IncomingPage() {
-  const db = getDb();
-  const pending = db
-    .prepare(
-      'SELECT * FROM incoming_stock WHERE received_at IS NULL ORDER BY expected_date ASC, id ASC'
-    )
-    .all() as IncomingStock[];
-  const received = db
-    .prepare(
-      'SELECT * FROM incoming_stock WHERE received_at IS NOT NULL ORDER BY received_at DESC LIMIT 20'
-    )
-    .all() as IncomingStock[];
+export default async function IncomingPage() {
+  const { data: pendingData } = await supabase
+    .from('incoming_stock')
+    .select('*')
+    .is('received_at', null)
+    .order('expected_date')
+    .order('id');
+  const pending = (pendingData ?? []) as IncomingStock[];
+
+  const { data: receivedData } = await supabase
+    .from('incoming_stock')
+    .select('*')
+    .not('received_at', 'is', null)
+    .order('received_at', { ascending: false })
+    .limit(20);
+  const received = (receivedData ?? []) as IncomingStock[];
 
   return (
     <div>

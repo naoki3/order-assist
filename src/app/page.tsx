@@ -3,8 +3,8 @@ import OrderBoard from '@/components/OrderBoard';
 
 export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
-  const recommendations = getRecommendations();
+export default async function HomePage() {
+  const recommendations = await getRecommendations();
 
   return (
     <div>
