@@ -1,15 +1,15 @@
-import { getDb } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { addProduct, updateProduct, deleteProduct, updateStock } from '@/lib/actions';
 import type { Product, Inventory } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export default function ProductsPage() {
-  const db = getDb();
-  const products = db.prepare('SELECT * FROM products ORDER BY id').all() as Product[];
-  const inventories = db
-    .prepare('SELECT * FROM inventory')
-    .all() as Inventory[];
+export default async function ProductsPage() {
+  const { data: productsData } = await supabase.from('products').select('*').order('id');
+  const products = (productsData ?? []) as Product[];
+
+  const { data: inventoriesData } = await supabase.from('inventory').select('*');
+  const inventories = (inventoriesData ?? []) as Inventory[];
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
 
   return (

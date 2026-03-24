@@ -1,14 +1,16 @@
-import { getDb } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import type { OrderHistoryItem } from '@/lib/db';
 import type { OrderItem } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
-export default function HistoryPage() {
-  const db = getDb();
-  const orders = db
-    .prepare('SELECT * FROM order_history ORDER BY created_at DESC LIMIT 50')
-    .all() as OrderHistoryItem[];
+export default async function HistoryPage() {
+  const { data } = await supabase
+    .from('order_history')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  const orders = (data ?? []) as OrderHistoryItem[];
 
   function formatDate(iso: string): string {
     const d = new Date(iso);

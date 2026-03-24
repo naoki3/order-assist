@@ -1,4 +1,5 @@
-import { getDb, type Product } from './db';
+import { supabase } from './supabase';
+import type { Product } from './db';
 
 export interface Recommendation {
   product: Product;
@@ -9,10 +10,9 @@ export interface Recommendation {
   reason: string;
 }
 
-export function getRecommendations(): Recommendation[] {
-  const db = getDb();
-
-  const products = db.prepare('SELECT * FROM products ORDER BY id').all() as Product[];
+export async function getRecommendations(): Promise<Recommendation[]> {
+  const { data: products } = await supabase.from('products').select('*').order('id');
+  if (!products || products.length === 0) return [];
 
   const today = new Date('2026-03-24');
   const dates: string[] = [];
@@ -21,40 +21,37 @@ export function getRecommendations(): Recommendation[] {
     d.setDate(today.getDate() - i);
     dates.push(d.toISOString().split('T')[0]);
   }
-  const placeholders = dates.map(() => '?').join(',');
 
   const results: Recommendation[] = [];
 
-  for (const product of products) {
-    // Fetch last 7 days of sales
-    const sales = db
-      .prepare(
-        `SELECT date, quantity FROM sales
-         WHERE product_id = ? AND date IN (${placeholders})
-         ORDER BY date ASC`
-      )
-      .all(product.id, ...dates) as { date: string; quantity: number }[];
+  for (const product of products as Product[]) {
+    const { data: salesData } = await supabase
+      .from('sales')
+      .select('date, quantity')
+      .eq('product_id', product.id)
+      .in('date', dates)
+      .order('date');
 
-    // Build daily quantities (0 for missing days)
+    const sales = salesData ?? [];
     const salesByDate = Object.fromEntries(sales.map((s) => [s.date, s.quantity]));
     const quantities = dates.map((d) => salesByDate[d] ?? 0);
 
-    const totalSales = quantities.reduce((sum, q) => sum + q, 0);
+    const totalSales = quantities.reduce((sum: number, q: number) => sum + q, 0);
     const avgDemand7d = totalSales / 7;
 
-    const inventory = db
-      .prepare('SELECT current_stock FROM inventory WHERE product_id = ?')
-      .get(product.id) as { current_stock: number } | undefined;
-    const currentStock = inventory?.current_stock ?? 0;
+    const { data: inv } = await supabase
+      .from('inventory')
+      .select('current_stock')
+      .eq('product_id', product.id)
+      .single();
+    const currentStock = inv?.current_stock ?? 0;
 
     const requiredStock = Math.ceil(
       avgDemand7d * (product.lead_time_days + product.safety_stock_days)
     );
     const orderQty = Math.max(0, requiredStock - currentStock);
 
-    // Determine reason
-    const recent3dAvg =
-      quantities.slice(-3).reduce((sum, q) => sum + q, 0) / 3;
+    const recent3dAvg = quantities.slice(-3).reduce((sum: number, q: number) => sum + q, 0) / 3;
 
     let reason: string;
     if (avgDemand7d === 0) {
@@ -69,14 +66,7 @@ export function getRecommendations(): Recommendation[] {
       reason = `平均需要 ${avgDemand7d.toFixed(1)}個/日 × ${product.lead_time_days + product.safety_stock_days}日分`;
     }
 
-    results.push({
-      product,
-      avgDemand7d,
-      currentStock,
-      requiredStock,
-      orderQty,
-      reason,
-    });
+    results.push({ product, avgDemand7d, currentStock, requiredStock, orderQty, reason });
   }
 
   return results;

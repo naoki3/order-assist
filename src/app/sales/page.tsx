@@ -1,14 +1,10 @@
-import { getDb } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { upsertSale } from '@/lib/actions';
 import type { Product, Sale } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export default function SalesPage() {
-  const db = getDb();
-  const products = db.prepare('SELECT * FROM products ORDER BY id').all() as Product[];
-
-  // Show last 7 days for input
+export default async function SalesPage() {
   const today = new Date('2026-03-24');
   const dates: string[] = [];
   for (let i = 7; i >= 1; i--) {
@@ -17,14 +13,17 @@ export default function SalesPage() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
-  // Fetch existing sales for last 7 days
-  const sales = db
-    .prepare(
-      `SELECT * FROM sales WHERE product_id IN (SELECT id FROM products) AND date IN (${dates.map(() => '?').join(',')}) ORDER BY product_id, date DESC`
-    )
-    .all(...dates) as Sale[];
+  const { data: productsData } = await supabase.from('products').select('*').order('id');
+  const products = (productsData ?? []) as Product[];
 
-  // Build a lookup map: productId -> date -> quantity
+  const { data: salesData } = await supabase
+    .from('sales')
+    .select('*')
+    .in('date', dates)
+    .order('product_id')
+    .order('date', { ascending: false });
+  const sales = (salesData ?? []) as Sale[];
+
   const salesMap: Record<number, Record<string, number>> = {};
   for (const s of sales) {
     if (!salesMap[s.product_id]) salesMap[s.product_id] = {};
