@@ -37,6 +37,13 @@ CREATE TABLE incoming_stock (
   received_at TIMESTAMPTZ
 );
 
+-- Disable RLS (using anon key from server side)
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE incoming_stock DISABLE ROW LEVEL SECURITY;
+
 -- Seed data (5 sample products with 14 days of sales history)
 
 INSERT INTO products (name, lead_time_days, safety_stock_days) VALUES
