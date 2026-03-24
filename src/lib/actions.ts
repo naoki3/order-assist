@@ -40,7 +40,7 @@ export async function addProduct(formData: FormData): Promise<void> {
 
   const productId = result.lastInsertRowid as number;
   db.prepare(
-    'INSERT OR IGNORE INTO inventory (product_id, current_stock, updated_at) VALUES (?, 0, date("now"))'
+    "INSERT OR IGNORE INTO inventory (product_id, current_stock, updated_at) VALUES (?, 0, date('now'))"
   ).run(productId);
 
   revalidatePath('/products');
@@ -78,7 +78,7 @@ export async function updateStock(formData: FormData) {
 
   getDb()
     .prepare(
-      'INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date("now")) ON CONFLICT(product_id) DO UPDATE SET current_stock=excluded.current_stock, updated_at=excluded.updated_at'
+      "INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date('now')) ON CONFLICT(product_id) DO UPDATE SET current_stock=excluded.current_stock, updated_at=excluded.updated_at"
     )
     .run(productId, stock);
 

@@ -93,7 +93,7 @@ function seedSampleData(db: Database.Database) {
     'INSERT OR IGNORE INTO sales (product_id, date, quantity) VALUES (?, ?, ?)'
   );
   const insertInventory = db.prepare(
-    'INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date("now"))'
+    "INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date('now'))"
   );
 
   const products = [
