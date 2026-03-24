@@ -48,6 +48,16 @@ export interface OrderHistoryItem {
   items: string; // JSON
 }
 
+export interface IncomingStock {
+  id: number;
+  order_history_id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  expected_date: string;
+  received_at: string | null;
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS products (
@@ -75,6 +85,16 @@ function initSchema(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       created_at TEXT NOT NULL,
       items TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS incoming_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_history_id INTEGER NOT NULL REFERENCES order_history(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      product_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      expected_date TEXT NOT NULL,
+      received_at TEXT
     );
   `);
 

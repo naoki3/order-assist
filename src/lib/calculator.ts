@@ -57,10 +57,10 @@ export function getRecommendations(): Recommendation[] {
       quantities.slice(-3).reduce((sum, q) => sum + q, 0) / 3;
 
     let reason: string;
-    if (orderQty === 0) {
-      reason = '在庫が十分なため発注不要';
-    } else if (avgDemand7d === 0) {
+    if (avgDemand7d === 0) {
       reason = '過去7日間の売上データがありません';
+    } else if (orderQty === 0) {
+      reason = '在庫が十分なため発注不要';
     } else if (recent3dAvg > avgDemand7d * 1.2) {
       reason = `最近売上が増えているため多めに発注（直近3日平均 ${recent3dAvg.toFixed(1)}個/日）`;
     } else if (recent3dAvg < avgDemand7d * 0.8) {

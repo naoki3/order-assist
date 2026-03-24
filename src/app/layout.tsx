@@ -34,6 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 商品管理
               </Link>
               <Link
+                href="/incoming"
+                className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                入荷管理
+              </Link>
+              <Link
                 href="/history"
                 className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               >

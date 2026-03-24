@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getDb } from './db';
+import { getDb, type Product } from './db';
 
 // ─── Order ───────────────────────────────────────────────────────────────────
 
@@ -16,12 +16,52 @@ export async function placeOrder(items: OrderItem[]) {
   const nonZero = items.filter((i) => i.quantity > 0);
   if (nonZero.length === 0) return { success: false, message: '発注数が0の商品しかありません' };
 
-  db.prepare(
+  const result = db.prepare(
     'INSERT INTO order_history (created_at, items) VALUES (?, ?)'
   ).run(new Date().toISOString(), JSON.stringify(nonZero));
 
+  const orderHistoryId = result.lastInsertRowid as number;
+
+  const insertIncoming = db.prepare(
+    'INSERT INTO incoming_stock (order_history_id, product_id, product_name, quantity, expected_date) VALUES (?, ?, ?, ?, ?)'
+  );
+
+  const insertIncomingTx = db.transaction(() => {
+    for (const item of nonZero) {
+      const product = db.prepare('SELECT lead_time_days FROM products WHERE id = ?').get(item.productId) as Pick<Product, 'lead_time_days'> | undefined;
+      const leadDays = product?.lead_time_days ?? 1;
+      const expected = new Date('2026-03-24');
+      expected.setDate(expected.getDate() + leadDays);
+      const expectedDate = expected.toISOString().split('T')[0];
+      insertIncoming.run(orderHistoryId, item.productId, item.productName, item.quantity, expectedDate);
+    }
+  });
+  insertIncomingTx();
+
   revalidatePath('/history');
+  revalidatePath('/incoming');
   return { success: true };
+}
+
+export async function receiveIncoming(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const db = getDb();
+
+  const incoming = db.prepare('SELECT * FROM incoming_stock WHERE id = ?').get(id) as { product_id: number; quantity: number } | undefined;
+  if (!incoming) return;
+
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE incoming_stock SET received_at = datetime('now') WHERE id = ?"
+    ).run(id);
+    db.prepare(
+      "INSERT INTO inventory (product_id, current_stock, updated_at) VALUES (?, ?, date('now')) ON CONFLICT(product_id) DO UPDATE SET current_stock = current_stock + excluded.current_stock, updated_at = excluded.updated_at"
+    ).run(incoming.product_id, incoming.quantity);
+  })();
+
+  revalidatePath('/incoming');
+  revalidatePath('/');
+  revalidatePath('/products');
 }
 
 // ─── Products ────────────────────────────────────────────────────────────────
