@@ -1,0 +1,149 @@
+name: Claude Code — Auto Implement Issue
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude-implement:
+    # "claude" ラベルが付いた Issue だけ動く
+    if: github.event.label.name == 'claude'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Notify Slack — 実装開始
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":robot_face: Claude が実装を開始しました",
+              "attachments": [{
+                "color": "#4A90E2",
+                "fields": [
+                  { "title": "Issue", "value": "<${{ github.event.issue.html_url }}|#${{ github.event.issue.number }} ${{ github.event.issue.title }}>", "short": false }
+                ]
+              }]
+            }
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          direct_prompt: |
+            Implement the following GitHub Issue and push your changes to your branch.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
+
+            Steps:
+            1. Implement the requested change.
+            2. Run the project's lint command if available and fix any errors.
+            3. Run the project's build command if available to verify it compiles.
+            4. Commit and push all changes to your branch.
+
+      - name: Create Pull Request
+        id: create-pr
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Claudeが作ったブランチを探す（claude/issue-{number}-* パターン）
+          BRANCH=$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/branches?per_page=100" \
+            | jq -r '.[].name' \
+            | grep "^claude/issue-${ISSUE_NUMBER}-" \
+            | sort | tail -1)
+
+          if [ -z "$BRANCH" ]; then
+            echo "No Claude branch found for issue #${ISSUE_NUMBER}, skipping PR creation."
+            echo "pr_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found branch: $BRANCH"
+
+          # すでにPRがあれば作らない
+          EXISTING=$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls?head=${REPO%/*}:${BRANCH}&state=open" \
+            | jq 'length')
+
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "PR already exists for branch $BRANCH, skipping."
+            PR_URL=$(curl -s \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/pulls?head=${REPO%/*}:${BRANCH}&state=open" \
+              | jq -r '.[0].html_url')
+            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # PR作成
+          PR_URL=$(curl -s -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls" \
+            -d "{
+              \"title\": \"${ISSUE_TITLE}\",
+              \"body\": \"Closes #${ISSUE_NUMBER}\n\nGenerated with [Claude Code](https://claude.ai/code)\",
+              \"head\": \"${BRANCH}\",
+              \"base\": \"main\"
+            }" | jq -r '.html_url')
+
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack — PR作成成功
+        if: success() && steps.create-pr.outputs.pr_url != ''
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":white_check_mark: PRができました！レビューしてください",
+              "attachments": [{
+                "color": "#36A64F",
+                "fields": [
+                  { "title": "Issue", "value": "<${{ github.event.issue.html_url }}|#${{ github.event.issue.number }} ${{ github.event.issue.title }}>", "short": false },
+                  { "title": "PR", "value": "<${{ steps.create-pr.outputs.pr_url }}|Pull Request を見る>", "short": false }
+                ]
+              }]
+            }
+
+      - name: Notify Slack — 失敗
+        if: failure()
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":x: 実装に失敗しました",
+              "attachments": [{
+                "color": "#E01E5A",
+                "fields": [
+                  { "title": "Issue", "value": "<${{ github.event.issue.html_url }}|#${{ github.event.issue.number }} ${{ github.event.issue.title }}>", "short": false },
+                  { "title": "ログ", "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions を見る>", "short": false }
+                ]
+              }]
+            }
