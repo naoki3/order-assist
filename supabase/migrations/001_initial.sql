@@ -47,11 +47,11 @@ ALTER TABLE incoming_stock DISABLE ROW LEVEL SECURITY;
 -- Seed data (5 sample products with 14 days of sales history)
 
 INSERT INTO products (name, lead_time_days, safety_stock_days) VALUES
-  ('牛乳 1L', 1, 1),
-  ('食パン', 1, 1),
-  ('たまご (10個)', 2, 1),
-  ('ヨーグルト', 2, 1),
-  ('オレンジジュース', 3, 2);
+  ('Milk 1L', 1, 1),
+  ('Bread', 1, 1),
+  ('Eggs (10 pack)', 2, 1),
+  ('Yogurt', 2, 1),
+  ('Orange Juice', 3, 2);
 
 INSERT INTO inventory (product_id, current_stock, updated_at) VALUES
   (1, 18, CURRENT_DATE),
