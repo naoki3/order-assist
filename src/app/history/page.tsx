@@ -19,11 +19,11 @@ export default async function HistoryPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">発注履歴</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-4">Order History</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
-          <p>発注履歴がありません</p>
+          <p>No order history</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -36,7 +36,7 @@ export default async function HistoryPage() {
                   {items.map((item) => (
                     <div key={item.productId} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.productName}</span>
-                      <span className="font-semibold text-slate-800">{item.quantity}個</span>
+                      <span className="font-semibold text-slate-800">{item.quantity} units</span>
                     </div>
                   ))}
                 </div>

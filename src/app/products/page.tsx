@@ -14,12 +14,12 @@ export default async function ProductsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">商品管理</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-4">Products</h1>
 
       {/* Product list */}
       <div className="space-y-3 mb-6">
         {products.length === 0 && (
-          <p className="text-slate-400 text-sm">商品がありません。下から追加してください。</p>
+          <p className="text-slate-400 text-sm">No products yet. Add one below.</p>
         )}
         {products.map((p) => (
           <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
@@ -32,18 +32,18 @@ export default async function ProductsPage() {
                   defaultValue={p.name}
                   required
                   className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="商品名"
+                  placeholder="Product name"
                 />
                 <button
                   type="submit"
                   className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  保存
+                  Save
                 </button>
               </div>
               <div className="flex gap-3 text-sm">
                 <label className="flex items-center gap-1 text-slate-600">
-                  リードタイム
+                  Lead time
                   <input
                     type="number"
                     name="lead_time_days"
@@ -53,10 +53,10 @@ export default async function ProductsPage() {
                     required
                     className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
                   />
-                  日
+                  days
                 </label>
                 <label className="flex items-center gap-1 text-slate-600">
-                  安全在庫
+                  Safety stock
                   <input
                     type="number"
                     name="safety_stock_days"
@@ -66,7 +66,7 @@ export default async function ProductsPage() {
                     required
                     className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
                   />
-                  日分
+                  days
                 </label>
               </div>
             </form>
@@ -74,7 +74,7 @@ export default async function ProductsPage() {
             {/* Stock update */}
             <form action={updateStock} className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
               <input type="hidden" name="product_id" value={p.id} />
-              <span className="text-sm text-slate-500">現在庫：</span>
+              <span className="text-sm text-slate-500">Current stock:</span>
               <input
                 type="number"
                 name="current_stock"
@@ -82,12 +82,12 @@ export default async function ProductsPage() {
                 min={0}
                 className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
               />
-              <span className="text-sm text-slate-500">個</span>
+              <span className="text-sm text-slate-500">units</span>
               <button
                 type="submit"
                 className="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"
               >
-                更新
+                Update
               </button>
 
               {/* Delete */}
@@ -97,7 +97,7 @@ export default async function ProductsPage() {
                   type="submit"
                   className="px-3 py-1 text-red-500 text-sm rounded-lg hover:bg-red-50 transition-colors"
                 >
-                  削除
+                  Delete
                 </button>
               </form>
             </form>
@@ -107,18 +107,18 @@ export default async function ProductsPage() {
 
       {/* Add new product */}
       <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">新しい商品を追加</h2>
+        <h2 className="text-sm font-semibold text-slate-600 mb-3">Add New Product</h2>
         <form action={addProduct} className="space-y-3">
           <input
             type="text"
             name="name"
             required
-            placeholder="商品名"
+            placeholder="Product name"
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <div className="flex gap-3 text-sm">
             <label className="flex items-center gap-1 text-slate-600">
-              リードタイム
+              Lead time
               <input
                 type="number"
                 name="lead_time_days"
@@ -128,10 +128,10 @@ export default async function ProductsPage() {
                 required
                 className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
               />
-              日
+              days
             </label>
             <label className="flex items-center gap-1 text-slate-600">
-              安全在庫
+              Safety stock
               <input
                 type="number"
                 name="safety_stock_days"
@@ -141,14 +141,14 @@ export default async function ProductsPage() {
                 required
                 className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
               />
-              日分
+              days
             </label>
           </div>
           <button
             type="submit"
             className="w-full py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            追加する
+            Add Product
           </button>
         </form>
       </div>

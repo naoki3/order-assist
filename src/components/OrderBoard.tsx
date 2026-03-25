@@ -38,13 +38,13 @@ export default function OrderBoard({ recommendations }: Props) {
     return (
       <div className="text-center py-16">
         <div className="text-5xl mb-4">✅</div>
-        <p className="text-xl font-bold text-slate-800">発注しました！</p>
-        <p className="text-slate-500 mt-2 mb-6">内容は発注履歴から確認できます</p>
+        <p className="text-xl font-bold text-slate-800">Order placed!</p>
+        <p className="text-slate-500 mt-2 mb-6">You can review the details in Order History</p>
         <button
           onClick={() => setDone(false)}
           className="px-4 py-2 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition-colors"
         >
-          戻る
+          Back
         </button>
       </div>
     );
@@ -69,7 +69,7 @@ export default function OrderBoard({ recommendations }: Props) {
                 <p className="font-semibold text-slate-800 truncate">{r.product.name}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{r.reason}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  在庫 {r.currentStock}個 / 必要 {r.requiredStock}個
+                  Stock {r.currentStock} / Required {r.requiredStock}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -109,10 +109,10 @@ export default function OrderBoard({ recommendations }: Props) {
           }`}
         >
           {isPending
-            ? '処理中...'
+            ? 'Processing...'
             : orderCount === 0
-            ? '発注する商品がありません'
-            : `この内容で発注（${orderCount}商品）`}
+            ? 'No products to order'
+            : `Place order (${orderCount} item${orderCount === 1 ? '' : 's'})`}
         </button>
       </div>
     </div>
