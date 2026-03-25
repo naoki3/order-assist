@@ -55,15 +55,15 @@ export async function getRecommendations(): Promise<Recommendation[]> {
 
     let reason: string;
     if (avgDemand7d === 0) {
-      reason = '過去7日間の売上データがありません';
+      reason = 'No sales data for the past 7 days';
     } else if (orderQty === 0) {
-      reason = '在庫が十分なため発注不要';
+      reason = 'Stock is sufficient, no order needed';
     } else if (recent3dAvg > avgDemand7d * 1.2) {
-      reason = `最近売上が増えているため多めに発注（直近3日平均 ${recent3dAvg.toFixed(1)}個/日）`;
+      reason = `Sales trending up — ordering more (3-day avg: ${recent3dAvg.toFixed(1)} units/day)`;
     } else if (recent3dAvg < avgDemand7d * 0.8) {
-      reason = `最近売上が落ち着いています（直近3日平均 ${recent3dAvg.toFixed(1)}個/日）`;
+      reason = `Sales slowing down (3-day avg: ${recent3dAvg.toFixed(1)} units/day)`;
     } else {
-      reason = `平均需要 ${avgDemand7d.toFixed(1)}個/日 × ${product.lead_time_days + product.safety_stock_days}日分`;
+      reason = `Avg demand ${avgDemand7d.toFixed(1)} units/day × ${product.lead_time_days + product.safety_stock_days} days`;
     }
 
     results.push({ product, avgDemand7d, currentStock, requiredStock, orderQty, reason });

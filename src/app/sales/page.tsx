@@ -37,11 +37,11 @@ export default async function SalesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">売上入力</h1>
-      <p className="text-sm text-slate-500 mb-4">過去7日分の実売数を入力してください</p>
+      <h1 className="text-xl font-bold text-slate-800 mb-1">Sales Entry</h1>
+      <p className="text-sm text-slate-500 mb-4">Enter actual sales for the past 7 days</p>
 
       {products.length === 0 ? (
-        <p className="text-slate-400 text-sm">商品が登録されていません</p>
+        <p className="text-slate-400 text-sm">No products registered</p>
       ) : (
         <div className="space-y-4">
           {products.map((p) => (
@@ -61,12 +61,12 @@ export default async function SalesPage() {
                       required
                       className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-slate-400">個</span>
+                    <span className="text-sm text-slate-400">units</span>
                     <button
                       type="submit"
                       className="px-3 py-1.5 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200 transition-colors"
                     >
-                      保存
+                      Save
                     </button>
                   </form>
                 ))}

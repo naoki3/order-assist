@@ -13,7 +13,7 @@ export interface OrderItem {
 
 export async function placeOrder(items: OrderItem[]) {
   const nonZero = items.filter((i) => i.quantity > 0);
-  if (nonZero.length === 0) return { success: false, message: '発注数が0の商品しかありません' };
+  if (nonZero.length === 0) return { success: false, message: 'All order quantities are 0' };
 
   const { data: orderData, error } = await supabase
     .from('order_history')
@@ -21,7 +21,7 @@ export async function placeOrder(items: OrderItem[]) {
     .select('id')
     .single();
 
-  if (error || !orderData) return { success: false, message: '発注に失敗しました' };
+  if (error || !orderData) return { success: false, message: 'Failed to place order' };
 
   const orderHistoryId = orderData.id;
   const today = new Date('2026-03-24');
