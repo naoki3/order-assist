@@ -47,17 +47,14 @@ export default async function SalesPage() {
           {products.map((p) => (
             <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
               <p className="font-semibold text-slate-800 mb-3">{p.name}</p>
-              <div className="space-y-2">
-                {dates.map((date) => (
-                  <SaleForm
-                    key={date}
-                    productId={p.id}
-                    date={date}
-                    defaultQuantity={salesMap[p.id]?.[date] ?? 0}
-                    label={formatDate(date)}
-                  />
-                ))}
-              </div>
+              <SaleForm
+                productId={p.id}
+                entries={dates.map((date) => ({
+                  date,
+                  label: formatDate(date),
+                  defaultQuantity: salesMap[p.id]?.[date] ?? 0,
+                }))}
+              />
             </div>
           ))}
         </div>

@@ -202,21 +202,31 @@ export async function updateStock(
 
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
-export async function upsertSale(
+export async function upsertProductSales(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const productId = Number(formData.get('product_id'));
-  const date = formData.get('date') as string;
-  const quantity = Number(formData.get('quantity'));
+  const dates = formData.getAll('date') as string[];
+  const quantities = formData.getAll('quantity').map(Number);
 
-  if (!date || isNaN(quantity) || quantity < 0) return { error: 'Invalid sale data' };
+  if (dates.length === 0) return { error: 'No dates provided' };
+
+  const rows = dates.map((date, i) => ({
+    product_id: productId,
+    date,
+    quantity: quantities[i] ?? 0,
+  }));
+
+  if (rows.some((r) => isNaN(r.quantity) || r.quantity < 0)) {
+    return { error: 'Invalid quantity value' };
+  }
 
   const { error } = await supabase
     .from('sales')
-    .upsert({ product_id: productId, date, quantity }, { onConflict: 'product_id,date' });
+    .upsert(rows, { onConflict: 'product_id,date' });
 
-  if (error) return { error: `Failed to save sale: ${error.message}` };
+  if (error) return { error: `Failed to save sales: ${error.message}` };
 
   revalidatePath('/sales');
   revalidatePath('/');
