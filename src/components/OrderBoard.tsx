@@ -13,6 +13,7 @@ export default function OrderBoard({ recommendations }: Props) {
     Object.fromEntries(recommendations.map((r) => [r.product.id, r.orderQty]))
   );
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function adjust(id: number, delta: number) {
@@ -23,6 +24,7 @@ export default function OrderBoard({ recommendations }: Props) {
   }
 
   function handleOrder() {
+    setError(null);
     startTransition(async () => {
       const items = recommendations.map((r) => ({
         productId: r.product.id,
@@ -30,7 +32,11 @@ export default function OrderBoard({ recommendations }: Props) {
         quantity: quantities[r.product.id] ?? 0,
       }));
       const result = await placeOrder(items);
-      if (result.success) setDone(true);
+      if (result === null) {
+        setDone(true);
+      } else {
+        setError(result.error);
+      }
     });
   }
 
@@ -97,6 +103,10 @@ export default function OrderBoard({ recommendations }: Props) {
           </div>
         );
       })}
+
+      {error && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-xl px-4 py-3">{error}</p>
+      )}
 
       <div className="pt-2">
         <button
