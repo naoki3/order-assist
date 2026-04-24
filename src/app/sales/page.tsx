@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { upsertSale } from '@/lib/actions';
+import SaleForm from '@/components/SaleForm';
 import type { Product, Sale } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -49,26 +49,13 @@ export default async function SalesPage() {
               <p className="font-semibold text-slate-800 mb-3">{p.name}</p>
               <div className="space-y-2">
                 {dates.map((date) => (
-                  <form key={date} action={upsertSale} className="flex items-center gap-3">
-                    <input type="hidden" name="product_id" value={p.id} />
-                    <input type="hidden" name="date" value={date} />
-                    <span className="text-sm text-slate-500 w-10 shrink-0">{formatDate(date)}</span>
-                    <input
-                      type="number"
-                      name="quantity"
-                      defaultValue={salesMap[p.id]?.[date] ?? 0}
-                      min={0}
-                      required
-                      className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-slate-400">units</span>
-                    <button
-                      type="submit"
-                      className="px-3 py-1.5 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200 transition-colors"
-                    >
-                      Save
-                    </button>
-                  </form>
+                  <SaleForm
+                    key={date}
+                    productId={p.id}
+                    date={date}
+                    defaultQuantity={salesMap[p.id]?.[date] ?? 0}
+                    label={formatDate(date)}
+                  />
                 ))}
               </div>
             </div>
