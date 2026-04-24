@@ -5,7 +5,7 @@ import type { Product, Sale } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
-  const today = new Date('2026-03-24');
+  const today = new Date();
   const dates: string[] = [];
   for (let i = 7; i >= 1; i--) {
     const d = new Date(today);
