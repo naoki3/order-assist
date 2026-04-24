@@ -5,3 +5,5 @@ create table if not exists users (
   is_admin boolean not null default false,
   created_at timestamptz default now()
 );
+
+alter table users disable row level security;
