@@ -1,9 +1,10 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const supabase = await createClient();
   const updates = [
     { from: '牛乳 1L',         to: 'Milk 1L' },
     { from: '食パン',           to: 'Bread' },

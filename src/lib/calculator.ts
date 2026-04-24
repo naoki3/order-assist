@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { createClient } from './supabase';
 import type { Product } from './db';
 import {
   buildDateRange,
@@ -18,6 +18,7 @@ export interface Recommendation {
 }
 
 export async function getRecommendations(today: Date = new Date()): Promise<Recommendation[]> {
+  const supabase = await createClient();
   const { data: products } = await supabase.from('products').select('*').order('id');
   if (!products || products.length === 0) return [];
 

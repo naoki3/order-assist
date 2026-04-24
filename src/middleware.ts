@@ -1,39 +1,34 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-const SECRET = process.env.SESSION_SECRET ?? 'dev-secret-change-in-production';
-
-async function verifyToken(token: string): Promise<boolean> {
-  const dot = token.lastIndexOf('.');
-  if (dot === -1) return false;
-  const payload = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(SECRET),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
-  const sigBytes = new Uint8Array(sig.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
-  return crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(payload));
-}
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  let response = NextResponse.next({ request });
 
-  if (pathname.startsWith('/login')) {
-    return NextResponse.next();
-  }
+  const supabase = createServerClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
 
-  const token = request.cookies.get('session')?.value;
-  if (!token || !(await verifyToken(token))) {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

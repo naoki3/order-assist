@@ -1,10 +1,11 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import type { OrderHistoryItem } from '@/lib/db';
 import type { OrderItem } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HistoryPage() {
+  const supabase = await createClient();
   const { data } = await supabase
     .from('order_history')
     .select('*')
