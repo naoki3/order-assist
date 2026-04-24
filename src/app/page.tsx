@@ -9,7 +9,7 @@ export default async function HomePage() {
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-slate-800">Today's Order Review</h1>
+        <h1 className="text-xl font-bold text-slate-800">Today&apos;s Order Review</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Auto-calculated from the past 7 days of sales. Adjust quantities and place your order.
         </p>
