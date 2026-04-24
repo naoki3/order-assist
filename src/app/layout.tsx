@@ -57,7 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     type="submit"
                     className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
                   >
-                    ログアウト
+                    Logout
                   </button>
                 </form>
               </div>
