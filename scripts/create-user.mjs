@@ -1,36 +1,38 @@
 /**
- * Create a user in the database.
- * Usage: node scripts/create-user.mjs <username> <password>
- * Example: node scripts/create-user.mjs admin mypassword
+ * Create a user via Supabase Auth Admin API.
+ * Usage: node scripts/create-user.mjs <email> <password>
+ * Example: SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/create-user.mjs admin@example.com mypassword
  */
-import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 
-const [, , username, password] = process.argv;
+const [, , email, password] = process.argv;
 
-if (!username || !password) {
-  console.error('Usage: node scripts/create-user.mjs <username> <password>');
+if (!email || !password) {
+  console.error('Usage: node scripts/create-user.mjs <email> <password>');
   process.exit(1);
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-const passwordHash = bcrypt.hashSync(password, 10);
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
-const { error } = await supabase
-  .from('users')
-  .insert({ username, password_hash: passwordHash, is_admin: true });
+const { data, error } = await supabase.auth.admin.createUser({
+  email,
+  password,
+  email_confirm: true,
+});
 
 if (error) {
   console.error('Failed:', error.message);
   process.exit(1);
 }
 
-console.log(`Created user: ${username}`);
+console.log(`Created user: ${data.user.email} (id: ${data.user.id})`);

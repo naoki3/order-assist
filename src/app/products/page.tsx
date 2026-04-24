@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import AddProductForm from '@/components/AddProductForm';
 import type { Product, Inventory } from '@/lib/db';
@@ -6,6 +6,7 @@ import type { Product, Inventory } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
+  const supabase = await createClient();
   const { data: productsData } = await supabase.from('products').select('*').order('id');
   const products = (productsData ?? []) as Product[];
 

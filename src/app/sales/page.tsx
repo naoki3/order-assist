@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import SaleForm from '@/components/SaleForm';
 import type { Product, Sale } from '@/lib/db';
 
@@ -13,6 +13,7 @@ export default async function SalesPage() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
+  const supabase = await createClient();
   const { data: productsData } = await supabase.from('products').select('*').order('id');
   const products = (productsData ?? []) as Product[];
 
