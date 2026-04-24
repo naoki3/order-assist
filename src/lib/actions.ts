@@ -117,8 +117,11 @@ export async function addProduct(
   const name = (formData.get('name') as string).trim();
   const leadTime = Number(formData.get('lead_time_days'));
   const safetyStock = Number(formData.get('safety_stock_days'));
+  const priceRaw = formData.get('price');
+  const price = priceRaw && String(priceRaw).trim() !== '' ? Number(priceRaw) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
+  if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -126,7 +129,7 @@ export async function addProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, user_id: user.id })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, user_id: user.id })
     .select('id')
     .single();
 
@@ -157,13 +160,16 @@ export async function updateProduct(
   const name = (formData.get('name') as string).trim();
   const leadTime = Number(formData.get('lead_time_days'));
   const safetyStock = Number(formData.get('safety_stock_days'));
+  const priceRaw = formData.get('price');
+  const price = priceRaw && String(priceRaw).trim() !== '' ? Number(priceRaw) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
+  if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from('products')
-    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock })
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price })
     .eq('id', id);
 
   if (error) return { error: `Failed to update product: ${error.message}` };
@@ -248,4 +254,60 @@ export async function upsertProductSales(
   revalidatePath('/sales');
   revalidatePath('/');
   return null;
+}
+
+// ─── CSV Import ───────────────────────────────────────────────────────────────
+
+export interface CsvImportResult {
+  imported: number;
+  skipped: string[];
+  error?: string;
+}
+
+export async function importSalesCsv(
+  _prev: CsvImportResult | null,
+  formData: FormData
+): Promise<CsvImportResult> {
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+
+  const text = await file.text();
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
+
+  const firstLine = lines[0].toLowerCase();
+  const dataLines = firstLine.startsWith('date') ? lines.slice(1) : lines;
+
+  const { data: products } = await supabase.from('products').select('id, name');
+  const productMap = new Map(
+    (products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id])
+  );
+
+  const rows: { product_id: number; date: string; quantity: number; user_id: string }[] = [];
+  const skipped: string[] = [];
+
+  for (const line of dataLines) {
+    if (!line.trim()) continue;
+    const parts = line.split(',');
+    if (parts.length < 3) { skipped.push(line.trim()); continue; }
+    const [rawDate, rawName, rawQty] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const quantity = parseInt(rawQty, 10);
+    if (!rawDate || !rawName || isNaN(quantity) || quantity < 0) { skipped.push(line.trim()); continue; }
+    const productId = productMap.get(rawName.toLowerCase());
+    if (!productId) { skipped.push(`Unknown product: ${rawName}`); continue; }
+    rows.push({ product_id: productId, date: rawDate, quantity, user_id: user.id });
+  }
+
+  if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
+
+  const { error } = await supabase.from('sales').upsert(rows, { onConflict: 'product_id,date' });
+  if (error) return { imported: 0, skipped, error: `Failed to import: ${error.message}` };
+
+  revalidatePath('/sales');
+  revalidatePath('/');
+  return { imported: rows.length, skipped };
 }

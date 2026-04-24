@@ -62,6 +62,18 @@ export default function ProductCard({ product, currentStock }: Props) {
             />
             days
           </label>
+          <label className="flex items-center gap-1 text-slate-600">
+            Unit price
+            <input
+              type="number"
+              name="price"
+              defaultValue={product.price ?? ''}
+              min={0}
+              step="0.01"
+              placeholder="Optional"
+              className="w-24 border border-slate-300 rounded px-2 py-1 text-center"
+            />
+          </label>
         </div>
         {updateState?.error && (
           <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateState.error}</p>

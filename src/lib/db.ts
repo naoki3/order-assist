@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   lead_time_days: number;
   safety_stock_days: number;
+  price: number | null;
 }
 
 export interface Sale {
