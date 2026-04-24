@@ -6,4 +6,8 @@ create table if not exists users (
   created_at timestamptz default now()
 );
 
-alter table users disable row level security;
+-- Allow anonymous role to read users for login verification
+create policy "allow_login"
+  on users for select
+  to anon
+  using (true);
