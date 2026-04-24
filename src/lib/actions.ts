@@ -24,7 +24,7 @@ export async function placeOrder(items: OrderItem[]) {
   if (error || !orderData) return { success: false, message: 'Failed to place order' };
 
   const orderHistoryId = orderData.id;
-  const today = new Date('2026-03-24');
+  const today = new Date();
 
   const incomingRows = await Promise.all(
     nonZero.map(async (item) => {
