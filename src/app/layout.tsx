@@ -34,6 +34,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/" className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors whitespace-nowrap shrink-0">
                   Order Review
                 </Link>
+                <Link href="/dashboard" className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors whitespace-nowrap shrink-0">
+                  Dashboard
+                </Link>
                 <Link href="/sales" className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors whitespace-nowrap shrink-0">
                   Sales Entry
                 </Link>

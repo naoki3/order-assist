@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase';
 import SaleForm from '@/components/SaleForm';
+import Link from 'next/link';
 import type { Product, Sale } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,17 @@ export default async function SalesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Sales Entry</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-bold text-slate-800">Sales Entry</h1>
+        <div className="flex gap-2 text-xs">
+          <Link href="/sales/import" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+            Import CSV
+          </Link>
+          <a href="/api/export-sales" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+            Export CSV
+          </a>
+        </div>
+      </div>
       <p className="text-sm text-slate-500 mb-4">Enter actual sales for the past 7 days</p>
 
       {products.length === 0 ? (
