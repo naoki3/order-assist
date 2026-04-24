@@ -1,10 +1,12 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import ReceiveForm from '@/components/ReceiveForm';
 import type { IncomingStock } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export default async function IncomingPage() {
+  const supabase = await createClient();
+
   const { data: pendingData } = await supabase
     .from('incoming_stock')
     .select('*')
@@ -32,10 +34,7 @@ export default async function IncomingPage() {
       ) : (
         <div className="space-y-2 mb-6">
           {pending.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3"
-            >
+            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-800">{item.product_name}</p>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -53,10 +52,7 @@ export default async function IncomingPage() {
           <h2 className="text-sm font-semibold text-slate-600 mb-2">Received (Last 20)</h2>
           <div className="space-y-2">
             {received.map((item) => (
-              <div
-                key={item.id}
-                className="bg-slate-50 rounded-xl border border-slate-100 p-4 flex items-center justify-between gap-3 opacity-70"
-              >
+              <div key={item.id} className="bg-slate-50 rounded-xl border border-slate-100 p-4 flex items-center justify-between gap-3 opacity-70">
                 <div>
                   <p className="font-semibold text-slate-700">{item.product_name}</p>
                   <p className="text-xs text-slate-400 mt-0.5">

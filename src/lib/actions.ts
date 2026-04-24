@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { supabase } from './supabase';
+import { createClient } from './supabase';
 
 export type ActionResult = { error: string } | null;
 
@@ -17,9 +17,13 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
   const nonZero = items.filter((i) => i.quantity > 0);
   if (nonZero.length === 0) return { error: 'All order quantities are 0' };
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: orderData, error } = await supabase
     .from('order_history')
-    .insert({ created_at: new Date().toISOString(), items: JSON.stringify(nonZero) })
+    .insert({ created_at: new Date().toISOString(), items: JSON.stringify(nonZero), user_id: user.id })
     .select('id')
     .single();
 
@@ -65,6 +69,7 @@ export async function receiveIncoming(
   formData: FormData
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
+  const supabase = await createClient();
 
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
@@ -115,9 +120,13 @@ export async function addProduct(
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, user_id: user.id })
     .select('id')
     .single();
 
@@ -151,6 +160,7 @@ export async function updateProduct(
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from('products')
     .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock })
@@ -168,6 +178,7 @@ export async function deleteProduct(
   formData: FormData
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
+  const supabase = await createClient();
 
   const { error } = await supabase.from('products').delete().eq('id', id);
 
@@ -186,6 +197,7 @@ export async function updateStock(
 ): Promise<ActionResult> {
   const productId = Number(formData.get('product_id'));
   const stock = Number(formData.get('current_stock'));
+  const supabase = await createClient();
 
   const { error } = await supabase.from('inventory').upsert({
     product_id: productId,
@@ -212,10 +224,15 @@ export async function upsertProductSales(
 
   if (dates.length === 0) return { error: 'No dates provided' };
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const rows = dates.map((date, i) => ({
     product_id: productId,
     date,
     quantity: quantities[i] ?? 0,
+    user_id: user.id,
   }));
 
   if (rows.some((r) => isNaN(r.quantity) || r.quantity < 0)) {

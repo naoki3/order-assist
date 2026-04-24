@@ -1,34 +1,25 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import bcrypt from 'bcryptjs';
-import { supabase } from '@/lib/supabase';
-import { setSession, clearSession } from '@/lib/session';
+import { createClient } from '@/lib/supabase';
 import type { ActionResult } from '@/lib/actions';
 
 export async function login(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const username = String(formData.get('username') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
 
-  if (!username || !password) {
-    return { error: 'ユーザー名とパスワードを入力してください' };
-  }
+  if (!email || !password) return { error: 'Email and password are required' };
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('id, username, password_hash, is_admin')
-    .eq('username', username)
-    .single();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return { error: 'ユーザー名またはパスワードが正しくありません' };
-  }
+  if (error) return { error: error.message };
 
-  await setSession({ userId: user.id, username: user.username, isAdmin: user.is_admin });
   redirect('/');
 }
 
 export async function logout() {
-  await clearSession();
+  const supabase = await createClient();
+  await supabase.auth.signOut();
   redirect('/login');
 }
