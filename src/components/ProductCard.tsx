@@ -35,7 +35,7 @@ export default function ProductCard({ product, currentStock }: Props) {
             Save
           </button>
         </div>
-        <div className="flex gap-3 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
             Lead time
             <input
