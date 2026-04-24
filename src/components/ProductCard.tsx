@@ -15,7 +15,7 @@ export default function ProductCard({ product, currentStock }: Props) {
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
+    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
       {/* Edit product */}
       <form action={updateAction} className="space-y-3">
         <input type="hidden" name="id" value={product.id} />
