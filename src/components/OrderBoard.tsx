@@ -86,7 +86,7 @@ export default function OrderBoard({ recommendations }: Props) {
             ? 'border-amber-300 bg-amber-50 shadow-sm'
             : isZero
             ? 'border-slate-200 opacity-60'
-            : 'border-blue-200 shadow-sm';
+            : 'border-green-200 shadow-sm';
 
         return (
           <div key={r.product.id} className={`bg-white rounded-xl border p-4 ${cardClass}`}>
@@ -119,7 +119,7 @@ export default function OrderBoard({ recommendations }: Props) {
                 </button>
                 <span
                   className={`w-12 text-center font-bold text-xl ${
-                    isZero ? 'text-slate-300' : 'text-blue-600'
+                    isZero ? 'text-slate-300' : 'text-green-700'
                   }`}
                 >
                   {qty}
@@ -156,7 +156,7 @@ export default function OrderBoard({ recommendations }: Props) {
           className={`w-full py-4 rounded-xl font-bold text-lg transition-colors ${
             orderCount === 0
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+              : 'bg-green-700 hover:bg-green-800 text-white shadow-sm'
           }`}
         >
           {isPending

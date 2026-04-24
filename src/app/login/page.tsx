@@ -7,11 +7,11 @@ export default function LoginPage() {
   const [state, action, pending] = useActionState(login, null);
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #f0fdf4 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%)' }}>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-700 rounded-2xl mb-4 shadow-lg">
             <span className="text-white text-2xl font-bold">OA</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Order Assist</h1>
@@ -28,7 +28,7 @@ export default function LoginPage() {
                 name="email"
                 required
                 autoComplete="email"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow"
                 placeholder="you@example.com"
               />
             </div>
@@ -39,7 +39,7 @@ export default function LoginPage() {
                 name="password"
                 required
                 autoComplete="current-password"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow"
                 placeholder="••••••••"
               />
             </div>
@@ -49,7 +49,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 shadow-sm mt-2"
+              className="w-full py-2.5 bg-green-700 text-white text-sm font-semibold rounded-xl hover:bg-green-800 active:bg-green-900 transition-colors disabled:opacity-50 shadow-sm mt-2"
             >
               {pending ? 'Signing in...' : 'Sign in'}
             </button>
