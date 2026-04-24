@@ -24,10 +24,12 @@ A daily order quantity calculator for small retail stores. Automatically recomme
 ## How Order Quantity is Calculated
 
 ```
-avgDemand = total sales (last 7 days) / 7
+avgDemand     = total sales (last 7 days) / 7
 requiredStock = ceil(avgDemand × (leadTimeDays + safetyStockDays))
-orderQty = max(0, requiredStock - currentStock)
+orderQty      = max(0, requiredStock - currentStock)
 ```
+
+A 3-day moving average is also computed to detect upward/downward trends and include them in the order reason.
 
 ## Tech Stack
 
