@@ -15,7 +15,7 @@ export default function AddProductForm() {
           name="name"
           required
           placeholder="Product name"
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
@@ -61,7 +61,7 @@ export default function AddProductForm() {
         )}
         <button
           type="submit"
-          className="w-full py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="w-full py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium"
         >
           Add Product
         </button>

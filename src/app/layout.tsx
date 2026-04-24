@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { createClient } from '@/lib/supabase';
-import NavBar from '@/components/NavBar';
+import Sidebar from '@/components/Sidebar';
 
 export const metadata: Metadata = {
   title: 'Order Assist',
@@ -14,9 +14,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-full flex flex-col bg-slate-50">
-        {user && <NavBar />}
-        <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">{children}</main>
+      <body className="min-h-full bg-slate-50">
+        {user && <Sidebar />}
+        <div className={user ? 'md:ml-56' : ''}>
+          <main className="max-w-3xl mx-auto w-full px-4 md:px-8 py-6">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

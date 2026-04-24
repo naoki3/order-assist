@@ -24,7 +24,7 @@ export default function SaleForm({ productId, entries }: Props) {
             defaultValue={defaultQuantity}
             min={0}
             required
-            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
           />
           <span className="text-sm text-slate-400">units</span>
         </div>
