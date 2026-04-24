@@ -81,11 +81,11 @@ export default function OrderBoard({ recommendations }: Props) {
         const alert = alertLevel(r);
         const cardClass =
           alert === 'stockout'
-            ? 'border-red-300 bg-red-50'
+            ? 'border-red-300 bg-red-50 shadow-sm'
             : alert === 'overstock'
-            ? 'border-amber-300 bg-amber-50'
+            ? 'border-amber-300 bg-amber-50 shadow-sm'
             : isZero
-            ? 'border-slate-200 opacity-70'
+            ? 'border-slate-200 opacity-60'
             : 'border-blue-200 shadow-sm';
 
         return (
