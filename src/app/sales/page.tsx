@@ -42,6 +42,9 @@ export default async function SalesPage() {
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-bold text-slate-800">Sales Entry</h1>
         <div className="flex gap-2 text-xs">
+          <Link href="/sales/report" className="px-3 py-1.5 bg-green-50 text-green-700 font-medium rounded-lg hover:bg-green-100 transition-colors">
+            Report
+          </Link>
           <Link href="/sales/import" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
             Import CSV
           </Link>
@@ -61,6 +64,7 @@ export default async function SalesPage() {
               <p className="font-semibold text-slate-800 mb-3">{p.name}</p>
               <SaleForm
                 productId={p.id}
+                price={p.price}
                 entries={dates.map((date) => ({
                   date,
                   label: formatDate(date),
