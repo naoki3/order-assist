@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from './supabase';
 
 export type ActionResult = { error: string } | null;
+export type SignupResult = { error: string } | { needsConfirmation: true } | null;
 
 // ─── Order ───────────────────────────────────────────────────────────────────
 
