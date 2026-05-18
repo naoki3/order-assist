@@ -38,7 +38,13 @@ export default function Sidebar() {
 
   const navItems: NavItem[] = [
     { type: 'link', href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, exact: false },
-    { type: 'link', href: '/incoming', label: t('nav.incomingStock'), icon: Truck, exact: false },
+    {
+      type: 'group', key: 'incoming', label: t('nav.incomingGroup'), icon: Truck,
+      items: [
+        { href: '/incoming/schedule', label: t('nav.incomingSchedule'), exact: false },
+        { href: '/incoming', label: t('nav.incomingStock'), exact: true },
+      ],
+    },
     {
       type: 'group', key: 'inventory', label: t('nav.inventoryGroup'), icon: Package,
       items: [

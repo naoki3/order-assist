@@ -4,6 +4,8 @@ export const translations = {
   ja: {
     // Nav
     'nav.dashboard': 'ダッシュボード',
+    'nav.incomingGroup': '入荷',
+    'nav.incomingSchedule': '入荷予定',
     'nav.incomingStock': '入荷確認',
     'nav.inventoryGroup': '在庫',
     'nav.inventory': '在庫',
@@ -53,6 +55,9 @@ export const translations = {
     'dashboard.critical': '危険',
     'dashboard.daysRemaining': (days: string, lead: number) => `在庫残り ${days} 日分 — リードタイム ${lead} 日`,
     'dashboard.overstockDays': (days: string, rec: number) => `在庫 ${days} 日分 — 推奨 ${rec} 日`,
+    'dashboard.todayIncoming': '本日の入荷予定',
+    'dashboard.noTodayIncoming': '本日の入荷予定はありません',
+    'dashboard.incomingUnits': '個',
 
     // Inventory
     'inventory.title': '在庫',
@@ -107,7 +112,7 @@ export const translations = {
     'import.skipped': (n: number) => `${n}件スキップ`,
 
     // Incoming
-    'incoming.title': '入荷管理',
+    'incoming.title': '入荷確認',
     'incoming.subtitle': '入荷確認すると自動的に在庫に反映されます',
     'incoming.awaiting': '入荷待ち',
     'incoming.noAwaiting': '入荷待ちの商品はありません',
@@ -116,6 +121,18 @@ export const translations = {
     'incoming.receivedQty': (n: number, date: string) => `${n} 個 · 入荷日 ${date}`,
     'incoming.receivedLabel': '入荷済み',
     'incoming.markReceived': '入荷確認',
+    'incoming.scheduleTitle': '入荷予定',
+    'incoming.scheduleSubtitle': '入荷予定の追加・削除ができます',
+    'incoming.noScheduled': '入荷予定がありません',
+    'incoming.addSchedule': '入荷予定を追加',
+    'incoming.addButton': '追加する',
+    'incoming.delete': '削除',
+    'incoming.units': '個',
+    'incoming.expectedLabel2': '入荷予定日',
+    'incoming.selectProduct': '商品を選択',
+    'incoming.quantityPlaceholder': '数量',
+    'incoming.todayTitle': '本日の入荷予定',
+    'incoming.noToday': '本日の入荷予定はありません',
 
     // History
     'history.title': '発注履歴',
@@ -137,7 +154,9 @@ export const translations = {
   en: {
     // Nav
     'nav.dashboard': 'Dashboard',
-    'nav.incomingStock': 'Incoming',
+    'nav.incomingGroup': 'Incoming',
+    'nav.incomingSchedule': 'Schedule',
+    'nav.incomingStock': 'Confirm Delivery',
     'nav.inventoryGroup': 'Inventory',
     'nav.inventory': 'Stock View',
     'nav.inventoryAdjust': 'Adjust Stock',
@@ -186,6 +205,9 @@ export const translations = {
     'dashboard.critical': 'Critical',
     'dashboard.daysRemaining': (days: string, lead: number) => `${days} days of stock remaining — lead time is ${lead} days`,
     'dashboard.overstockDays': (days: string, rec: number) => `${days} days of stock — recommended ${rec} days`,
+    'dashboard.todayIncoming': "Today's Incoming",
+    'dashboard.noTodayIncoming': 'No deliveries scheduled for today',
+    'dashboard.incomingUnits': 'units',
 
     // Inventory
     'inventory.title': 'Inventory',
@@ -240,7 +262,7 @@ export const translations = {
     'import.skipped': (n: number) => `${n} row${n !== 1 ? 's' : ''} skipped`,
 
     // Incoming
-    'incoming.title': 'Incoming Stock',
+    'incoming.title': 'Confirm Delivery',
     'incoming.subtitle': 'Marking as received automatically adds to inventory',
     'incoming.awaiting': 'Awaiting Delivery',
     'incoming.noAwaiting': 'No items awaiting delivery',
@@ -249,6 +271,18 @@ export const translations = {
     'incoming.receivedQty': (n: number, date: string) => `${n} units · Received ${date}`,
     'incoming.receivedLabel': 'Received',
     'incoming.markReceived': 'Mark Received',
+    'incoming.scheduleTitle': 'Incoming Schedule',
+    'incoming.scheduleSubtitle': 'Add or remove scheduled deliveries',
+    'incoming.noScheduled': 'No scheduled deliveries',
+    'incoming.addSchedule': 'Add Scheduled Delivery',
+    'incoming.addButton': 'Add',
+    'incoming.delete': 'Delete',
+    'incoming.units': 'units',
+    'incoming.expectedLabel2': 'Expected',
+    'incoming.selectProduct': 'Select product',
+    'incoming.quantityPlaceholder': 'Qty',
+    'incoming.todayTitle': "Today's Incoming",
+    'incoming.noToday': 'No deliveries scheduled for today',
 
     // History
     'history.title': 'Order History',
