@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
 
 const links = [
-  { href: '/', label: 'Order Review' },
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/sales', label: 'Sales Entry' },
-  { href: '/products', label: 'Products' },
-  { href: '/incoming', label: 'Incoming Stock' },
-  { href: '/history', label: 'Order History' },
+  { href: '/', label: '発注確認' },
+  { href: '/dashboard', label: 'ダッシュボード' },
+  { href: '/sales', label: '売上入力' },
+  { href: '/products', label: '商品' },
+  { href: '/incoming', label: '入荷管理' },
+  { href: '/history', label: '発注履歴' },
 ];
 
 export default function NavBar() {
@@ -31,7 +31,7 @@ export default function NavBar() {
               type="submit"
               className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors font-medium"
             >
-              Logout
+              ログアウト
             </button>
           </form>
         </div>

@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
 import type { Product } from '@/lib/db';
+import { useT } from './LanguageProvider';
 
 interface Props {
   product: Product;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ProductCard({ product, currentStock }: Props) {
+  const { t } = useT();
   const [updateState, updateAction] = useActionState(updateProduct, null);
   const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
@@ -26,18 +28,18 @@ export default function ProductCard({ product, currentStock }: Props) {
             defaultValue={product.name}
             required
             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            placeholder="Product name"
+            placeholder={t('products.namePlaceholder')}
           />
           <button
             type="submit"
             className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors"
           >
-            Save
+            {t('products.save')}
           </button>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
-            Lead time
+            {t('products.leadTime')}
             <input
               type="number"
               name="lead_time_days"
@@ -47,10 +49,10 @@ export default function ProductCard({ product, currentStock }: Props) {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Safety stock
+            {t('products.safetyStock')}
             <input
               type="number"
               name="safety_stock_days"
@@ -60,17 +62,17 @@ export default function ProductCard({ product, currentStock }: Props) {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Unit price
+            {t('products.unitPrice')}
             <input
               type="number"
               name="price"
               defaultValue={product.price ?? ''}
               min={0}
               step="0.01"
-              placeholder="Optional"
+              placeholder={t('products.optional')}
               className="w-24 border border-slate-300 rounded px-2 py-1 text-center"
             />
           </label>
@@ -84,7 +86,7 @@ export default function ProductCard({ product, currentStock }: Props) {
       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
         <form action={stockAction} className="flex items-center gap-2 flex-1">
           <input type="hidden" name="product_id" value={product.id} />
-          <span className="text-sm text-slate-500">Current stock:</span>
+          <span className="text-sm text-slate-500">{t('products.currentStock')}</span>
           <input
             type="number"
             name="current_stock"
@@ -92,12 +94,12 @@ export default function ProductCard({ product, currentStock }: Props) {
             min={0}
             className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
           />
-          <span className="text-sm text-slate-500">units</span>
+          <span className="text-sm text-slate-500">{t('products.units')}</span>
           <button
             type="submit"
             className="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"
           >
-            Update
+            {t('products.update')}
           </button>
         </form>
 
@@ -107,7 +109,7 @@ export default function ProductCard({ product, currentStock }: Props) {
             type="submit"
             className="px-3 py-1 text-red-500 text-sm rounded-lg hover:bg-red-50 transition-colors"
           >
-            Delete
+            {t('products.delete')}
           </button>
         </form>
       </div>

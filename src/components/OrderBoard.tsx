@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { placeOrder } from '@/lib/actions';
 import type { Recommendation } from '@/lib/calculator';
+import { useT } from './LanguageProvider';
 
 interface Props {
   recommendations: Recommendation[];
@@ -17,6 +18,7 @@ function alertLevel(r: Recommendation): 'stockout' | 'overstock' | null {
 }
 
 export default function OrderBoard({ recommendations }: Props) {
+  const { t, tf } = useT();
   const [quantities, setQuantities] = useState<Record<number, number>>(
     Object.fromEntries(recommendations.map((r) => [r.product.id, r.orderQty]))
   );
@@ -52,13 +54,13 @@ export default function OrderBoard({ recommendations }: Props) {
     return (
       <div className="text-center py-16">
         <div className="text-5xl mb-4">✅</div>
-        <p className="text-xl font-bold text-slate-800">Order placed!</p>
-        <p className="text-slate-500 mt-2 mb-6">You can review the details in Order History</p>
+        <p className="text-xl font-bold text-slate-800">{t('order.placed')}</p>
+        <p className="text-slate-500 mt-2 mb-6">{t('order.reviewInHistory')}</p>
         <button
           onClick={() => setDone(false)}
           className="px-4 py-2 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition-colors"
         >
-          Back
+          {t('order.back')}
         </button>
       </div>
     );
@@ -96,18 +98,18 @@ export default function OrderBoard({ recommendations }: Props) {
                   <p className="font-semibold text-slate-800 truncate">{r.product.name}</p>
                   {alert === 'stockout' && (
                     <span className="text-xs text-red-600 font-medium bg-red-100 px-1.5 py-0.5 rounded">
-                      Stockout risk
+                      {t('order.stockoutRisk')}
                     </span>
                   )}
                   {alert === 'overstock' && (
                     <span className="text-xs text-amber-600 font-medium bg-amber-100 px-1.5 py-0.5 rounded">
-                      Overstock
+                      {t('order.overstock')}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">{r.reason}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Stock {r.currentStock} / Required {r.requiredStock}
+                  {t('order.stockLabel')} {r.currentStock} / {t('order.requiredLabel')} {r.requiredStock}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -142,7 +144,7 @@ export default function OrderBoard({ recommendations }: Props) {
 
       {totalOrderValue !== null && orderCount > 0 && (
         <p className="text-right text-sm text-slate-500">
-          Estimated order value:{' '}
+          {t('order.estimatedValue')}
           <span className="font-semibold text-slate-700">
             {totalOrderValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </span>
@@ -160,10 +162,10 @@ export default function OrderBoard({ recommendations }: Props) {
           }`}
         >
           {isPending
-            ? 'Processing...'
+            ? t('order.processing')
             : orderCount === 0
-            ? 'No products to order'
-            : `Place order (${orderCount} item${orderCount === 1 ? '' : 's'})`}
+            ? t('order.noProducts')
+            : tf<string>('order.placeOrder', orderCount)}
         </button>
       </div>
     </div>

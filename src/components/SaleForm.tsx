@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { upsertProductSales } from '@/lib/actions';
+import { useT } from './LanguageProvider';
 
 interface Props {
   productId: number;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function SaleForm({ productId, price, entries }: Props) {
+  const { t } = useT();
   const [state, action, pending] = useActionState(upsertProductSales, null);
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(entries.map((e) => [e.date, e.defaultQuantity]))
@@ -34,7 +36,7 @@ export default function SaleForm({ productId, price, entries }: Props) {
             required
             className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
           />
-          <span className="text-sm text-slate-400">units</span>
+          <span className="text-sm text-slate-400">{t('sales.units')}</span>
           {price != null && (
             <span className="text-xs text-slate-400 ml-auto">
               {((quantities[date] ?? 0) * price).toLocaleString()}
@@ -44,7 +46,7 @@ export default function SaleForm({ productId, price, entries }: Props) {
       ))}
       <div className="flex items-center justify-between pt-1">
         <div className="text-xs text-slate-400">
-          Total: <span className="font-medium text-slate-600">{totalUnits} units</span>
+          {t('sales.total')}: <span className="font-medium text-slate-600">{totalUnits} {t('sales.units')}</span>
           {totalRevenue != null && (
             <span className="ml-2 font-medium text-green-700">{totalRevenue.toLocaleString()}</span>
           )}
@@ -54,7 +56,7 @@ export default function SaleForm({ productId, price, entries }: Props) {
           disabled={pending}
           className="px-4 py-1.5 bg-slate-100 text-slate-600 text-sm rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
         >
-          {pending ? 'Saving...' : 'Save'}
+          {pending ? t('sales.saving') : t('sales.save')}
         </button>
       </div>
       {state?.error && (

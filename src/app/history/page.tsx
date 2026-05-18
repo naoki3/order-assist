@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase';
+import { getLang } from '@/lib/lang';
+import { t } from '@/lib/i18n';
 import type { OrderHistoryItem } from '@/lib/db';
 import type { OrderItem } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HistoryPage() {
-  const supabase = await createClient();
+  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const { data } = await supabase
     .from('order_history')
     .select('*')
@@ -20,11 +22,11 @@ export default async function HistoryPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">Order History</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('history.title', lang)}</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
-          <p>No order history</p>
+          <p>{t('history.noHistory', lang)}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -37,7 +39,7 @@ export default async function HistoryPage() {
                   {items.map((item) => (
                     <div key={item.productId} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.productName}</span>
-                      <span className="font-semibold text-slate-800">{item.quantity} units</span>
+                      <span className="font-semibold text-slate-800">{item.quantity} {t('history.units', lang)}</span>
                     </div>
                   ))}
                 </div>
