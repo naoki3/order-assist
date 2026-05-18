@@ -23,27 +23,35 @@ export async function getRecommendations(today: Date = new Date()): Promise<Reco
   if (!products || products.length === 0) return [];
 
   const dates = buildDateRange(today);
-  const results: Recommendation[] = [];
 
-  for (const product of products as Product[]) {
-    const { data: salesData } = await supabase
+  // Fetch all sales and inventory in two bulk queries instead of per-product queries
+  const [{ data: allSales }, { data: allInventory }] = await Promise.all([
+    supabase
       .from('sales')
-      .select('date, quantity')
-      .eq('product_id', product.id)
-      .in('date', dates)
-      .order('date');
+      .select('product_id, date, quantity')
+      .in('date', dates),
+    supabase
+      .from('inventory')
+      .select('product_id, current_stock'),
+  ]);
 
-    const sales = salesData ?? [];
-    const salesByDate = Object.fromEntries(sales.map((s) => [s.date, s.quantity]));
+  const salesByProduct: Record<number, Record<string, number>> = {};
+  for (const s of allSales ?? []) {
+    if (!salesByProduct[s.product_id]) salesByProduct[s.product_id] = {};
+    salesByProduct[s.product_id][s.date] = s.quantity;
+  }
+
+  const stockByProduct: Record<number, number> = {};
+  for (const inv of allInventory ?? []) {
+    stockByProduct[inv.product_id] = inv.current_stock;
+  }
+
+  return (products as Product[]).map((product) => {
+    const salesByDate = salesByProduct[product.id] ?? {};
     const quantities = dates.map((d) => salesByDate[d] ?? 0);
 
     const avgDemand7d = calcAverageDemand(quantities);
-    const { data: inv } = await supabase
-      .from('inventory')
-      .select('current_stock')
-      .eq('product_id', product.id)
-      .single();
-    const currentStock = inv?.current_stock ?? 0;
+    const currentStock = stockByProduct[product.id] ?? 0;
 
     const requiredStock = calcRequiredStock(
       avgDemand7d,
@@ -59,8 +67,6 @@ export async function getRecommendations(today: Date = new Date()): Promise<Reco
       product.safety_stock_days
     );
 
-    results.push({ product, avgDemand7d, currentStock, requiredStock, orderQty, reason });
-  }
-
-  return results;
+    return { product, avgDemand7d, currentStock, requiredStock, orderQty, reason };
+  });
 }
