@@ -3,6 +3,7 @@ import { getLang } from '@/lib/lang';
 import { t, translations } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase';
 import type { Recommendation } from '@/lib/calculator';
+import type { IncomingStock } from '@/lib/db';
 import DashboardCharts from '@/components/DashboardCharts';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,18 @@ async function getSalesTrend(): Promise<{ date: string; quantity: number }[]> {
   return data ?? [];
 }
 
+async function getTodayIncoming(): Promise<IncomingStock[]> {
+  const today = new Date().toISOString().split('T')[0];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('incoming_stock')
+    .select('*')
+    .eq('expected_date', today)
+    .is('received_at', null)
+    .order('id');
+  return (data ?? []) as IncomingStock[];
+}
+
 export default async function DashboardPage() {
   const today = new Date();
   const dates: string[] = [];
@@ -44,10 +57,11 @@ export default async function DashboardPage() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
-  const [lang, recommendations, salesData] = await Promise.all([
+  const [lang, recommendations, salesData, todayIncoming] = await Promise.all([
     getLang(),
     getRecommendations(),
     getSalesTrend(),
+    getTodayIncoming(),
   ]);
   const dict = translations[lang];
 
@@ -208,6 +222,23 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Today's incoming */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.todayIncoming', lang)}</h2>
+        {todayIncoming.length === 0 ? (
+          <p className="text-sm text-slate-400">{t('dashboard.noTodayIncoming', lang)}</p>
+        ) : (
+          <div className="space-y-2">
+            {todayIncoming.map((item) => (
+              <div key={item.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700 font-medium">{item.product_name}</span>
+                <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

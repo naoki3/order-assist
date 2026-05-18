@@ -27,7 +27,7 @@ export interface OrderHistoryItem {
 
 export interface IncomingStock {
   id: number;
-  order_history_id: number;
+  order_history_id: number | null;
   product_id: number;
   product_name: string;
   quantity: number;

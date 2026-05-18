@@ -313,6 +313,68 @@ export async function importSalesCsv(
   return { imported: rows.length, skipped };
 }
 
+// ─── Incoming Schedule ────────────────────────────────────────────────────────
+
+export async function addIncomingSchedule(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const expectedDate = String(formData.get('expected_date') ?? '').trim();
+
+  if (!productId || isNaN(quantity) || quantity < 1 || !expectedDate) {
+    return { error: 'Invalid input values' };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('name')
+    .eq('id', productId)
+    .single();
+
+  if (!product) return { error: 'Product not found' };
+
+  const { error } = await supabase.from('incoming_stock').insert({
+    product_id: productId,
+    product_name: product.name,
+    quantity,
+    expected_date: expectedDate,
+  });
+
+  if (error) return { error: `Failed to add schedule: ${error.message}` };
+
+  revalidatePath('/incoming');
+  revalidatePath('/incoming/schedule');
+  revalidatePath('/dashboard');
+  return null;
+}
+
+export async function deleteIncomingSchedule(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('incoming_stock')
+    .delete()
+    .eq('id', id)
+    .is('received_at', null);
+
+  if (error) return { error: `Failed to delete: ${error.message}` };
+
+  revalidatePath('/incoming');
+  revalidatePath('/incoming/schedule');
+  revalidatePath('/dashboard');
+  return null;
+}
+
 // ─── Sales Targets ────────────────────────────────────────────────────────────
 
 export async function setMonthlyTarget(
