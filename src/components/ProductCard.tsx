@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
 import type { Product } from '@/lib/db';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 interface Props {
   product: Product;
@@ -15,6 +16,12 @@ export default function ProductCard({ product, currentStock }: Props) {
   const [updateState, updateAction] = useActionState(updateProduct, null);
   const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
+
+  const { successMsg: updateSuccess, errorMsg: updateError } = useActionFeedback(updateState, t('common.updated'));
+  const { successMsg: stockSuccess, errorMsg: stockError } = useActionFeedback(stockState, t('common.updated'));
+  const { errorMsg: deleteError } = useActionFeedback(deleteState, t('common.deleted'));
+
+  const expiryLocked = currentStock > 0;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -78,33 +85,41 @@ export default function ProductCard({ product, currentStock }: Props) {
           </label>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
-          <label className="flex items-center gap-1 text-slate-600">
+          <label className={`flex items-center gap-1 ${expiryLocked ? 'text-slate-400' : 'text-slate-600'}`}>
             {t('products.shelfLife')}
             <select
               name="expiry_type"
               defaultValue={product.expiry_type ?? ''}
-              className="border border-slate-300 rounded px-2 py-1 text-sm"
+              disabled={expiryLocked}
+              className="border border-slate-300 rounded px-2 py-1 text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
             >
               <option value="">{t('products.expiryTypeNone')}</option>
               <option value="賞味期限">{t('products.expiryTypeBest')}</option>
               <option value="消費期限">{t('products.expiryTypeUse')}</option>
             </select>
           </label>
-          <label className="flex items-center gap-1 text-slate-600">
+          <label className={`flex items-center gap-1 ${expiryLocked ? 'text-slate-400' : 'text-slate-600'}`}>
             {t('products.shelfLifeDays')}
             <input
               type="number"
               name="shelf_life_days"
               defaultValue={product.shelf_life_days ?? ''}
               min={1}
+              disabled={expiryLocked}
               placeholder={t('products.optional')}
-              className="w-20 border border-slate-300 rounded px-2 py-1 text-center"
+              className="w-20 border border-slate-300 rounded px-2 py-1 text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             {t('products.days')}
           </label>
+          {expiryLocked && (
+            <span className="text-xs text-slate-400 self-center">（在庫がある間は変更不可）</span>
+          )}
         </div>
-        {updateState?.error && (
-          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateState.error}</p>
+        {updateError && (
+          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateError}</p>
+        )}
+        {updateSuccess && (
+          <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{updateSuccess}</p>
         )}
       </form>
 
@@ -140,15 +155,14 @@ export default function ProductCard({ product, currentStock }: Props) {
         </form>
       </div>
 
-      {stockState?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">
-          {stockState.error}
-        </p>
+      {stockError && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">{stockError}</p>
       )}
-      {deleteState?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">
-          {deleteState.error}
-        </p>
+      {stockSuccess && (
+        <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2 mt-2">{stockSuccess}</p>
+      )}
+      {deleteError && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">{deleteError}</p>
       )}
     </div>
   );

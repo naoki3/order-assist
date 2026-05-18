@@ -5,18 +5,20 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
 import { deleteIncomingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 function Item({ item }: { item: IncomingStock }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [state, action] = useActionState(deleteIncomingSchedule, null);
+  const { errorMsg } = useActionFeedback(state, t('common.deleted'));
 
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
         <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
-        {state?.error && <p className="text-red-600 text-xs mt-0.5">{state.error}</p>}
+        {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
       </div>
       {confirming ? (
         <div className="flex items-center gap-1.5 flex-shrink-0">

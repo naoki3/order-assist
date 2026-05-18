@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
 import { receiveIncoming, deleteIncomingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 function Item({ item }: { item: IncomingStock }) {
   const { t } = useT();
@@ -12,43 +13,49 @@ function Item({ item }: { item: IncomingStock }) {
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
   const [delState, delAction] = useActionState(deleteIncomingSchedule, null);
 
+  const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
+  const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-        <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
-        {receiveState?.error && <p className="text-red-600 text-xs mt-0.5">{receiveState.error}</p>}
-        {delState?.error && <p className="text-red-600 text-xs mt-0.5">{delState.error}</p>}
-      </div>
-      {confirming ? (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
-          <button type="button" onClick={() => setConfirming(false)}
-            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
-            {t('common.cancel')}
-          </button>
-          <form action={delAction}>
-            <input type="hidden" name="id" value={item.id} />
-            <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+    <div className="py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
+          {receiveError && <p className="text-red-600 text-xs mt-0.5">{receiveError}</p>}
+          {delError && <p className="text-red-600 text-xs mt-0.5">{delError}</p>}
+          {receiveSuccess && <p className="text-green-600 text-xs mt-0.5">{receiveSuccess}</p>}
+        </div>
+        {confirming ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
+            <button type="button" onClick={() => setConfirming(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+            <form action={delAction}>
+              <input type="hidden" name="id" value={item.id} />
+              <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+                {t('incoming.delete')}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <form action={receiveAction}>
+              <input type="hidden" name="id" value={item.id} />
+              <button type="submit"
+                className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">
+                {t('incoming.markReceived')}
+              </button>
+            </form>
+            <button type="button" onClick={() => setConfirming(true)}
+              className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
               {t('incoming.delete')}
             </button>
-          </form>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <form action={receiveAction}>
-            <input type="hidden" name="id" value={item.id} />
-            <button type="submit"
-              className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">
-              {t('incoming.markReceived')}
-            </button>
-          </form>
-          <button type="button" onClick={() => setConfirming(true)}
-            className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-            {t('incoming.delete')}
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

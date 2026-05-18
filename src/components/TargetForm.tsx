@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { setMonthlyTarget } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 interface Props {
   month: string;
@@ -12,6 +13,7 @@ interface Props {
 export default function TargetForm({ month, currentTarget }: Props) {
   const { t } = useT();
   const [state, action, pending] = useActionState(setMonthlyTarget, null);
+  const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
 
   return (
     <form action={action} className="flex items-center gap-2">
@@ -33,7 +35,8 @@ export default function TargetForm({ month, currentTarget }: Props) {
       >
         {pending ? t('target.saving') : t('target.save')}
       </button>
-      {state?.error && <span className="text-xs text-red-600">{state.error}</span>}
+      {errorMsg && <span className="text-xs text-red-600">{errorMsg}</span>}
+      {successMsg && <span className="text-xs text-green-600">{successMsg}</span>}
     </form>
   );
 }
