@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from './supabase';
 
-export type ActionResult = { error: string } | null;
+export type ActionResult = { error: string } | { success: string } | null;
 export type SignupResult = { error: string } | { needsConfirmation: true } | null;
 
 // ─── Order ───────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
 
   revalidatePath('/history');
   revalidatePath('/incoming');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function receiveIncoming(
@@ -119,7 +119,7 @@ export async function receiveIncoming(
   revalidatePath('/incoming');
   revalidatePath('/');
   revalidatePath('/products');
-  return null;
+  return { success: 'ok' };
 }
 
 // ─── Products ────────────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ export async function addProduct(
 
   revalidatePath('/products');
   revalidatePath('/');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function updateProduct(
@@ -196,7 +196,7 @@ export async function updateProduct(
 
   revalidatePath('/products');
   revalidatePath('/');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function deleteProduct(
@@ -212,7 +212,7 @@ export async function deleteProduct(
 
   revalidatePath('/products');
   revalidatePath('/');
-  return null;
+  return { success: 'ok' };
 }
 
 // ─── Inventory ────────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ export async function updateStock(
 
   revalidatePath('/');
   revalidatePath('/products');
-  return null;
+  return { success: 'ok' };
 }
 
 // ─── Sales ───────────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export async function upsertProductSales(
 
   revalidatePath('/sales');
   revalidatePath('/');
-  return null;
+  return { success: 'ok' };
 }
 
 // ─── CSV Import ───────────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ export async function addIncomingSchedule(
   revalidatePath('/incoming');
   revalidatePath('/incoming/schedule');
   revalidatePath('/dashboard');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function deleteIncomingSchedule(
@@ -391,7 +391,7 @@ export async function deleteIncomingSchedule(
   revalidatePath('/incoming');
   revalidatePath('/incoming/schedule');
   revalidatePath('/dashboard');
-  return null;
+  return { success: 'ok' };
 }
 
 // ─── Outgoing Stock ───────────────────────────────────────────────────────────
@@ -430,7 +430,7 @@ export async function addOutgoingSchedule(
 
   revalidatePath('/shipping/schedule');
   revalidatePath('/shipping/confirm');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function deleteOutgoingSchedule(
@@ -450,7 +450,7 @@ export async function deleteOutgoingSchedule(
 
   revalidatePath('/shipping/schedule');
   revalidatePath('/shipping/confirm');
-  return null;
+  return { success: 'ok' };
 }
 
 export async function confirmShipment(
@@ -499,7 +499,7 @@ export async function confirmShipment(
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
   revalidatePath('/inventory');
-  return null;
+  return { success: 'ok' };
 }
 
 export interface OutgoingCsvImportResult {
@@ -584,5 +584,5 @@ export async function setMonthlyTarget(
   if (error) return { error: `Failed to save target: ${error.message}` };
 
   revalidatePath('/sales/report');
-  return null;
+  return { success: 'ok' };
 }

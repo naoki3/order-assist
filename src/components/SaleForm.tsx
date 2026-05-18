@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { upsertProductSales } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 interface Props {
   productId: number;
@@ -13,6 +14,7 @@ interface Props {
 export default function SaleForm({ productId, price, entries }: Props) {
   const { t } = useT();
   const [state, action, pending] = useActionState(upsertProductSales, null);
+  const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(entries.map((e) => [e.date, e.defaultQuantity]))
   );
@@ -59,8 +61,11 @@ export default function SaleForm({ productId, price, entries }: Props) {
           {pending ? t('sales.saving') : t('sales.save')}
         </button>
       </div>
-      {state?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+      {errorMsg && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{errorMsg}</p>
+      )}
+      {successMsg && (
+        <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{successMsg}</p>
       )}
     </form>
   );

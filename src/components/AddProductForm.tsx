@@ -1,17 +1,27 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { addProduct } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 export default function AddProductForm() {
   const { t } = useT();
   const [state, action] = useActionState(addProduct, null);
+  const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
+  const [formKey, setFormKey] = useState(0);
+
+  useEffect(() => {
+    if (state && 'success' in state) {
+      const timer = setTimeout(() => setFormKey((k) => k + 1), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [state]);
 
   return (
     <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
       <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('products.addTitle')}</h2>
-      <form action={action} className="space-y-3">
+      <form key={formKey} action={action} className="space-y-3">
         <input
           type="text"
           name="name"
@@ -82,8 +92,11 @@ export default function AddProductForm() {
             {t('products.days')}
           </label>
         </div>
-        {state?.error && (
-          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+        {errorMsg && (
+          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{errorMsg}</p>
+        )}
+        {successMsg && (
+          <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{successMsg}</p>
         )}
         <button
           type="submit"

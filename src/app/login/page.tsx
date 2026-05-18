@@ -2,9 +2,11 @@
 
 import { useActionState, useState } from 'react';
 import { login } from '@/app/actions/auth';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, null);
+  const { errorMsg } = useActionFeedback(state, '');
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -65,8 +67,8 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            {state?.error && (
-              <p className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">{state.error}</p>
+            {errorMsg && (
+              <p className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">{errorMsg}</p>
             )}
             <button
               type="submit"

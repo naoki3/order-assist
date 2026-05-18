@@ -42,10 +42,10 @@ export default function OrderBoard({ recommendations }: Props) {
         quantity: quantities[r.product.id] ?? 0,
       }));
       const result = await placeOrder(items);
-      if (result === null) {
-        setDone(true);
-      } else {
+      if (result && 'error' in result) {
         setError(result.error);
+      } else {
+        setDone(true);
       }
     });
   }

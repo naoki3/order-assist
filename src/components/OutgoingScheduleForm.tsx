@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { addOutgoingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 interface Props {
   products: { id: number; name: string }[];
@@ -12,9 +13,18 @@ interface Props {
 export default function OutgoingScheduleForm({ products, today }: Props) {
   const { t } = useT();
   const [state, action] = useActionState(addOutgoingSchedule, null);
+  const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
+  const [formKey, setFormKey] = useState(0);
+
+  useEffect(() => {
+    if (state && 'success' in state) {
+      const timer = setTimeout(() => setFormKey((k) => k + 1), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [state]);
 
   return (
-    <form action={action} className="space-y-3">
+    <form key={formKey} action={action} className="space-y-3">
       <div className="flex flex-wrap gap-3">
         <select
           name="product_id"
@@ -48,8 +58,11 @@ export default function OutgoingScheduleForm({ products, today }: Props) {
         placeholder={t('shipping.notePlaceholder')}
         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-      {state?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+      {errorMsg && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{errorMsg}</p>
+      )}
+      {successMsg && (
+        <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{successMsg}</p>
       )}
       <button
         type="submit"

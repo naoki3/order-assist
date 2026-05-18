@@ -227,6 +227,12 @@ export const translations = {
     'common.cancel': 'キャンセル',
     'common.itemCount': (n: number) => `${n}件`,
     'common.totalUnits': (n: number) => `合計 ${n} 個`,
+    'common.added': '追加しました',
+    'common.updated': '更新しました',
+    'common.deleted': '削除しました',
+    'common.received': '入荷確認しました',
+    'common.confirmed': '出荷確認しました',
+    'common.saved': '保存しました',
 
     // Login
     'login.subtitle': 'Inventory & Order Management',
@@ -466,6 +472,12 @@ export const translations = {
     'common.cancel': 'Cancel',
     'common.itemCount': (n: number) => `${n} item${n !== 1 ? 's' : ''}`,
     'common.totalUnits': (n: number) => `Total: ${n}`,
+    'common.added': 'Added',
+    'common.updated': 'Updated',
+    'common.deleted': 'Deleted',
+    'common.received': 'Delivery confirmed',
+    'common.confirmed': 'Shipment confirmed',
+    'common.saved': 'Saved',
 
     // Login
     'login.subtitle': 'Inventory & Order Management',
