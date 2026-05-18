@@ -65,11 +65,6 @@ export default async function InventoryPage() {
                     <p className="text-xs text-slate-400">{t('inventory.units', lang)}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-500">
-                  <span>{t('products.leadTime', lang)} {p.lead_time_days}{t('products.days', lang)}</span>
-                  <span>{t('products.safetyStock', lang)} {p.safety_stock_days}{t('products.days', lang)}</span>
-                  {p.price != null && <span>{t('products.unitPrice', lang)} {p.price}</span>}
-                </div>
                 {(lastReceived || nearestExpiry) && (
                   <div className="flex flex-wrap gap-4 mt-1.5 text-xs">
                     {lastReceived && (
