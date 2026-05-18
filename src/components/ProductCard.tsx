@@ -77,6 +77,32 @@ export default function ProductCard({ product, currentStock }: Props) {
             />
           </label>
         </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <label className="flex items-center gap-1 text-slate-600">
+            {t('products.shelfLife')}
+            <select
+              name="expiry_type"
+              defaultValue={product.expiry_type ?? ''}
+              className="border border-slate-300 rounded px-2 py-1 text-sm"
+            >
+              <option value="">{t('products.expiryTypeNone')}</option>
+              <option value="賞味期限">{t('products.expiryTypeBest')}</option>
+              <option value="消費期限">{t('products.expiryTypeUse')}</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-1 text-slate-600">
+            {t('products.shelfLifeDays')}
+            <input
+              type="number"
+              name="shelf_life_days"
+              defaultValue={product.shelf_life_days ?? ''}
+              min={1}
+              placeholder={t('products.optional')}
+              className="w-20 border border-slate-300 rounded px-2 py-1 text-center"
+            />
+            {t('products.days')}
+          </label>
+        </div>
         {updateState?.error && (
           <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateState.error}</p>
         )}

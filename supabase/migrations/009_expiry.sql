@@ -1,0 +1,3 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shelf_life_days INT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_type TEXT;
+ALTER TABLE incoming_stock ADD COLUMN IF NOT EXISTS expiry_date DATE;
