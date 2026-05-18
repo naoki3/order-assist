@@ -363,6 +363,7 @@ export async function addIncomingSchedule(
     product_name: product.name,
     quantity,
     expected_date: expectedDate,
+    user_id: user.id,
   });
 
   if (error) return { error: `Failed to add schedule: ${error.message}` };
@@ -394,7 +395,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate })
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, user_id: user.id })
     .select('id')
     .single();
 
