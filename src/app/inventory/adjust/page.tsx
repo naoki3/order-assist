@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import ProductCard from '@/components/ProductCard';
-import AddProductForm from '@/components/AddProductForm';
 import type { Product, Inventory } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -29,8 +28,6 @@ export default async function InventoryAdjustPage() {
           <ProductCard key={p.id} product={p} currentStock={stockMap[p.id] ?? 0} />
         ))}
       </div>
-
-      <AddProductForm />
     </div>
   );
 }
