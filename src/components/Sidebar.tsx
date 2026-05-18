@@ -14,6 +14,7 @@ import {
   LogOut,
   Layers,
   Settings2,
+  SendHorizonal,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
@@ -57,6 +58,13 @@ export default function Sidebar() {
       items: [
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/adjust', label: t('nav.inventoryAdjust'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'shipping', label: t('nav.shippingGroup'), icon: SendHorizonal,
+      items: [
+        { href: '/shipping/schedule', label: t('nav.shippingSchedule'), exact: false },
+        { href: '/shipping/confirm', label: t('nav.shippingConfirm'), exact: false },
       ],
     },
     {
