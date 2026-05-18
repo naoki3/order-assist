@@ -6,6 +6,7 @@ import type { OutgoingStock, Lot } from '@/lib/db';
 import { deleteOutgoingSchedule, addOutgoingItem } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
+import LotTag from './LotTag';
 
 interface ProductOption { id: number; name: string }
 
@@ -17,17 +18,19 @@ function Item({ item, isNew }: { item: OutgoingStock; isNew: boolean }) {
 
   return (
     <div className={`flex items-center justify-between gap-3 py-2.5 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
-      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-        <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
-        {item.lot_number && (
-          <span className="text-xs font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{item.lot_number}</span>
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+          {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
+        </div>
+        {item.lot_number && <LotTag lotNumber={item.lot_number} />}
+        {(isNew || errorMsg) && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isNew && <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>}
+            {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+          </div>
         )}
-        {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
-        {isNew && (
-          <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
-        )}
-        {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
       </div>
       {confirming ? (
         <div className="flex items-center gap-1.5 flex-shrink-0">
