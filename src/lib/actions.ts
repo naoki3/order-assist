@@ -664,6 +664,15 @@ export async function updateLotProperties(
   if (!lotId || !lotNumber) return { error: 'ロット番号は必須です' };
 
   const supabase = await createClient();
+
+  const { count } = await supabase
+    .from('outgoing_stock')
+    .select('id', { count: 'exact', head: true })
+    .eq('lot_id', lotId)
+    .is('shipped_at', null);
+
+  if (count && count > 0) return { error: `出荷予定に引き当てられているため変更できません（${count}件）` };
+
   const { error } = await supabase
     .from('lots')
     .update({ lot_number: lotNumber, expiry_date: expiryDate })
