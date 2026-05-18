@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { Product, OutgoingStock } from '@/lib/db';
+import type { Product, OutgoingStock, Lot } from '@/lib/db';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
 import OutgoingScheduleList from '@/components/OutgoingScheduleList';
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ShippingSchedulePage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const [{ data: pendingData }, { data: productsData }] = await Promise.all([
+  const [{ data: pendingData }, { data: productsData }, { data: lotsData }] = await Promise.all([
     supabase
       .from('outgoing_stock')
       .select('*')
@@ -17,9 +17,11 @@ export default async function ShippingSchedulePage() {
       .order('scheduled_date')
       .order('id'),
     supabase.from('products').select('id, name').order('id'),
+    supabase.from('lots').select('*').gt('quantity', 0).order('expiry_date', { ascending: true, nullsFirst: false }),
   ]);
   const pending = (pendingData ?? []) as OutgoingStock[];
   const products = (productsData ?? []) as Pick<Product, 'id' | 'name'>[];
+  const lots = (lotsData ?? []) as Lot[];
 
   return (
     <div className="space-y-6">
@@ -28,7 +30,7 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} />
+      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
