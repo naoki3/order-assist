@@ -110,6 +110,17 @@ export default function OrderBoard({ recommendations }: Props) {
                 <p className="text-xs text-slate-500 mt-0.5">{r.reason}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {t('order.stockLabel')} {r.currentStock} / {t('order.requiredLabel')} {r.requiredStock}
+                  {' · '}
+                  {r.avgDemand7d > 0
+                    ? <span className={
+                        r.currentStock / r.avgDemand7d < r.product.lead_time_days
+                          ? 'text-red-500 font-medium'
+                          : 'text-slate-400'
+                      }>
+                        {tf<string>('order.daysRemaining', Math.floor(r.currentStock / r.avgDemand7d))}
+                      </span>
+                    : t('order.daysRemainingNA')
+                  }
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -117,7 +128,7 @@ export default function OrderBoard({ recommendations }: Props) {
                   onClick={() => adjust(r.product.id, -1)}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center transition-colors"
                 >
-                  −
+                  -
                 </button>
                 <span
                   className={`w-12 text-center font-bold text-xl ${
@@ -130,7 +141,7 @@ export default function OrderBoard({ recommendations }: Props) {
                   onClick={() => adjust(r.product.id, 1)}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center transition-colors"
                 >
-                  ＋
+                  +
                 </button>
               </div>
             </div>
