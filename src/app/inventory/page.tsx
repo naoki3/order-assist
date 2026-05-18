@@ -60,6 +60,7 @@ export default async function InventoryPage() {
                       return (
                         <div key={lot.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-1.5">
                           <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1 py-0.5 rounded tracking-wide">LOT</span>
                             <span className="font-mono text-slate-600">{lot.lot_number}</span>
                             {lot.expiry_date && (
                               <span className={

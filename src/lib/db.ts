@@ -48,6 +48,7 @@ export interface IncomingStock {
   expected_date: string;
   received_at: string | null;
   expiry_date: string | null;
+  lot_number: string | null;
 }
 
 export interface Lot {
