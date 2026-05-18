@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { Product, IncomingStock } from '@/lib/db';
-import IncomingScheduleForm from '@/components/IncomingScheduleForm';
 import IncomingScheduleList from '@/components/IncomingScheduleList';
 import IncomingCsvImport from '@/components/IncomingCsvImport';
 
@@ -22,21 +21,14 @@ export default async function IncomingSchedulePage() {
   const pending = (pendingData ?? []) as IncomingStock[];
   const products = (productsData ?? []) as Pick<Product, 'id' | 'name'>[];
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
-    <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">{t('incoming.scheduleTitle', lang)}</h1>
-      <p className="text-sm text-slate-500 mb-4">{t('incoming.scheduleSubtitle', lang)}</p>
-
-      <div className="mb-6">
-        <IncomingScheduleList items={pending} emptyText={t('incoming.noScheduled', lang)} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800 mb-1">{t('incoming.scheduleTitle', lang)}</h1>
+        <p className="text-sm text-slate-500">{t('incoming.scheduleSubtitle', lang)}</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('incoming.addSchedule', lang)}</h2>
-        <IncomingScheduleForm products={products} today={today} />
-      </div>
+      <IncomingScheduleList items={pending} emptyText={t('incoming.noScheduled', lang)} products={products} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('incoming.importCsv', lang)}</h2>
