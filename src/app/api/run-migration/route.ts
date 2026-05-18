@@ -22,8 +22,15 @@ async function runMigration() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  const availableEnvKeys = Object.keys(process.env).filter(k => k.toLowerCase().includes('supa') || k.toLowerCase().includes('service') || k.toLowerCase().includes('secret'));
+
   if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
+      supabaseUrl: !!supabaseUrl,
+      serviceRoleKey: !!serviceRoleKey,
+      availableSupabaseKeys: availableEnvKeys,
+    }, { status: 500 });
   }
 
   // Extract project ref from URL (e.g. https://abcdef.supabase.co -> abcdef)
