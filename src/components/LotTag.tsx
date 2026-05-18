@@ -6,7 +6,7 @@ interface LotTagProps {
 }
 
 export default function LotTag({ lotNumber, expiryDate, today, expiryLabel = '期限' }: LotTagProps) {
-  let expiryClass = 'bg-slate-100 text-slate-500';
+  let expiryTextClass = 'text-slate-400';
   let expirySuffix = '';
 
   if (expiryDate && today) {
@@ -14,24 +14,26 @@ export default function LotTag({ lotNumber, expiryDate, today, expiryLabel = '�
     d.setDate(d.getDate() + 7);
     const warnDate = d.toISOString().split('T')[0];
     if (expiryDate < today) {
-      expiryClass = 'bg-red-100 text-red-700 font-medium';
+      expiryTextClass = 'text-red-600 font-medium';
       expirySuffix = ' ⚠';
     } else if (expiryDate <= warnDate) {
-      expiryClass = 'bg-orange-100 text-orange-600 font-medium';
+      expiryTextClass = 'text-orange-500 font-medium';
       expirySuffix = ' !';
     }
   }
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded tracking-wide shrink-0">
-        LOT
-      </span>
-      <span className="font-mono text-slate-700">{lotNumber}</span>
-      {expiryDate && (
-        <span className={`text-xs px-1.5 py-0.5 rounded ${expiryClass}`}>
-          {expiryLabel} {expiryDate}{expirySuffix}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[9px] font-bold text-green-700 border border-green-600 px-1 leading-4 rounded tracking-widest shrink-0">
+          LOT
         </span>
+        <span className="font-mono text-sm font-medium text-slate-800">{lotNumber}</span>
+      </div>
+      {expiryDate && (
+        <p className={`text-xs pl-0.5 ${expiryTextClass}`}>
+          {expiryLabel} {expiryDate}{expirySuffix}
+        </p>
       )}
     </div>
   );
