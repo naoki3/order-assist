@@ -17,6 +17,14 @@ function alertLevel(r: Recommendation): 'stockout' | 'overstock' | null {
   return null;
 }
 
+function sortPriority(r: Recommendation): number {
+  const alert = alertLevel(r);
+  if (alert === 'stockout') return 0;
+  if (r.orderQty > 0) return 1;
+  if (alert === 'overstock') return 3;
+  return 2;
+}
+
 export default function OrderBoard({ recommendations }: Props) {
   const { t, tf } = useT();
   const [quantities, setQuantities] = useState<Record<number, number>>(
@@ -26,11 +34,16 @@ export default function OrderBoard({ recommendations }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const sorted = [...recommendations].sort((a, b) => sortPriority(a) - sortPriority(b));
+
   function adjust(id: number, delta: number) {
-    setQuantities((prev) => ({
-      ...prev,
-      [id]: Math.max(0, (prev[id] ?? 0) + delta),
-    }));
+    setQuantities((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + delta) }));
+  }
+
+  function handleQtyInput(id: number, val: string) {
+    const n = parseInt(val, 10);
+    if (!isNaN(n) && n >= 0) setQuantities((prev) => ({ ...prev, [id]: n }));
+    else if (val === '') setQuantities((prev) => ({ ...prev, [id]: 0 }));
   }
 
   function handleOrder() {
@@ -42,11 +55,8 @@ export default function OrderBoard({ recommendations }: Props) {
         quantity: quantities[r.product.id] ?? 0,
       }));
       const result = await placeOrder(items);
-      if (result && 'error' in result) {
-        setError(result.error);
-      } else {
-        setDone(true);
-      }
+      if (result && 'error' in result) setError(result.error);
+      else setDone(true);
     });
   }
 
@@ -77,60 +87,65 @@ export default function OrderBoard({ recommendations }: Props) {
 
   return (
     <div className="space-y-3">
-      {recommendations.map((r) => {
+      {sorted.map((r) => {
         const qty = quantities[r.product.id] ?? 0;
         const isZero = qty === 0;
         const alert = alertLevel(r);
+        const daysLeft = r.avgDemand7d > 0 ? r.currentStock / r.avgDemand7d : null;
+
         const cardClass =
           alert === 'stockout'
-            ? 'border-red-300 bg-red-50 shadow-sm'
+            ? 'border-red-300 bg-red-50'
             : alert === 'overstock'
-            ? 'border-amber-300 bg-amber-50 shadow-sm'
+            ? 'border-amber-300 bg-amber-50'
             : isZero
-            ? 'border-slate-200 opacity-60'
-            : 'border-green-200 shadow-sm';
+            ? 'border-slate-100 bg-slate-50 opacity-60'
+            : 'border-green-200 bg-white';
 
         return (
-          <div key={r.product.id} className={`bg-white rounded-xl border p-4 ${cardClass}`}>
+          <div key={r.product.id} className={`rounded-xl border p-4 ${cardClass}`}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-slate-800 truncate">{r.product.name}</p>
                   {alert === 'stockout' && (
-                    <span className="text-xs text-red-600 font-medium bg-red-100 px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-red-600 font-medium bg-red-100 px-1.5 py-0.5 rounded shrink-0">
                       {t('order.stockoutRisk')}
                     </span>
                   )}
                   {alert === 'overstock' && (
-                    <span className="text-xs text-amber-600 font-medium bg-amber-100 px-1.5 py-0.5 rounded">
+                    <span className="text-xs text-amber-600 font-medium bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
                       {t('order.overstock')}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">{r.reason}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {t('order.stockLabel')} {r.currentStock} / {t('order.requiredLabel')} {r.requiredStock}
+                  {t('order.stockLabel')} {r.currentStock} · {t('order.requiredLabel')} {r.requiredStock}
+                  {daysLeft !== null && ` · 残${daysLeft.toFixed(1)}日`}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => adjust(r.product.id, -1)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base flex items-center justify-center transition-colors select-none"
                 >
                   −
                 </button>
-                <span
-                  className={`w-12 text-center font-bold text-xl ${
+                <input
+                  type="number"
+                  min={0}
+                  value={qty}
+                  onChange={(e) => handleQtyInput(r.product.id, e.target.value)}
+                  className={`w-12 text-center font-bold text-lg bg-transparent border-0 outline-none p-0 ${
                     isZero ? 'text-slate-300' : 'text-green-700'
                   }`}
-                >
-                  {qty}
-                </span>
+                />
                 <button
                   onClick={() => adjust(r.product.id, 1)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base flex items-center justify-center transition-colors select-none"
                 >
-                  ＋
+                  +
                 </button>
               </div>
             </div>
@@ -146,7 +161,7 @@ export default function OrderBoard({ recommendations }: Props) {
         <p className="text-right text-sm text-slate-500">
           {t('order.estimatedValue')}
           <span className="font-semibold text-slate-700">
-            {totalOrderValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+            ¥{totalOrderValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </span>
         </p>
       )}

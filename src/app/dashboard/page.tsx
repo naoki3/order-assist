@@ -13,6 +13,14 @@ function daysRemaining(r: Recommendation): number | null {
   return r.currentStock / r.avgDemand7d;
 }
 
+function alertLevel(r: Recommendation): 'stockout' | 'overstock' | null {
+  if (r.avgDemand7d <= 0) return null;
+  const days = r.currentStock / r.avgDemand7d;
+  if (days < r.product.lead_time_days) return 'stockout';
+  if (r.orderQty === 0 && r.currentStock > r.requiredStock * 3) return 'overstock';
+  return null;
+}
+
 function stockPct(r: Recommendation): number {
   if (r.requiredStock <= 0) return 100;
   return Math.min(100, (r.currentStock / r.requiredStock) * 100);
@@ -72,16 +80,8 @@ export default async function DashboardPage() {
   }
   const salesTrend = dates.map((d) => ({ date: formatDate(d), total: totalByDate[d] }));
 
-  const stockoutRisk = recommendations.filter((r) => {
-    const days = daysRemaining(r);
-    return days !== null && days < r.product.lead_time_days;
-  });
-
-  const overstockRisk = recommendations.filter((r) => {
-    if (r.orderQty !== 0) return false;
-    const days = daysRemaining(r);
-    return days !== null && days > (r.product.lead_time_days + r.product.safety_stock_days) * 3;
-  });
+  const stockoutRisk = recommendations.filter((r) => alertLevel(r) === 'stockout');
+  const overstockRisk = recommendations.filter((r) => alertLevel(r) === 'overstock');
 
   const bestSellers = [...recommendations]
     .filter((r) => r.avgDemand7d > 0)
@@ -117,13 +117,13 @@ export default async function DashboardPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3">
-        <div className={`rounded-xl border p-4 ${stockoutRisk.length > 0 ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
+        <a href="/" className={`rounded-xl border p-4 block ${stockoutRisk.length > 0 ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
           <p className="text-xs text-slate-500">{t('dashboard.stockoutRisk', lang)}</p>
           <p className={`text-3xl font-bold mt-1 ${stockoutRisk.length > 0 ? 'text-red-600' : 'text-slate-300'}`}>
             {stockoutRisk.length}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.products', lang)}</p>
-        </div>
+        </a>
         <div className={`rounded-xl border p-4 ${overstockRisk.length > 0 ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
           <p className="text-xs text-slate-500">{t('dashboard.overstock', lang)}</p>
           <p className={`text-3xl font-bold mt-1 ${overstockRisk.length > 0 ? 'text-amber-600' : 'text-slate-300'}`}>
@@ -131,15 +131,17 @@ export default async function DashboardPage() {
           </p>
           <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.products', lang)}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500">{t('dashboard.products', lang)}</p>
-          <p className="text-3xl font-bold text-slate-700 mt-1">{recommendations.length}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.total', lang)}</p>
-        </div>
+        <a href="/incoming" className={`rounded-xl border p-4 block ${todayIncoming.length > 0 ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+          <p className="text-xs text-slate-500">{t('dashboard.todayIncoming', lang)}</p>
+          <p className={`text-3xl font-bold mt-1 ${todayIncoming.length > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
+            {todayIncoming.length}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.products', lang)}</p>
+        </a>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs text-slate-500">{t('dashboard.orderValue', lang)}</p>
           <p className="text-3xl font-bold text-slate-700 mt-1">
-            {totalOrderValue !== null
+            {totalOrderValue !== null && totalOrderValue > 0
               ? totalOrderValue.toLocaleString(undefined, { maximumFractionDigits: 0 })
               : '—'}
           </p>
@@ -147,30 +149,51 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Charts (client component) */}
-      <DashboardCharts salesTrend={salesTrend} bestSellers={bestSellers} />
+      {/* Today's incoming detail */}
+      {todayIncoming.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <h2 className="text-sm font-semibold text-blue-700 mb-2">{t('dashboard.todayIncoming', lang)}</h2>
+          <div className="space-y-1.5">
+            {todayIncoming.map((item) => (
+              <div key={item.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700 font-medium">{item.product_name}</span>
+                <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Stock status progress bars */}
+      {/* Stock status with inline alerts */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.stockStatus', lang)}</h2>
         <div className="space-y-3">
           {recommendations.map((r) => {
             const pct = stockPct(r);
+            const alert = alertLevel(r);
+            const days = daysRemaining(r);
             const barColor =
-              pct < 50 ? 'bg-red-500' : pct < 100 ? 'bg-amber-400' : 'bg-green-500';
+              alert === 'stockout' ? 'bg-red-500' :
+              alert === 'overstock' ? 'bg-amber-400' :
+              pct >= 100 ? 'bg-green-500' : 'bg-green-400';
             return (
               <div key={r.product.id}>
-                <div className="flex justify-between text-xs text-slate-600 mb-1">
-                  <span className="font-medium truncate mr-2">{r.product.name}</span>
-                  <span className="shrink-0 text-slate-400">
-                    {r.currentStock} / {r.requiredStock} {t('dashboard.units', lang)}
+                <div className="flex items-center justify-between text-xs mb-1 gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium text-slate-700 truncate">{r.product.name}</span>
+                    {alert === 'stockout' && (
+                      <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1 py-0.5 rounded shrink-0">⚠ 切れ</span>
+                    )}
+                    {alert === 'overstock' && (
+                      <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1 py-0.5 rounded shrink-0">過剰</span>
+                    )}
+                  </div>
+                  <span className="text-slate-400 shrink-0">
+                    {days !== null ? `残${days.toFixed(1)}日` : `${r.currentStock}${t('dashboard.units', lang)}`}
                   </span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${barColor} rounded-full`}
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
@@ -183,62 +206,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Stockout risk detail */}
-      {stockoutRisk.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-red-600 mb-2">{t('dashboard.stockoutRisk', lang)}</h2>
-          <div className="space-y-2">
-            {stockoutRisk.map((r) => {
-              const days = daysRemaining(r)!;
-              return (
-                <div key={r.product.id} className="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <p className="font-semibold text-slate-800">{r.product.name}</p>
-                  <p className="text-xs text-red-600 mt-0.5">
-                    {(dict['dashboard.daysRemaining'] as (d: string, l: number) => string)(days.toFixed(1), r.product.lead_time_days)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Overstock detail */}
-      {overstockRisk.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-amber-600 mb-2">{t('dashboard.overstock', lang)}</h2>
-          <div className="space-y-2">
-            {overstockRisk.map((r) => {
-              const days = daysRemaining(r)!;
-              return (
-                <div key={r.product.id} className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="font-semibold text-slate-800">{r.product.name}</p>
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    {(dict['dashboard.overstockDays'] as (d: string, r: number) => string)(days.toFixed(1), r.product.lead_time_days + r.product.safety_stock_days)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Today's incoming */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.todayIncoming', lang)}</h2>
-        {todayIncoming.length === 0 ? (
-          <p className="text-sm text-slate-400">{t('dashboard.noTodayIncoming', lang)}</p>
-        ) : (
-          <div className="space-y-2">
-            {todayIncoming.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700 font-medium">{item.product_name}</span>
-                <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Charts */}
+      <DashboardCharts salesTrend={salesTrend} bestSellers={bestSellers} />
     </div>
   );
 }
