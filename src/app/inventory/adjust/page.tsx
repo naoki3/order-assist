@@ -30,22 +30,13 @@ export default async function InventoryAdjustPage() {
         <p className="text-sm text-slate-500">{t('inventory.adjustSubtitle', lang)}</p>
       </div>
 
-      {lots.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('inventory.lot', lang)}</h2>
+      {products.length === 0 ? (
+        <p className="text-slate-400 text-sm">{t('inventory.noProducts', lang)}</p>
+      ) : (
+        <div className="space-y-3">
           <LotAdjustForm lots={lots} />
-        </div>
-      )}
-
-      {noLotProducts.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('inventory.noLots', lang)}</h2>
           <StockAdjustForm products={noLotProducts} />
         </div>
-      )}
-
-      {products.length === 0 && (
-        <p className="text-slate-400 text-sm">{t('inventory.noProducts', lang)}</p>
       )}
     </div>
   );
