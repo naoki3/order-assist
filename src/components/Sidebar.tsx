@@ -59,6 +59,7 @@ export default function Sidebar() {
       items: [
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/adjust', label: t('nav.inventoryAdjust'), exact: false },
+        { href: '/inventory/correction', label: t('nav.inventoryCorrection'), exact: false },
       ],
     },
     {

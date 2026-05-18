@@ -24,7 +24,10 @@ function LotRow({ lot }: { lot: Lot }) {
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="font-semibold text-slate-800">{lot.product_name}</p>
-          <p className="text-xs font-mono text-slate-500 mt-0.5">{lot.lot_number}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1 py-0.5 rounded tracking-wide">LOT</span>
+            <p className="text-xs font-mono text-slate-500">{lot.lot_number}</p>
+          </div>
           {lot.expiry_date && (
             <p className="text-xs text-slate-400 mt-0.5">{t('inventory.lotExpiry')}: {lot.expiry_date}</p>
           )}

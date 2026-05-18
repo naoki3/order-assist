@@ -77,7 +77,7 @@ export async function receiveIncoming(
 
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('product_id, product_name, quantity')
+    .select('product_id, product_name, quantity, lot_number')
     .eq('id', id)
     .single();
 
@@ -120,7 +120,7 @@ export async function receiveIncoming(
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
 
   const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const lotNumber = `${today}-${id}`;
+  const lotNumber = incoming.lot_number ?? `${today}-${id}`;
   await supabase.from('lots').insert({
     lot_number: lotNumber,
     product_id: incoming.product_id,
@@ -386,11 +386,14 @@ export async function addIncomingSchedule(
 
   if (!product) return { error: 'Product not found' };
 
+  const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+
   const { error } = await supabase.from('incoming_stock').insert({
     product_id: productId,
     product_name: product.name,
     quantity,
     expected_date: expectedDate,
+    lot_number: lotNumber,
     user_id: user.id,
   });
 
@@ -408,6 +411,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   const productId = Number(formData.get('product_id'));
   const quantity = Number(formData.get('quantity'));
   const expectedDate = String(formData.get('expected_date') ?? '').trim();
+  const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
 
   if (!productId || isNaN(quantity) || quantity < 1 || !expectedDate) {
     return { error: '入力値が不正です' };
@@ -423,7 +427,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, user_id: user.id })
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, user_id: user.id })
     .select('id')
     .single();
 
@@ -648,6 +652,30 @@ export async function updateLotQuantity(
   revalidatePath('/inventory/adjust');
   return { success: 'ok' };
 }
+
+export async function updateLotProperties(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const lotId = Number(formData.get('lot_id'));
+  const lotNumber = String(formData.get('lot_number') ?? '').trim();
+  const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+
+  if (!lotId || !lotNumber) return { error: 'ロット番号は必須です' };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('lots')
+    .update({ lot_number: lotNumber, expiry_date: expiryDate })
+    .eq('id', lotId);
+
+  if (error) return { error: `更新失敗: ${error.message}` };
+
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/correction');
+  return { success: 'ok' };
+}
+
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
