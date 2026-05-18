@@ -68,6 +68,12 @@ export const translations = {
     'inventory.units': '個',
     'inventory.lastReceived': '最終入荷日',
     'inventory.expiryDate': '賞味/消費期限',
+    'inventory.adjustSubtitle': '商品マスタに登録済みの商品の在庫数を変更できます',
+    'inventory.adjustForm': '在庫数を変更',
+    'inventory.selectProduct': '商品を選択',
+    'inventory.currentStockLabel': '現在',
+    'inventory.newStockPlaceholder': '新しい在庫数',
+    'inventory.adjustButton': '在庫を更新する',
 
     // Products
     'products.title': '商品マスタ',
@@ -347,6 +353,12 @@ export const translations = {
     'inventory.units': 'units',
     'inventory.lastReceived': 'Last received',
     'inventory.expiryDate': 'Expiry date',
+    'inventory.adjustSubtitle': 'Update stock counts for products registered in the product master',
+    'inventory.adjustForm': 'Adjust Stock',
+    'inventory.selectProduct': 'Select product',
+    'inventory.currentStockLabel': 'current',
+    'inventory.newStockPlaceholder': 'New stock count',
+    'inventory.adjustButton': 'Update Stock',
 
     // Products
     'products.title': 'Product Master',
