@@ -39,6 +39,13 @@ export default function Sidebar() {
   const navItems: NavItem[] = [
     { type: 'link', href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, exact: false },
     {
+      type: 'group', key: 'orders', label: t('nav.ordersGroup'), icon: ClipboardList,
+      items: [
+        { href: '/', label: t('nav.orderReview'), exact: true },
+        { href: '/history', label: t('nav.orderHistory'), exact: false },
+      ],
+    },
+    {
       type: 'group', key: 'incoming', label: t('nav.incomingGroup'), icon: Truck,
       items: [
         { href: '/incoming/schedule', label: t('nav.incomingSchedule'), exact: false },
@@ -50,13 +57,6 @@ export default function Sidebar() {
       items: [
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/adjust', label: t('nav.inventoryAdjust'), exact: false },
-      ],
-    },
-    {
-      type: 'group', key: 'orders', label: t('nav.ordersGroup'), icon: ClipboardList,
-      items: [
-        { href: '/', label: t('nav.orderReview'), exact: true },
-        { href: '/history', label: t('nav.orderHistory'), exact: false },
       ],
     },
     {
