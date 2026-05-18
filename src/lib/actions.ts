@@ -311,3 +311,28 @@ export async function importSalesCsv(
   revalidatePath('/');
   return { imported: rows.length, skipped };
 }
+
+// ─── Sales Targets ────────────────────────────────────────────────────────────
+
+export async function setMonthlyTarget(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const month = String(formData.get('month') ?? '').trim();
+  const amount = Number(formData.get('target_amount'));
+
+  if (!month || isNaN(amount) || amount < 0) return { error: 'Invalid values' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('sales_targets')
+    .upsert({ user_id: user.id, month, target_amount: amount }, { onConflict: 'user_id,month' });
+
+  if (error) return { error: `Failed to save target: ${error.message}` };
+
+  revalidatePath('/sales/report');
+  return null;
+}

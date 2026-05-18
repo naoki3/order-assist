@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Package,
   TrendingUp,
+  BarChart2,
   Truck,
   History,
   LogOut,
@@ -16,7 +17,8 @@ import {
 const links = [
   { href: '/',          label: 'Order Review',   icon: ClipboardList,   exact: true },
   { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard, exact: false },
-  { href: '/sales',     label: 'Sales Entry',     icon: TrendingUp,      exact: false },
+  { href: '/sales',     label: 'Sales Entry',     icon: TrendingUp,      exact: true  },
+  { href: '/sales/report', label: 'Sales Report', icon: BarChart2,       exact: false },
   { href: '/products',  label: 'Products',        icon: Package,         exact: false },
   { href: '/incoming',  label: 'Incoming Stock',  icon: Truck,           exact: false },
   { href: '/history',   label: 'Order History',   icon: History,         exact: false },
