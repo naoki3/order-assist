@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import type { Lang, TranslationKey } from '@/lib/i18n';
 import { translations } from '@/lib/i18n';
 
@@ -36,14 +36,7 @@ export function LanguageProvider({
     document.cookie = `lang=${next};path=/;max-age=31536000`;
   }, []);
 
-  // Sync with cookie on first mount (covers SSR mismatch)
-  useEffect(() => {
-    const match = document.cookie.match(/(?:^|;\s*)lang=([^;]+)/);
-    const cookieLang = match?.[1] === 'en' ? 'en' : 'ja';
-    if (cookieLang !== lang) setLangState(cookieLang);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const dict = translations[lang] as Record<string, unknown>;
+const dict = translations[lang] as Record<string, unknown>;
 
   const tFn = useCallback(
     (key: TranslationKey): string => {

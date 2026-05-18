@@ -122,7 +122,7 @@ export default function LandingPage() {
               { step: '01', title: '商品を登録する', desc: 'リードタイムと安全在庫日数を設定するだけ。商品ページから30秒で登録できます。' },
               { step: '02', title: '売上を記録する', desc: '日々の販売数を入力、またはCSVで一括インポート。データが溜まるほど精度が上がります。' },
               { step: '03', title: '今日の発注を確認する', desc: 'トップ画面に自動計算された発注提案が表示されます。数量を調整して「発注」を押すだけ。' },
-            ].map((s, i) => (
+            ].map((s) => (
               <div key={s.step} className="flex gap-5 items-start bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                 <div className="shrink-0 w-10 h-10 rounded-full bg-green-700 text-white font-bold text-sm flex items-center justify-center">
                   {s.step}
