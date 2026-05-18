@@ -3,13 +3,18 @@ export type Lang = 'ja' | 'en';
 export const translations = {
   ja: {
     // Nav
-    'nav.orderReview': '発注確認',
     'nav.dashboard': 'ダッシュボード',
+    'nav.incomingStock': '入荷確認',
+    'nav.inventoryGroup': '在庫',
+    'nav.inventory': '在庫',
+    'nav.inventoryAdjust': '在庫調整',
+    'nav.ordersGroup': '発注',
+    'nav.orderReview': '発注確認',
+    'nav.orderHistory': '発注履歴',
+    'nav.salesGroup': '売上',
+    'nav.salesReport': '売上レポート',
     'nav.salesEntry': '売上入力',
     'nav.products': '商品',
-    'nav.incomingStock': '入荷管理',
-    'nav.orderHistory': '発注履歴',
-    'nav.salesReport': '売上レポート',
     'nav.logout': 'ログアウト',
 
     // OrderBoard
@@ -48,6 +53,12 @@ export const translations = {
     'dashboard.critical': '危険',
     'dashboard.daysRemaining': (days: string, lead: number) => `在庫残り ${days} 日分 — リードタイム ${lead} 日`,
     'dashboard.overstockDays': (days: string, rec: number) => `在庫 ${days} 日分 — 推奨 ${rec} 日`,
+
+    // Inventory
+    'inventory.title': '在庫',
+    'inventory.adjustTitle': '在庫調整',
+    'inventory.noProducts': '商品が登録されていません',
+    'inventory.units': '個',
 
     // Products
     'products.title': '商品',
@@ -125,13 +136,18 @@ export const translations = {
 
   en: {
     // Nav
-    'nav.orderReview': 'Order Review',
     'nav.dashboard': 'Dashboard',
+    'nav.incomingStock': 'Incoming',
+    'nav.inventoryGroup': 'Inventory',
+    'nav.inventory': 'Stock View',
+    'nav.inventoryAdjust': 'Adjust Stock',
+    'nav.ordersGroup': 'Orders',
+    'nav.orderReview': 'Order Review',
+    'nav.orderHistory': 'Order History',
+    'nav.salesGroup': 'Sales',
+    'nav.salesReport': 'Sales Report',
     'nav.salesEntry': 'Sales Entry',
     'nav.products': 'Products',
-    'nav.incomingStock': 'Incoming Stock',
-    'nav.orderHistory': 'Order History',
-    'nav.salesReport': 'Sales Report',
     'nav.logout': 'Logout',
 
     // OrderBoard
@@ -170,6 +186,12 @@ export const translations = {
     'dashboard.critical': 'Critical',
     'dashboard.daysRemaining': (days: string, lead: number) => `${days} days of stock remaining — lead time is ${lead} days`,
     'dashboard.overstockDays': (days: string, rec: number) => `${days} days of stock — recommended ${rec} days`,
+
+    // Inventory
+    'inventory.title': 'Inventory',
+    'inventory.adjustTitle': 'Adjust Stock',
+    'inventory.noProducts': 'No products registered',
+    'inventory.units': 'units',
 
     // Products
     'products.title': 'Products',

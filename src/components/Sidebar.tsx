@@ -12,27 +12,60 @@ import {
   Truck,
   History,
   LogOut,
+  Layers,
+  Settings2,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
+import type { LucideIcon } from 'lucide-react';
 
-function isActive(href: string, pathname: string, exact: boolean) {
+type SubItem = { href: string; label: string; exact: boolean };
+type NavGroup = { type: 'group'; key: string; label: string; icon: LucideIcon; items: SubItem[] };
+type NavLink = { type: 'link'; href: string; label: string; icon: LucideIcon; exact: boolean };
+type NavItem = NavGroup | NavLink;
+
+function matchesPath(href: string, pathname: string, exact: boolean) {
   return exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
+}
+
+function groupIsActive(group: NavGroup, pathname: string) {
+  return group.items.some((item) => matchesPath(item.href, pathname, item.exact));
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { t } = useT();
 
-  const links = [
-    { href: '/',              label: t('nav.orderReview'),   icon: ClipboardList,   exact: true },
-    { href: '/dashboard',     label: t('nav.dashboard'),     icon: LayoutDashboard, exact: false },
-    { href: '/sales',         label: t('nav.salesEntry'),    icon: TrendingUp,      exact: true },
-    { href: '/sales/report',  label: t('nav.salesReport'),   icon: BarChart2,       exact: false },
-    { href: '/products',      label: t('nav.products'),      icon: Package,         exact: false },
-    { href: '/incoming',      label: t('nav.incomingStock'), icon: Truck,           exact: false },
-    { href: '/history',       label: t('nav.orderHistory'),  icon: History,         exact: false },
+  const navItems: NavItem[] = [
+    { type: 'link', href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, exact: false },
+    { type: 'link', href: '/incoming', label: t('nav.incomingStock'), icon: Truck, exact: false },
+    {
+      type: 'group', key: 'inventory', label: t('nav.inventoryGroup'), icon: Package,
+      items: [
+        { href: '/inventory', label: t('nav.inventory'), exact: true },
+        { href: '/inventory/adjust', label: t('nav.inventoryAdjust'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'orders', label: t('nav.ordersGroup'), icon: ClipboardList,
+      items: [
+        { href: '/', label: t('nav.orderReview'), exact: true },
+        { href: '/history', label: t('nav.orderHistory'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'sales', label: t('nav.salesGroup'), icon: TrendingUp,
+      items: [
+        { href: '/sales/report', label: t('nav.salesReport'), exact: false },
+        { href: '/sales', label: t('nav.salesEntry'), exact: true },
+      ],
+    },
   ];
+
+  // For mobile: find the active group (if any)
+  const activeGroup = navItems.find(
+    (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
+  ) ?? null;
 
   return (
     <>
@@ -53,21 +86,57 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {links.map(({ href, label, icon: Icon, exact }) => {
-            const active = isActive(href, pathname, exact);
+          {navItems.map((item) => {
+            if (item.type === 'link') {
+              const active = matchesPath(item.href, pathname, item.exact);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    active
+                      ? 'bg-green-700 text-white font-medium'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon size={16} className="shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            }
+
+            const Icon = item.icon;
+            const active = groupIsActive(item, pathname);
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  active
-                    ? 'bg-green-700 text-white font-medium'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <Icon size={16} className="shrink-0" />
-                {label}
-              </Link>
+              <div key={item.key} className="space-y-0.5">
+                <div
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium ${
+                    active ? 'text-green-800' : 'text-slate-500'
+                  }`}
+                >
+                  <Icon size={16} className="shrink-0" />
+                  {item.label}
+                </div>
+                <div className="ml-4 space-y-0.5">
+                  {item.items.map((sub) => {
+                    const subActive = matchesPath(sub.href, pathname, sub.exact);
+                    return (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        className={`flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm transition-colors border-l-2 ${
+                          subActive
+                            ? 'border-green-700 bg-green-50 text-green-700 font-medium'
+                            : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {sub.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -108,24 +177,66 @@ export default function Sidebar() {
             </form>
           </div>
         </div>
+
+        {/* Mobile primary nav */}
         <nav className="flex gap-0.5 text-sm overflow-x-auto px-3 pb-2 scrollbar-none">
-          {links.map(({ href, label, exact }) => {
-            const active = isActive(href, pathname, exact);
+          {navItems.map((item) => {
+            if (item.type === 'link') {
+              const active = matchesPath(item.href, pathname, item.exact);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 transition-colors text-sm ${
+                    active
+                      ? 'bg-green-50 text-green-700 font-semibold'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
+            const active = groupIsActive(item, pathname);
+            // Link group label to first sub-item
             return (
               <Link
-                key={href}
-                href={href}
+                key={item.key}
+                href={item.items[0].href}
                 className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 transition-colors text-sm ${
                   active
                     ? 'bg-green-50 text-green-700 font-semibold'
                     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                 }`}
               >
-                {label}
+                {item.label}
               </Link>
             );
           })}
         </nav>
+
+        {/* Mobile sub-nav (shown when inside a group) */}
+        {activeGroup && (
+          <nav className="flex gap-0.5 text-xs overflow-x-auto px-3 pb-2 scrollbar-none border-t border-slate-100 pt-1.5">
+            {activeGroup.items.map((sub) => {
+              const subActive = matchesPath(sub.href, pathname, sub.exact);
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  className={`px-3 py-1 rounded-md whitespace-nowrap shrink-0 transition-colors ${
+                    subActive
+                      ? 'bg-green-700 text-white font-semibold'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
+                >
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </header>
     </>
   );
