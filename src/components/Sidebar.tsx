@@ -97,7 +97,7 @@ export default function Sidebar() {
             <span className="font-bold text-sm text-slate-800">Order Assist</span>
           </div>
           <div className="flex items-center gap-1">
-            <LanguageToggle />
+            <LanguageToggle compact />
             <form action={logout}>
               <button
                 type="submit"
