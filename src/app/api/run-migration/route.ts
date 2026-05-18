@@ -18,12 +18,7 @@ CREATE TABLE IF NOT EXISTS outgoing_stock (
 ALTER TABLE outgoing_stock DISABLE ROW LEVEL SECURITY;
 `;
 
-export async function POST(request: Request) {
-  const secret = request.headers.get('x-migration-secret');
-  if (secret !== process.env.MIGRATION_SECRET && secret !== 'run-008') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
+async function runMigration() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -75,4 +70,12 @@ export async function POST(request: Request) {
     managementApi: { status: mgmtRes.status, body: mgmtText },
     rpc: { status: rpcRes.status, body: rpcText },
   }, { status: 500 });
+}
+
+export async function GET() {
+  return runMigration();
+}
+
+export async function POST() {
+  return runMigration();
 }
