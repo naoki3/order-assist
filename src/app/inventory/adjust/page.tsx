@@ -1,36 +1,51 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
+import LotAdjustForm from '@/components/LotAdjustForm';
 import StockAdjustForm from '@/components/StockAdjustForm';
-import type { Product, Inventory } from '@/lib/db';
+import type { Product, Inventory, Lot } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryAdjustPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const [{ data: productsData }, { data: inventoriesData }] = await Promise.all([
+  const [{ data: productsData }, { data: inventoriesData }, { data: lotsData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('inventory').select('*'),
+    supabase.from('lots').select('*').order('expiry_date', { ascending: true, nullsFirst: false }),
   ]);
   const products = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];
-  const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
+  const lots = (lotsData ?? []) as Lot[];
 
-  const productsWithStock = products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    currentStock: stockMap[p.id] ?? 0,
-  }));
+  const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
+  const productsWithStock = products.map((p) => ({ id: p.id, name: p.name, currentStock: stockMap[p.id] ?? 0 }));
+
+  const noLotProducts = productsWithStock.filter(p => !lots.some(l => l.product_id === p.id));
 
   return (
-    <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">{t('inventory.adjustTitle', lang)}</h1>
-      <p className="text-sm text-slate-500 mb-4">{t('inventory.adjustSubtitle', lang)}</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800 mb-1">{t('inventory.adjustTitle', lang)}</h1>
+        <p className="text-sm text-slate-500">{t('inventory.adjustSubtitle', lang)}</p>
+      </div>
 
-      {products.length === 0 ? (
+      {lots.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('inventory.lot', lang)}</h2>
+          <LotAdjustForm lots={lots} />
+        </div>
+      )}
+
+      {noLotProducts.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('inventory.noLots', lang)}</h2>
+          <StockAdjustForm products={noLotProducts} />
+        </div>
+      )}
+
+      {products.length === 0 && (
         <p className="text-slate-400 text-sm">{t('inventory.noProducts', lang)}</p>
-      ) : (
-        <StockAdjustForm products={productsWithStock} />
       )}
     </div>
   );

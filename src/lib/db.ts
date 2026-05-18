@@ -35,6 +35,8 @@ export interface OutgoingStock {
   scheduled_date: string;
   note: string | null;
   shipped_at: string | null;
+  lot_id: number | null;
+  lot_number: string | null;
 }
 
 export interface IncomingStock {
@@ -46,4 +48,15 @@ export interface IncomingStock {
   expected_date: string;
   received_at: string | null;
   expiry_date: string | null;
+}
+
+export interface Lot {
+  id: number;
+  lot_number: string;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  received_at: string;
+  expiry_date: string | null;
+  incoming_stock_id: number | null;
 }

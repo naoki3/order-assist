@@ -72,9 +72,12 @@ export async function receiveIncoming(
   const id = Number(formData.get('id'));
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('product_id, quantity')
+    .select('product_id, product_name, quantity')
     .eq('id', id)
     .single();
 
@@ -116,7 +119,21 @@ export async function receiveIncoming(
 
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
 
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const lotNumber = `${today}-${id}`;
+  await supabase.from('lots').insert({
+    lot_number: lotNumber,
+    product_id: incoming.product_id,
+    product_name: incoming.product_name,
+    quantity: incoming.quantity,
+    received_at: new Date().toISOString().split('T')[0],
+    expiry_date: expiryDate,
+    incoming_stock_id: id,
+    user_id: user.id,
+  });
+
   revalidatePath('/incoming');
+  revalidatePath('/inventory');
   revalidatePath('/');
   revalidatePath('/products');
   return { success: 'ok' };
@@ -423,6 +440,9 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   const quantity = Number(formData.get('quantity'));
   const scheduledDate = String(formData.get('scheduled_date') ?? '').trim();
   const note = String(formData.get('note') ?? '').trim() || null;
+  const lotIdRaw = formData.get('lot_id');
+  const lotId = lotIdRaw && String(lotIdRaw).trim() ? Number(lotIdRaw) : null;
+  const lotNumber = lotId ? String(formData.get('lot_number') ?? '').trim() || null : null;
 
   if (!productId || isNaN(quantity) || quantity < 1 || !scheduledDate) {
     return { error: '入力値が不正です' };
@@ -436,9 +456,20 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
     .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: '商品が見つかりません' };
 
+  if (lotId) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', lotId).single();
+    const { data: reserved } = await supabase
+      .from('outgoing_stock').select('quantity').eq('lot_id', lotId).is('shipped_at', null);
+    const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
+    const available = (lot?.quantity ?? 0) - reservedQty;
+    if (quantity > available) {
+      return { error: `ロット在庫不足: 引当可能 ${available} 個` };
+    }
+  }
+
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber })
     .select('id')
     .single();
 
@@ -538,7 +569,7 @@ export async function confirmShipment(
 
   const { data: outgoing, error: fetchError } = await supabase
     .from('outgoing_stock')
-    .select('product_id, quantity')
+    .select('product_id, quantity, lot_id')
     .eq('id', id)
     .single();
 
@@ -572,9 +603,49 @@ export async function confirmShipment(
 
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
 
+  if (outgoing.lot_id) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
+    if (lot) {
+      await supabase.from('lots').update({ quantity: Math.max(0, lot.quantity - outgoing.quantity) }).eq('id', outgoing.lot_id);
+    }
+  }
+
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
   revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
+export async function updateLotQuantity(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const lotId = Number(formData.get('lot_id'));
+  const newQty = Number(formData.get('quantity'));
+  const supabase = await createClient();
+
+  const { data: lot } = await supabase.from('lots').select('product_id, quantity').eq('id', lotId).single();
+  if (!lot) return { error: 'ロットが見つかりません' };
+
+  const { data: reserved } = await supabase
+    .from('outgoing_stock').select('quantity').eq('lot_id', lotId).is('shipped_at', null);
+  const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
+  if (newQty < reservedQty) {
+    return { error: `出荷予定で ${reservedQty} 個確保済みのため、${reservedQty} 個未満には設定できません` };
+  }
+
+  await supabase.from('lots').update({ quantity: newQty }).eq('id', lotId);
+
+  const { data: allLots } = await supabase.from('lots').select('quantity').eq('product_id', lot.product_id);
+  const totalStock = (allLots ?? []).reduce((s, l) => s + l.quantity, 0);
+  await supabase.from('inventory').upsert({
+    product_id: lot.product_id,
+    current_stock: totalStock,
+    updated_at: new Date().toISOString().split('T')[0],
+  });
+
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/adjust');
   return { success: 'ok' };
 }
 
