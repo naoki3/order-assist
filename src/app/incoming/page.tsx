@@ -10,20 +10,11 @@ export default async function IncomingPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const dict = translations[lang];
 
-  const { data: pendingData } = await supabase
-    .from('incoming_stock')
-    .select('*')
-    .is('received_at', null)
-    .order('expected_date')
-    .order('id');
+  const [{ data: pendingData }, { data: receivedData }] = await Promise.all([
+    supabase.from('incoming_stock').select('*').is('received_at', null).order('expected_date').order('id'),
+    supabase.from('incoming_stock').select('*').not('received_at', 'is', null).order('received_at', { ascending: false }).limit(20),
+  ]);
   const pending = (pendingData ?? []) as IncomingStock[];
-
-  const { data: receivedData } = await supabase
-    .from('incoming_stock')
-    .select('*')
-    .not('received_at', 'is', null)
-    .order('received_at', { ascending: false })
-    .limit(20);
   const received = (receivedData ?? []) as IncomingStock[];
 
   return (

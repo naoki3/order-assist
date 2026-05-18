@@ -17,15 +17,11 @@ export default async function SalesPage() {
   }
 
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const { data: productsData } = await supabase.from('products').select('*').order('id');
+  const [{ data: productsData }, { data: salesData }] = await Promise.all([
+    supabase.from('products').select('*').order('id'),
+    supabase.from('sales').select('*').in('date', dates).order('product_id').order('date', { ascending: false }),
+  ]);
   const products = (productsData ?? []) as Product[];
-
-  const { data: salesData } = await supabase
-    .from('sales')
-    .select('*')
-    .in('date', dates)
-    .order('product_id')
-    .order('date', { ascending: false });
   const sales = (salesData ?? []) as Sale[];
 
   const salesMap: Record<number, Record<string, number>> = {};
