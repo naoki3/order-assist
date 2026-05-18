@@ -4,6 +4,8 @@ export const translations = {
   ja: {
     // Nav
     'nav.dashboard': 'ダッシュボード',
+    'nav.masterGroup': 'マスタ',
+    'nav.productMaster': '商品マスタ',
     'nav.incomingGroup': '入荷',
     'nav.incomingSchedule': '入荷予定',
     'nav.incomingStock': '入荷確認',
@@ -64,9 +66,11 @@ export const translations = {
     'inventory.adjustTitle': '在庫調整',
     'inventory.noProducts': '商品が登録されていません',
     'inventory.units': '個',
+    'inventory.lastReceived': '最終入荷日',
+    'inventory.expiryDate': '賞味/消費期限',
 
     // Products
-    'products.title': '商品',
+    'products.title': '商品マスタ',
     'products.noProducts': '商品がまだありません。下から追加してください。',
     'products.namePlaceholder': '商品名',
     'products.save': '保存',
@@ -81,6 +85,11 @@ export const translations = {
     'products.delete': '削除',
     'products.addTitle': '商品を追加',
     'products.addButton': '商品を追加する',
+    'products.shelfLife': '賞味/消費期限',
+    'products.shelfLifeDays': '期限日数',
+    'products.expiryTypeNone': 'なし',
+    'products.expiryTypeBest': '賞味期限',
+    'products.expiryTypeUse': '消費期限',
 
     // Sales
     'sales.title': '売上入力',
@@ -234,6 +243,8 @@ export const translations = {
   en: {
     // Nav
     'nav.dashboard': 'Dashboard',
+    'nav.masterGroup': 'Master',
+    'nav.productMaster': 'Products',
     'nav.incomingGroup': 'Incoming',
     'nav.incomingSchedule': 'Schedule',
     'nav.incomingStock': 'Confirm Delivery',
@@ -328,9 +339,11 @@ export const translations = {
     'inventory.adjustTitle': 'Adjust Stock',
     'inventory.noProducts': 'No products registered',
     'inventory.units': 'units',
+    'inventory.lastReceived': 'Last received',
+    'inventory.expiryDate': 'Expiry date',
 
     // Products
-    'products.title': 'Products',
+    'products.title': 'Product Master',
     'products.noProducts': 'No products yet. Add one below.',
     'products.namePlaceholder': 'Product name',
     'products.save': 'Save',
@@ -345,6 +358,11 @@ export const translations = {
     'products.delete': 'Delete',
     'products.addTitle': 'Add New Product',
     'products.addButton': 'Add Product',
+    'products.shelfLife': 'Expiry',
+    'products.shelfLifeDays': 'Shelf life (days)',
+    'products.expiryTypeNone': 'None',
+    'products.expiryTypeBest': 'Best by',
+    'products.expiryTypeUse': 'Use by',
 
     // Sales
     'sales.title': 'Sales Entry',

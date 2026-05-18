@@ -4,6 +4,8 @@ export interface Product {
   lead_time_days: number;
   safety_stock_days: number;
   price: number | null;
+  shelf_life_days: number | null;
+  expiry_type: string | null;
 }
 
 export interface Sale {
@@ -43,4 +45,5 @@ export interface IncomingStock {
   quantity: number;
   expected_date: string;
   received_at: string | null;
+  expiry_date: string | null;
 }

@@ -82,9 +82,22 @@ export async function receiveIncoming(
     return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
   }
 
+  const { data: product } = await supabase
+    .from('products')
+    .select('shelf_life_days')
+    .eq('id', incoming.product_id)
+    .single();
+
+  let expiryDate: string | null = null;
+  if (product?.shelf_life_days) {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + product.shelf_life_days);
+    expiryDate = expiry.toISOString().split('T')[0];
+  }
+
   const { error: updateError } = await supabase
     .from('incoming_stock')
-    .update({ received_at: new Date().toISOString() })
+    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate })
     .eq('id', id);
 
   if (updateError) return { error: `Failed to mark as received: ${updateError.message}` };
@@ -120,6 +133,9 @@ export async function addProduct(
   const safetyStock = Number(formData.get('safety_stock_days'));
   const priceRaw = formData.get('price');
   const price = priceRaw && String(priceRaw).trim() !== '' ? Number(priceRaw) : null;
+  const shelfLifeRaw = formData.get('shelf_life_days');
+  const shelf_life_days = shelfLifeRaw && String(shelfLifeRaw).trim() !== '' ? Number(shelfLifeRaw) : null;
+  const expiry_type = (formData.get('expiry_type') as string) || null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -130,7 +146,7 @@ export async function addProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, user_id: user.id })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, user_id: user.id })
     .select('id')
     .single();
 
@@ -163,6 +179,9 @@ export async function updateProduct(
   const safetyStock = Number(formData.get('safety_stock_days'));
   const priceRaw = formData.get('price');
   const price = priceRaw && String(priceRaw).trim() !== '' ? Number(priceRaw) : null;
+  const shelfLifeRaw = formData.get('shelf_life_days');
+  const shelf_life_days = shelfLifeRaw && String(shelfLifeRaw).trim() !== '' ? Number(shelfLifeRaw) : null;
+  const expiry_type = (formData.get('expiry_type') as string) || null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -170,7 +189,7 @@ export async function updateProduct(
   const supabase = await createClient();
   const { error } = await supabase
     .from('products')
-    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price })
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type })
     .eq('id', id);
 
   if (error) return { error: `Failed to update product: ${error.message}` };

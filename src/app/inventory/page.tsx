@@ -1,19 +1,40 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { Product, Inventory } from '@/lib/db';
+import type { Product, Inventory, IncomingStock } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const [{ data: productsData }, { data: inventoriesData }] = await Promise.all([
+  const [{ data: productsData }, { data: inventoriesData }, { data: incomingData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('inventory').select('*'),
+    supabase
+      .from('incoming_stock')
+      .select('product_id, received_at, expiry_date')
+      .not('received_at', 'is', null)
+      .order('received_at', { ascending: false }),
   ]);
   const products = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];
+  const incoming = (incomingData ?? []) as Pick<IncomingStock, 'product_id' | 'received_at' | 'expiry_date'>[];
+
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
+
+  const lastReceivedMap: Record<number, string> = {};
+  const nearestExpiryMap: Record<number, string> = {};
+  for (const item of incoming) {
+    const pid = item.product_id;
+    if (!(pid in lastReceivedMap) && item.received_at) {
+      lastReceivedMap[pid] = item.received_at.slice(0, 10);
+    }
+    if (item.expiry_date) {
+      if (!(pid in nearestExpiryMap) || item.expiry_date < nearestExpiryMap[pid]) {
+        nearestExpiryMap[pid] = item.expiry_date;
+      }
+    }
+  }
 
   return (
     <div>
@@ -25,6 +46,11 @@ export default async function InventoryPage() {
         <div className="space-y-3">
           {products.map((p) => {
             const stock = stockMap[p.id] ?? 0;
+            const lastReceived = lastReceivedMap[p.id];
+            const nearestExpiry = nearestExpiryMap[p.id];
+            const today = new Date().toISOString().split('T')[0];
+            const isExpiringSoon = nearestExpiry && nearestExpiry <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
+            const isExpired = nearestExpiry && nearestExpiry < today;
             return (
               <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
                 <div className="flex items-center justify-between">
@@ -34,11 +60,24 @@ export default async function InventoryPage() {
                     <p className="text-xs text-slate-400">{t('inventory.units', lang)}</p>
                   </div>
                 </div>
-                <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-500">
                   <span>{t('products.leadTime', lang)} {p.lead_time_days}{t('products.days', lang)}</span>
                   <span>{t('products.safetyStock', lang)} {p.safety_stock_days}{t('products.days', lang)}</span>
                   {p.price != null && <span>{t('products.unitPrice', lang)} {p.price}</span>}
                 </div>
+                {(lastReceived || nearestExpiry) && (
+                  <div className="flex flex-wrap gap-4 mt-1.5 text-xs">
+                    {lastReceived && (
+                      <span className="text-slate-400">{t('inventory.lastReceived', lang)}: {lastReceived}</span>
+                    )}
+                    {nearestExpiry && (
+                      <span className={isExpired ? 'text-red-600 font-medium' : isExpiringSoon ? 'text-orange-500 font-medium' : 'text-slate-400'}>
+                        {p.expiry_type ?? t('inventory.expiryDate', lang)}: {nearestExpiry}
+                        {isExpired ? ' ⚠' : isExpiringSoon ? ' !' : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

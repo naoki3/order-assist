@@ -15,6 +15,7 @@ import {
   Layers,
   Settings2,
   SendHorizonal,
+  Database,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
@@ -72,6 +73,12 @@ export default function Sidebar() {
       items: [
         { href: '/sales/report', label: t('nav.salesReport'), exact: false },
         { href: '/sales', label: t('nav.salesEntry'), exact: true },
+      ],
+    },
+    {
+      type: 'group', key: 'master', label: t('nav.masterGroup'), icon: Database,
+      items: [
+        { href: '/products', label: t('nav.productMaster'), exact: false },
       ],
     },
   ];
