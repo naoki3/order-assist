@@ -375,6 +375,170 @@ export async function deleteIncomingSchedule(
   return null;
 }
 
+// ─── Outgoing Stock ───────────────────────────────────────────────────────────
+
+export async function addOutgoingSchedule(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const scheduledDate = String(formData.get('scheduled_date') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim() || null;
+
+  if (!productId || isNaN(quantity) || quantity < 1 || !scheduledDate) {
+    return { error: 'Invalid input values' };
+  }
+
+  const supabase = await createClient();
+  const { data: product } = await supabase
+    .from('products')
+    .select('name')
+    .eq('id', productId)
+    .single();
+
+  if (!product) return { error: 'Product not found' };
+
+  const { error } = await supabase.from('outgoing_stock').insert({
+    product_id: productId,
+    product_name: product.name,
+    quantity,
+    scheduled_date: scheduledDate,
+    note,
+  });
+
+  if (error) return { error: `Failed to add schedule: ${error.message}` };
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return null;
+}
+
+export async function deleteOutgoingSchedule(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('outgoing_stock')
+    .delete()
+    .eq('id', id)
+    .is('shipped_at', null);
+
+  if (error) return { error: `Failed to delete: ${error.message}` };
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return null;
+}
+
+export async function confirmShipment(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+
+  const { data: outgoing, error: fetchError } = await supabase
+    .from('outgoing_stock')
+    .select('product_id, quantity')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !outgoing) {
+    return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
+  }
+
+  const { error: updateError } = await supabase
+    .from('outgoing_stock')
+    .update({ shipped_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (updateError) return { error: `Failed to confirm shipment: ${updateError.message}` };
+
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('current_stock')
+    .eq('product_id', outgoing.product_id)
+    .single();
+
+  const newStock = Math.max(0, (inv?.current_stock ?? 0) - outgoing.quantity);
+  const { error: upsertError } = await supabase.from('inventory').upsert({
+    product_id: outgoing.product_id,
+    current_stock: newStock,
+    updated_at: new Date().toISOString().split('T')[0],
+  });
+
+  if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/inventory');
+  return null;
+}
+
+export interface OutgoingCsvImportResult {
+  imported: number;
+  skipped: string[];
+  error?: string;
+}
+
+export async function importOutgoingCsv(
+  _prev: OutgoingCsvImportResult | null,
+  formData: FormData
+): Promise<OutgoingCsvImportResult> {
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
+
+  const supabase = await createClient();
+  const text = await file.text();
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
+
+  const firstLine = lines[0].toLowerCase();
+  const dataLines = firstLine.startsWith('商品名') || firstLine.startsWith('product') ? lines.slice(1) : lines;
+
+  const { data: products } = await supabase.from('products').select('id, name');
+  const productMap = new Map(
+    (products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id])
+  );
+  const productNameMap = new Map(
+    (products ?? []).map((p) => [p.id, p.name])
+  );
+
+  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; note: string | null }[] = [];
+  const skipped: string[] = [];
+
+  for (const line of dataLines) {
+    if (!line.trim()) continue;
+    const parts = line.split(',');
+    if (parts.length < 3) { skipped.push(line.trim()); continue; }
+    const [rawName, rawQty, rawDate, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const quantity = parseInt(rawQty, 10);
+    if (!rawName || !rawDate || isNaN(quantity) || quantity < 1) { skipped.push(line.trim()); continue; }
+    const productId = productMap.get(rawName.toLowerCase());
+    if (!productId) { skipped.push(`Unknown product: ${rawName}`); continue; }
+    rows.push({
+      product_id: productId,
+      product_name: productNameMap.get(productId) ?? rawName,
+      quantity,
+      scheduled_date: rawDate,
+      note: rawNote?.trim() || null,
+    });
+  }
+
+  if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
+
+  const { error } = await supabase.from('outgoing_stock').insert(rows);
+  if (error) return { imported: 0, skipped, error: `Failed to import: ${error.message}` };
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return { imported: rows.length, skipped };
+}
+
 // ─── Sales Targets ────────────────────────────────────────────────────────────
 
 export async function setMonthlyTarget(

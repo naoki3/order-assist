@@ -25,6 +25,16 @@ export interface OrderHistoryItem {
   items: string; // JSON
 }
 
+export interface OutgoingStock {
+  id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  scheduled_date: string;
+  note: string | null;
+  shipped_at: string | null;
+}
+
 export interface IncomingStock {
   id: number;
   order_history_id: number | null;
