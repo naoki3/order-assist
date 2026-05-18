@@ -94,6 +94,46 @@ export const translations = {
     'sales.save': '保存',
     'sales.report': '売上レポート',
 
+    // Sales Report
+    'report.title': '売上レポート',
+    'report.backToSales': '← 売上入力',
+    'report.period7': '7日間',
+    'report.period30': '30日間',
+    'report.thisMonth': '今月',
+    'report.lastNDays': (n: number) => `直近${n}日間`,
+    'report.totalUnits': '総販売数',
+    'report.totalRevenue': '売上合計',
+    'report.noRevenueHint': '商品ページで単価を設定すると売上金額が表示されます',
+    'report.dailyAvg': '日次平均',
+    'report.monthlyTarget': '月次目標達成率',
+    'report.byProduct': '商品別',
+    'report.units': '個',
+    'report.setTarget': (month: string) => `目標設定 — ${month}`,
+    'report.noData': 'この期間の売上データがありません',
+    'report.goToSales': '売上入力へ →',
+
+    // Charts
+    'chart.salesTrend': '7日間 売上推移（合計）',
+    'chart.unitsSold': '販売数',
+    'chart.bestSellers': '売れ筋商品（平均日販）',
+    'chart.unitsPerDay': (v: string) => `${v}個/日`,
+    'chart.avgDemand': '平均日販',
+    'chart.salesTrendLine': '売上推移',
+    'chart.units': '個',
+    'chart.revenue': '売上',
+
+    // Target form
+    'target.label': '月次目標',
+    'target.saving': '保存中...',
+    'target.save': '保存',
+
+    // Order reasons
+    'order.reasonNoData': '過去7日間の売上データなし',
+    'order.reasonSufficient': '在庫は十分です。発注不要',
+    'order.reasonTrendUp': (avg: string) => `売上上昇トレンド（直近3日平均: ${avg}個/日）`,
+    'order.reasonTrendDown': (avg: string) => `売上鈍化（直近3日平均: ${avg}個/日）`,
+    'order.reasonNormal': (avg: string, days: number) => `平均日販 ${avg}個/日 × ${days}日`,
+
     // Sales Import
     'import.back': '← 売上入力に戻る',
     'import.title': '売上CSVインポート',
@@ -243,6 +283,46 @@ export const translations = {
     'sales.saving': 'Saving...',
     'sales.save': 'Save',
     'sales.report': 'Sales Report',
+
+    // Sales Report
+    'report.title': 'Sales Report',
+    'report.backToSales': '← Sales Entry',
+    'report.period7': '7 days',
+    'report.period30': '30 days',
+    'report.thisMonth': 'This month',
+    'report.lastNDays': (n: number) => `Last ${n} days`,
+    'report.totalUnits': 'Total Units',
+    'report.totalRevenue': 'Total Revenue',
+    'report.noRevenueHint': 'Set unit prices on products to see revenue',
+    'report.dailyAvg': 'Daily Average',
+    'report.monthlyTarget': 'Monthly Target',
+    'report.byProduct': 'By Product',
+    'report.units': 'units',
+    'report.setTarget': (month: string) => `Set Target — ${month}`,
+    'report.noData': 'No sales data for this period',
+    'report.goToSales': 'Go to Sales Entry →',
+
+    // Charts
+    'chart.salesTrend': '7-Day Sales Trend (Total)',
+    'chart.unitsSold': 'units sold',
+    'chart.bestSellers': 'Best Sellers (avg units/day)',
+    'chart.unitsPerDay': (v: string) => `${v} units/day`,
+    'chart.avgDemand': 'avg demand',
+    'chart.salesTrendLine': 'Sales Trend',
+    'chart.units': 'Units',
+    'chart.revenue': 'Revenue',
+
+    // Target form
+    'target.label': 'Monthly target',
+    'target.saving': 'Saving...',
+    'target.save': 'Save',
+
+    // Order reasons
+    'order.reasonNoData': 'No sales data for the past 7 days',
+    'order.reasonSufficient': 'Stock is sufficient, no order needed',
+    'order.reasonTrendUp': (avg: string) => `Sales trending up — ordering more (3-day avg: ${avg} units/day)`,
+    'order.reasonTrendDown': (avg: string) => `Sales slowing down (3-day avg: ${avg} units/day)`,
+    'order.reasonNormal': (avg: string, days: number) => `Avg demand ${avg} units/day × ${days} days`,
 
     // Sales Import
     'import.back': '← Back to Sales Entry',

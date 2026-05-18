@@ -1,7 +1,5 @@
-/**
- * Pure calculation functions extracted from calculator.ts.
- * No I/O or side effects — safe to import in tests.
- */
+import type { Lang } from './i18n';
+import { translations } from './i18n';
 
 export function buildDateRange(today: Date, days = 7): string[] {
   const dates: string[] = [];
@@ -35,18 +33,24 @@ export function buildReason(
   orderQty: number,
   quantities: number[],
   leadTimeDays: number,
-  safetyStockDays: number
+  safetyStockDays: number,
+  lang: Lang = 'ja'
 ): string {
+  const dict = translations[lang];
   const recent3dAvg = quantities.slice(-3).reduce((sum, q) => sum + q, 0) / 3;
+  const avg = recent3dAvg.toFixed(1);
+  const avgAll = avgDemand7d.toFixed(1);
+  const days = leadTimeDays + safetyStockDays;
+
   if (avgDemand7d === 0) {
-    return 'No sales data for the past 7 days';
+    return dict['order.reasonNoData'] as string;
   } else if (orderQty === 0) {
-    return 'Stock is sufficient, no order needed';
+    return dict['order.reasonSufficient'] as string;
   } else if (recent3dAvg > avgDemand7d * 1.2) {
-    return `Sales trending up — ordering more (3-day avg: ${recent3dAvg.toFixed(1)} units/day)`;
+    return (dict['order.reasonTrendUp'] as (a: string) => string)(avg);
   } else if (recent3dAvg < avgDemand7d * 0.8) {
-    return `Sales slowing down (3-day avg: ${recent3dAvg.toFixed(1)} units/day)`;
+    return (dict['order.reasonTrendDown'] as (a: string) => string)(avg);
   } else {
-    return `Avg demand ${avgDemand7d.toFixed(1)} units/day × ${leadTimeDays + safetyStockDays} days`;
+    return (dict['order.reasonNormal'] as (a: string, d: number) => string)(avgAll, days);
   }
 }

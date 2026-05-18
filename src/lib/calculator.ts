@@ -1,5 +1,6 @@
 import { createClient } from './supabase';
 import type { Product } from './db';
+import type { Lang } from './i18n';
 import {
   buildDateRange,
   calcAverageDemand,
@@ -17,14 +18,13 @@ export interface Recommendation {
   reason: string;
 }
 
-export async function getRecommendations(today: Date = new Date()): Promise<Recommendation[]> {
+export async function getRecommendations(today: Date = new Date(), lang: Lang = 'ja'): Promise<Recommendation[]> {
   const supabase = await createClient();
   const { data: products } = await supabase.from('products').select('*').order('id');
   if (!products || products.length === 0) return [];
 
   const dates = buildDateRange(today);
 
-  // Fetch all sales and inventory in two bulk queries instead of per-product queries
   const [{ data: allSales }, { data: allInventory }] = await Promise.all([
     supabase
       .from('sales')
@@ -64,7 +64,8 @@ export async function getRecommendations(today: Date = new Date()): Promise<Reco
       orderQty,
       quantities,
       product.lead_time_days,
-      product.safety_stock_days
+      product.safety_stock_days,
+      lang
     );
 
     return { product, avgDemand7d, currentStock, requiredStock, orderQty, reason };

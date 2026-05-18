@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { setMonthlyTarget } from '@/lib/actions';
+import { useT } from './LanguageProvider';
 
 interface Props {
   month: string;
@@ -9,12 +10,13 @@ interface Props {
 }
 
 export default function TargetForm({ month, currentTarget }: Props) {
+  const { t } = useT();
   const [state, action, pending] = useActionState(setMonthlyTarget, null);
 
   return (
     <form action={action} className="flex items-center gap-2">
       <input type="hidden" name="month" value={month} />
-      <span className="text-sm text-slate-500 shrink-0">Monthly target</span>
+      <span className="text-sm text-slate-500 shrink-0">{t('target.label')}</span>
       <input
         type="number"
         name="target_amount"
@@ -29,7 +31,7 @@ export default function TargetForm({ month, currentTarget }: Props) {
         disabled={pending}
         className="px-3 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors disabled:opacity-50"
       >
-        {pending ? 'Saving...' : 'Save'}
+        {pending ? t('target.saving') : t('target.save')}
       </button>
       {state?.error && <span className="text-xs text-red-600">{state.error}</span>}
     </form>
