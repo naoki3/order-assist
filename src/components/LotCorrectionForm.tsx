@@ -5,8 +5,9 @@ import { updateLotProperties } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import type { Lot } from '@/lib/db';
+import LotTag from './LotTag';
 
-function LotCorrectionRow({ lot }: { lot: Lot }) {
+function LotCorrectionRow({ lot, today }: { lot: Lot; today: string }) {
   const { t } = useT();
   const [state, action] = useActionState(updateLotProperties, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
@@ -21,29 +22,36 @@ function LotCorrectionRow({ lot }: { lot: Lot }) {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="font-semibold text-slate-800">{lot.product_name}</p>
-        <span className="text-sm text-slate-500">{t('inventory.currentStockLabel')}: {lot.quantity} {t('inventory.units')}</span>
+      <div className="flex items-start justify-between mb-3">
+        <div className="space-y-1">
+          <p className="font-semibold text-slate-800">{lot.product_name}</p>
+          <LotTag lotNumber={lot.lot_number} expiryDate={lot.expiry_date} today={today} expiryLabel={t('inventory.lotExpiry')} />
+        </div>
+        <span className="text-sm text-slate-500 shrink-0 ml-3">
+          {t('inventory.currentStockLabel')}: {lot.quantity} {t('inventory.units')}
+        </span>
       </div>
       <form key={formKey} action={action} className="space-y-2">
         <input type="hidden" name="lot_id" value={lot.id} />
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1 py-0.5 rounded tracking-wide shrink-0">LOT</span>
+        <div>
+          <label className="text-xs font-medium text-slate-500 mb-1 block">{t('inventory.correctionLotNumber')}</label>
           <input
             type="text"
             name="lot_number"
             required
             defaultValue={lot.lot_number}
-            placeholder={t('inventory.correctionLotNumber')}
-            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
-        <input
-          type="date"
-          name="expiry_date"
-          defaultValue={lot.expiry_date ?? ''}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-        />
+        <div>
+          <label className="text-xs font-medium text-slate-500 mb-1 block">{t('inventory.correctionExpiry')}</label>
+          <input
+            type="date"
+            name="expiry_date"
+            defaultValue={lot.expiry_date ?? ''}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
         <div className="flex justify-end">
           <button
             type="submit"
@@ -60,9 +68,10 @@ function LotCorrectionRow({ lot }: { lot: Lot }) {
 }
 
 export default function LotCorrectionForm({ lots }: { lots: Lot[] }) {
+  const [today] = useState(() => new Date().toISOString().split('T')[0]);
   return (
     <div className="space-y-3">
-      {lots.map((lot) => <LotCorrectionRow key={lot.id} lot={lot} />)}
+      {lots.map((lot) => <LotCorrectionRow key={lot.id} lot={lot} today={today} />)}
     </div>
   );
 }

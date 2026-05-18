@@ -5,8 +5,9 @@ import { updateLotQuantity } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import type { Lot } from '@/lib/db';
+import LotTag from './LotTag';
 
-function LotRow({ lot }: { lot: Lot }) {
+function LotRow({ lot, today }: { lot: Lot; today: string }) {
   const { t } = useT();
   const [state, action] = useActionState(updateLotQuantity, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.updated'));
@@ -22,17 +23,11 @@ function LotRow({ lot }: { lot: Lot }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
       <div className="flex items-start justify-between mb-3">
-        <div>
+        <div className="space-y-1">
           <p className="font-semibold text-slate-800">{lot.product_name}</p>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1 py-0.5 rounded tracking-wide">LOT</span>
-            <p className="text-xs font-mono text-slate-500">{lot.lot_number}</p>
-          </div>
-          {lot.expiry_date && (
-            <p className="text-xs text-slate-400 mt-0.5">{t('inventory.lotExpiry')}: {lot.expiry_date}</p>
-          )}
+          <LotTag lotNumber={lot.lot_number} expiryDate={lot.expiry_date} today={today} expiryLabel={t('inventory.lotExpiry')} />
         </div>
-        <span className="text-sm font-medium text-slate-600">
+        <span className="text-sm font-medium text-slate-600 shrink-0 ml-3">
           {t('inventory.currentStockLabel')}: {lot.quantity}
         </span>
       </div>
@@ -61,9 +56,10 @@ function LotRow({ lot }: { lot: Lot }) {
 }
 
 export default function LotAdjustForm({ lots }: { lots: Lot[] }) {
+  const [today] = useState(() => new Date().toISOString().split('T')[0]);
   return (
     <div className="space-y-3">
-      {lots.map((lot) => <LotRow key={lot.id} lot={lot} />)}
+      {lots.map((lot) => <LotRow key={lot.id} lot={lot} today={today} />)}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { Product, Inventory, Lot } from '@/lib/db';
+import LotTag from '@/components/LotTag';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,7 @@ export default async function InventoryPage() {
     lotsMap[lot.product_id].push(lot);
   }
 
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const d3 = new Date(now);
-  d3.setDate(d3.getDate() + 3);
-  const threeDaysLater = d3.toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div>
@@ -55,25 +52,15 @@ export default async function InventoryPage() {
                 ) : (
                   <div className="mt-2 space-y-1">
                     {productLots.map((lot) => {
-                      const isExpired = lot.expiry_date && lot.expiry_date < today;
-                      const isExpiringSoon = lot.expiry_date && !isExpired && lot.expiry_date <= threeDaysLater;
                       return (
-                        <div key={lot.id} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-1.5">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1 py-0.5 rounded tracking-wide">LOT</span>
-                            <span className="font-mono text-slate-600">{lot.lot_number}</span>
-                            {lot.expiry_date && (
-                              <span className={
-                                isExpired ? 'text-red-600 font-medium' :
-                                isExpiringSoon ? 'text-orange-500 font-medium' :
-                                'text-slate-400'
-                              }>
-                                {p.expiry_type ?? t('inventory.lotExpiry', lang)}: {lot.expiry_date}
-                                {isExpired ? ' ⚠' : isExpiringSoon ? ' !' : ''}
-                              </span>
-                            )}
-                          </div>
-                          <span className="font-medium text-slate-700">{lot.quantity} {t('inventory.units', lang)}</span>
+                        <div key={lot.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                          <LotTag
+                            lotNumber={lot.lot_number}
+                            expiryDate={lot.expiry_date}
+                            today={today}
+                            expiryLabel={p.expiry_type ?? t('inventory.lotExpiry', lang)}
+                          />
+                          <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">{lot.quantity} {t('inventory.units', lang)}</span>
                         </div>
                       );
                     })}
