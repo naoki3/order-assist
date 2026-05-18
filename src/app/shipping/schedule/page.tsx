@@ -3,8 +3,8 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { Product, OutgoingStock } from '@/lib/db';
 import OutgoingScheduleForm from '@/components/OutgoingScheduleForm';
-import DeleteOutgoingButton from '@/components/DeleteOutgoingButton';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
+import OutgoingScheduleList from '@/components/OutgoingScheduleList';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,25 +31,7 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      {/* Pending list */}
-      {pending.length === 0 ? (
-        <p className="text-slate-400 text-sm">{t('shipping.noScheduled', lang)}</p>
-      ) : (
-        <div className="space-y-2">
-          {pending.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-800">{item.product_name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {item.quantity} {t('shipping.units', lang)} · {t('shipping.scheduledDate', lang)} {item.scheduled_date}
-                  {item.note && <span className="text-slate-400"> · {item.note}</span>}
-                </p>
-              </div>
-              <DeleteOutgoingButton id={item.id} />
-            </div>
-          ))}
-        </div>
-      )}
+      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} />
 
       {/* Manual add form */}
       <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">

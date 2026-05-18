@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { translations } from '@/lib/i18n';
-import ReceiveForm from '@/components/ReceiveForm';
+import IncomingConfirmList from '@/components/IncomingConfirmList';
 import type { IncomingStock } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -23,23 +23,9 @@ export default async function IncomingPage() {
       <p className="text-sm text-slate-500 mb-4">{dict['incoming.subtitle']}</p>
 
       <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
-      {pending.length === 0 ? (
-        <p className="text-slate-400 text-sm mb-6">{dict['incoming.noAwaiting']}</p>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {pending.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-800">{item.product_name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {(dict['incoming.quantity'] as (n: number, d: string) => string)(item.quantity, item.expected_date)}
-                </p>
-              </div>
-              <ReceiveForm id={item.id} />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mb-6">
+        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} />
+      </div>
 
       {received.length > 0 && (
         <>
