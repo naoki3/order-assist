@@ -52,6 +52,7 @@ export default function Sidebar() {
       items: [
         { href: '/incoming/schedule', label: t('nav.incomingSchedule'), exact: false },
         { href: '/incoming', label: t('nav.incomingStock'), exact: true },
+        { href: '/incoming/history', label: t('nav.incomingHistory'), exact: false },
       ],
     },
     {
@@ -67,6 +68,7 @@ export default function Sidebar() {
       items: [
         { href: '/shipping/schedule', label: t('nav.shippingSchedule'), exact: false },
         { href: '/shipping/confirm', label: t('nav.shippingConfirm'), exact: false },
+        { href: '/shipping/history', label: t('nav.shippingHistory'), exact: false },
       ],
     },
     {

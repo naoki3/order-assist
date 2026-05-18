@@ -9,6 +9,7 @@ export const translations = {
     'nav.incomingGroup': '入荷',
     'nav.incomingSchedule': '入荷予定',
     'nav.incomingStock': '入荷確認',
+    'nav.incomingHistory': '入荷履歴',
     'nav.inventoryGroup': '在庫',
     'nav.inventory': '在庫',
     'nav.inventoryAdjust': '在庫調整',
@@ -129,6 +130,7 @@ export const translations = {
     'nav.shippingGroup': '出荷',
     'nav.shippingSchedule': '出荷予定',
     'nav.shippingConfirm': '出荷確認',
+    'nav.shippingHistory': '出荷履歴',
     'shipping.scheduleTitle': '出荷予定',
     'shipping.scheduleSubtitle': '出荷予定の管理・登録ができます',
     'shipping.confirmTitle': '出荷確認',
@@ -162,6 +164,15 @@ export const translations = {
     'shipping.import': 'インポート',
     'shipping.imported': (n: number) => `${n}件インポートしました`,
     'shipping.skipped': (n: number) => `${n}件スキップ`,
+    'shipping.historyTitle': '出荷履歴',
+    'shipping.historySubtitle': '日付を選択して出荷記録を検索できます',
+    'shipping.historyEmpty': '該当する出荷履歴がありません',
+    'shipping.recentShippedLabel': '直近の出荷済み',
+
+    // Common (extra)
+    'common.searchByDate': '日付で検索',
+    'common.clearSearch': 'クリア',
+    'common.search': '検索',
 
     // Sales Report
     'report.title': '売上レポート',
@@ -256,6 +267,12 @@ export const translations = {
     'incoming.import': 'インポート',
     'incoming.imported': (n: number) => `${n}件インポートしました`,
     'incoming.skipped': (n: number) => `${n}件スキップ（クリックで詳細）`,
+    'incoming.historyTitle': '入荷履歴',
+    'incoming.historySubtitle': '日付を選択して入荷記録を検索できます',
+    'incoming.historyEmpty': '該当する入荷履歴がありません',
+    'incoming.receivedDate': '入荷日',
+    'incoming.expectedDate2': '予定日',
+    'incoming.recentReceived': '直近の入荷済み',
 
     // History
     'history.title': '発注履歴',
@@ -294,6 +311,7 @@ export const translations = {
     'nav.incomingGroup': 'Incoming',
     'nav.incomingSchedule': 'Schedule',
     'nav.incomingStock': 'Confirm Delivery',
+    'nav.incomingHistory': 'Incoming History',
     'nav.inventoryGroup': 'Inventory',
     'nav.inventory': 'Stock View',
     'nav.inventoryAdjust': 'Adjust Stock',
@@ -351,6 +369,7 @@ export const translations = {
     'nav.shippingGroup': 'Shipping',
     'nav.shippingSchedule': 'Schedule',
     'nav.shippingConfirm': 'Confirm Shipment',
+    'nav.shippingHistory': 'Shipment History',
     'shipping.scheduleTitle': 'Outgoing Schedule',
     'shipping.scheduleSubtitle': 'Manage and add scheduled outgoing shipments',
     'shipping.confirmTitle': 'Confirm Shipment',
@@ -384,6 +403,15 @@ export const translations = {
     'shipping.import': 'Import',
     'shipping.imported': (n: number) => `Imported ${n} row${n !== 1 ? 's' : ''}`,
     'shipping.skipped': (n: number) => `${n} row${n !== 1 ? 's' : ''} skipped`,
+    'shipping.historyTitle': 'Shipment History',
+    'shipping.historySubtitle': 'Select a date to search shipment history',
+    'shipping.historyEmpty': 'No shipment history found',
+    'shipping.recentShippedLabel': 'Recently Shipped',
+
+    // Common (extra)
+    'common.searchByDate': 'Search by date',
+    'common.clearSearch': 'Clear',
+    'common.search': 'Search',
 
     // Inventory
     'inventory.title': 'Inventory',
@@ -541,6 +569,12 @@ export const translations = {
     'incoming.import': 'Import',
     'incoming.imported': (n: number) => `Imported ${n} row${n !== 1 ? 's' : ''}`,
     'incoming.skipped': (n: number) => `${n} row${n !== 1 ? 's' : ''} skipped (click for details)`,
+    'incoming.historyTitle': 'Incoming History',
+    'incoming.historySubtitle': 'Select a date to search incoming delivery history',
+    'incoming.historyEmpty': 'No incoming history found',
+    'incoming.receivedDate': 'Received',
+    'incoming.expectedDate2': 'Expected',
+    'incoming.recentReceived': 'Recently Received',
 
     // History
     'history.title': 'Order History',
