@@ -87,13 +87,13 @@ describe('calcOrderQty', () => {
 
 describe('buildReason', () => {
   it('reports no data when avgDemand is 0', () => {
-    expect(buildReason(0, 0, [0, 0, 0, 0, 0, 0, 0], 3, 2)).toBe(
+    expect(buildReason(0, 0, [0, 0, 0, 0, 0, 0, 0], 3, 2, 'en')).toBe(
       'No sales data for the past 7 days'
     );
   });
 
   it('reports sufficient stock when orderQty is 0', () => {
-    expect(buildReason(5, 0, [5, 5, 5, 5, 5, 5, 5], 3, 2)).toBe(
+    expect(buildReason(5, 0, [5, 5, 5, 5, 5, 5, 5], 3, 2, 'en')).toBe(
       'Stock is sufficient, no order needed'
     );
   });
@@ -101,18 +101,18 @@ describe('buildReason', () => {
   it('detects an upward trend', () => {
     // 7d avg ≈ 6.4, recent 3d avg = (5+15+25)/3 = 15 → > 1.2x
     const qty = [0, 0, 0, 5, 5, 15, 25];
-    expect(buildReason(50 / 7, 5, qty, 3, 2)).toMatch(/trending up/);
+    expect(buildReason(50 / 7, 5, qty, 3, 2, 'en')).toMatch(/trending up/);
   });
 
   it('detects a downward trend', () => {
     // 7d avg ≈ 6.1, recent 3d avg = (1+1+1)/3 = 1 → < 0.8x
     const qty = [10, 10, 10, 10, 1, 1, 1];
-    expect(buildReason(43 / 7, 5, qty, 3, 2)).toMatch(/slowing/);
+    expect(buildReason(43 / 7, 5, qty, 3, 2, 'en')).toMatch(/slowing/);
   });
 
   it('shows normal demand formula when neither trend applies', () => {
     const qty = [5, 5, 5, 5, 5, 5, 5];
-    const reason = buildReason(5, 10, qty, 3, 2);
+    const reason = buildReason(5, 10, qty, 3, 2, 'en');
     expect(reason).toBe('Avg demand 5.0 units/day × 5 days');
   });
 });
