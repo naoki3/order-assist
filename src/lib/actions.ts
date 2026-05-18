@@ -225,6 +225,17 @@ export async function updateStock(
   const stock = Number(formData.get('current_stock'));
   const supabase = await createClient();
 
+  const { data: pending } = await supabase
+    .from('outgoing_stock')
+    .select('quantity')
+    .eq('product_id', productId)
+    .is('shipped_at', null);
+
+  const reserved = (pending ?? []).reduce((s, r) => s + r.quantity, 0);
+  if (stock < reserved) {
+    return { error: `出荷予定で ${reserved} 個が確保されているため、${reserved} 個未満には設定できません` };
+  }
+
   const { error } = await supabase.from('inventory').upsert({
     product_id: productId,
     current_stock: stock,
