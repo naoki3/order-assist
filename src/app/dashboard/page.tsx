@@ -57,9 +57,9 @@ export default async function DashboardPage() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
-  const [lang, recommendations, salesData, todayIncoming] = await Promise.all([
-    getLang(),
-    getRecommendations(),
+  const lang = await getLang();
+  const [recommendations, salesData, todayIncoming] = await Promise.all([
+    getRecommendations(new Date(), lang),
     getSalesTrend(),
     getTodayIncoming(),
   ]);

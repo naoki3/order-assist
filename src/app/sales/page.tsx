@@ -41,7 +41,7 @@ export default async function SalesPage() {
         <h1 className="text-xl font-bold text-slate-800">{t('sales.title', lang)}</h1>
         <div className="flex gap-2 text-xs">
           <Link href="/sales/report" className="px-3 py-1.5 bg-green-50 text-green-700 font-medium rounded-lg hover:bg-green-100 transition-colors">
-            Report
+            {t('nav.salesReport', lang)}
           </Link>
           <Link href="/sales/import" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
             {t('sales.importCsv', lang)}

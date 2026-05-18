@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { useT } from './LanguageProvider';
 
 interface TrendPoint {
   date: string;
@@ -23,9 +24,11 @@ interface Props {
 }
 
 export default function SalesReportCharts({ trend, hasRevenue }: Props) {
+  const { t } = useT();
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-      <h2 className="text-sm font-semibold text-slate-600 mb-3">Sales Trend</h2>
+      <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('chart.salesTrendLine')}</h2>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={trend} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -40,7 +43,7 @@ export default function SalesReportCharts({ trend, hasRevenue }: Props) {
             yAxisId="units"
             type="monotone"
             dataKey="units"
-            name="Units"
+            name={t('chart.units')}
             stroke="#6366f1"
             strokeWidth={2}
             dot={{ r: 3 }}
@@ -51,7 +54,7 @@ export default function SalesReportCharts({ trend, hasRevenue }: Props) {
               yAxisId="revenue"
               type="monotone"
               dataKey="revenue"
-              name="Revenue"
+              name={t('chart.revenue')}
               stroke="#15803d"
               strokeWidth={2}
               dot={{ r: 3 }}

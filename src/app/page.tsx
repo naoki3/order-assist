@@ -6,7 +6,8 @@ import OrderBoard from '@/components/OrderBoard';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [recommendations, lang] = await Promise.all([getRecommendations(), getLang()]);
+  const lang = await getLang();
+  const recommendations = await getRecommendations(new Date(), lang);
 
   return (
     <div>
