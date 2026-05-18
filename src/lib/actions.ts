@@ -373,6 +373,64 @@ export async function addIncomingSchedule(
   return { success: 'ok' };
 }
 
+export type ItemAddResult = { error: string } | { success: 'ok'; newId: number };
+
+export async function addIncomingItem(formData: FormData): Promise<ItemAddResult> {
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const expectedDate = String(formData.get('expected_date') ?? '').trim();
+
+  if (!productId || isNaN(quantity) || quantity < 1 || !expectedDate) {
+    return { error: '入力値が不正です' };
+  }
+
+  const supabase = await createClient();
+  const { data: product } = await supabase
+    .from('products').select('name').eq('id', productId).single();
+  if (!product) return { error: '商品が見つかりません' };
+
+  const { data, error } = await supabase
+    .from('incoming_stock')
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate })
+    .select('id')
+    .single();
+
+  if (error || !data) return { error: `追加失敗: ${error?.message}` };
+
+  revalidatePath('/incoming');
+  revalidatePath('/incoming/schedule');
+  revalidatePath('/dashboard');
+  return { success: 'ok', newId: data.id };
+}
+
+export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult> {
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const scheduledDate = String(formData.get('scheduled_date') ?? '').trim();
+  const note = String(formData.get('note') ?? '').trim() || null;
+
+  if (!productId || isNaN(quantity) || quantity < 1 || !scheduledDate) {
+    return { error: '入力値が不正です' };
+  }
+
+  const supabase = await createClient();
+  const { data: product } = await supabase
+    .from('products').select('name').eq('id', productId).single();
+  if (!product) return { error: '商品が見つかりません' };
+
+  const { data, error } = await supabase
+    .from('outgoing_stock')
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note })
+    .select('id')
+    .single();
+
+  if (error || !data) return { error: `追加失敗: ${error?.message}` };
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return { success: 'ok', newId: data.id };
+}
+
 export async function deleteIncomingSchedule(
   _prev: ActionResult,
   formData: FormData

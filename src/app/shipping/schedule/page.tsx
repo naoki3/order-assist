@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { Product, OutgoingStock } from '@/lib/db';
-import OutgoingScheduleForm from '@/components/OutgoingScheduleForm';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
 import OutgoingScheduleList from '@/components/OutgoingScheduleList';
 
@@ -22,8 +21,6 @@ export default async function ShippingSchedulePage() {
   const pending = (pendingData ?? []) as OutgoingStock[];
   const products = (productsData ?? []) as Pick<Product, 'id' | 'name'>[];
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <div className="space-y-6">
       <div>
@@ -31,19 +28,10 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} />
+      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} />
 
-      {/* Manual add form */}
-      <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.addSchedule', lang)}</h2>
-        <OutgoingScheduleForm products={products} today={today} />
-      </div>
-
-      {/* CSV import */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
-
-        {/* Format example */}
         <div className="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600 font-mono">
           <p className="font-sans font-semibold text-slate-500 mb-1.5">{t('shipping.csvFormat', lang)}</p>
           <p className="text-slate-400">商品名,数量,出荷予定日,備考</p>
@@ -57,7 +45,6 @@ export default async function ShippingSchedulePage() {
           <p>· {t('shipping.csvHint3', lang)}</p>
           <p>· {t('shipping.csvHint4', lang)}</p>
         </div>
-
         <OutgoingCsvImport />
       </div>
     </div>
