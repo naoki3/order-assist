@@ -2,24 +2,26 @@
 
 import { useActionState } from 'react';
 import { addProduct } from '@/lib/actions';
+import { useT } from './LanguageProvider';
 
 export default function AddProductForm() {
+  const { t } = useT();
   const [state, action] = useActionState(addProduct, null);
 
   return (
     <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
-      <h2 className="text-sm font-semibold text-slate-600 mb-3">Add New Product</h2>
+      <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('products.addTitle')}</h2>
       <form action={action} className="space-y-3">
         <input
           type="text"
           name="name"
           required
-          placeholder="Product name"
+          placeholder={t('products.namePlaceholder')}
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
-            Lead time
+            {t('products.leadTime')}
             <input
               type="number"
               name="lead_time_days"
@@ -29,10 +31,10 @@ export default function AddProductForm() {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Safety stock
+            {t('products.safetyStock')}
             <input
               type="number"
               name="safety_stock_days"
@@ -42,16 +44,16 @@ export default function AddProductForm() {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Unit price
+            {t('products.unitPrice')}
             <input
               type="number"
               name="price"
               min={0}
               step="0.01"
-              placeholder="Optional"
+              placeholder={t('products.optional')}
               className="w-24 border border-slate-300 rounded px-2 py-1 text-center"
             />
           </label>
@@ -63,7 +65,7 @@ export default function AddProductForm() {
           type="submit"
           className="w-full py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium"
         >
-          Add Product
+          {t('products.addButton')}
         </button>
       </form>
     </div>

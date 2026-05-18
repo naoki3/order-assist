@@ -13,16 +13,8 @@ import {
   History,
   LogOut,
 } from 'lucide-react';
-
-const links = [
-  { href: '/',          label: 'Order Review',   icon: ClipboardList,   exact: true },
-  { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard, exact: false },
-  { href: '/sales',     label: 'Sales Entry',     icon: TrendingUp,      exact: true  },
-  { href: '/sales/report', label: 'Sales Report', icon: BarChart2,       exact: false },
-  { href: '/products',  label: 'Products',        icon: Package,         exact: false },
-  { href: '/incoming',  label: 'Incoming Stock',  icon: Truck,           exact: false },
-  { href: '/history',   label: 'Order History',   icon: History,         exact: false },
-];
+import { useT } from './LanguageProvider';
+import LanguageToggle from './LanguageToggle';
 
 function isActive(href: string, pathname: string, exact: boolean) {
   return exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
@@ -30,6 +22,17 @@ function isActive(href: string, pathname: string, exact: boolean) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useT();
+
+  const links = [
+    { href: '/',              label: t('nav.orderReview'),   icon: ClipboardList,   exact: true },
+    { href: '/dashboard',     label: t('nav.dashboard'),     icon: LayoutDashboard, exact: false },
+    { href: '/sales',         label: t('nav.salesEntry'),    icon: TrendingUp,      exact: true },
+    { href: '/sales/report',  label: t('nav.salesReport'),   icon: BarChart2,       exact: false },
+    { href: '/products',      label: t('nav.products'),      icon: Package,         exact: false },
+    { href: '/incoming',      label: t('nav.incomingStock'), icon: Truck,           exact: false },
+    { href: '/history',       label: t('nav.orderHistory'),  icon: History,         exact: false },
+  ];
 
   return (
     <>
@@ -69,15 +72,16 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="p-2 border-t border-slate-100">
+        {/* Language + Logout */}
+        <div className="p-2 border-t border-slate-100 space-y-0.5">
+          <LanguageToggle />
           <form action={logout}>
             <button
               type="submit"
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 w-full transition-colors"
             >
               <LogOut size={16} className="shrink-0" />
-              Logout
+              {t('nav.logout')}
             </button>
           </form>
         </div>
@@ -92,14 +96,17 @@ export default function Sidebar() {
             </div>
             <span className="font-bold text-sm text-slate-800">Order Assist</span>
           </div>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 hover:bg-slate-100 rounded-md transition-colors"
-            >
-              Logout
-            </button>
-          </form>
+          <div className="flex items-center gap-1">
+            <LanguageToggle />
+            <form action={logout}>
+              <button
+                type="submit"
+                className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 hover:bg-slate-100 rounded-md transition-colors"
+              >
+                {t('nav.logout')}
+              </button>
+            </form>
+          </div>
         </div>
         <nav className="flex gap-0.5 text-sm overflow-x-auto px-3 pb-2 scrollbar-none">
           {links.map(({ href, label, exact }) => {

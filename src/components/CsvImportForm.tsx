@@ -2,8 +2,10 @@
 
 import { useActionState, useRef } from 'react';
 import { importSalesCsv, type CsvImportResult } from '@/lib/actions';
+import { useT } from './LanguageProvider';
 
 export default function CsvImportForm() {
+  const { t, tf } = useT();
   const [result, action, pending] = useActionState<CsvImportResult | null, FormData>(
     importSalesCsv,
     null
@@ -12,9 +14,9 @@ export default function CsvImportForm() {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <h2 className="text-sm font-semibold text-slate-700 mb-1">Import Sales CSV</h2>
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">{t('import.csvTitle')}</h2>
       <p className="text-xs text-slate-400 mb-3">
-        Format: <code className="bg-slate-100 px-1 rounded">date,product_name,quantity</code> (header row optional)
+        {t('import.formatLabel')}<code className="bg-slate-100 px-1 rounded">date,product_name,quantity</code>{t('import.formatSuffix')}
       </p>
 
       <form action={action} className="space-y-3">
@@ -31,7 +33,7 @@ export default function CsvImportForm() {
           disabled={pending}
           className="px-4 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors disabled:opacity-50"
         >
-          {pending ? 'Importing...' : 'Import'}
+          {pending ? t('import.importing') : t('import.import')}
         </button>
       </form>
 
@@ -41,12 +43,12 @@ export default function CsvImportForm() {
             <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{result.error}</p>
           ) : (
             <p className="text-green-700 text-sm bg-green-50 rounded-lg px-3 py-2">
-              Imported {result.imported} row{result.imported !== 1 ? 's' : ''}
+              {tf<string>('import.imported', result.imported)}
             </p>
           )}
           {result.skipped.length > 0 && (
             <details className="text-xs text-slate-400">
-              <summary className="cursor-pointer">{result.skipped.length} row{result.skipped.length !== 1 ? 's' : ''} skipped</summary>
+              <summary className="cursor-pointer">{tf<string>('import.skipped', result.skipped.length)}</summary>
               <ul className="mt-1 space-y-0.5 pl-2">
                 {result.skipped.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
