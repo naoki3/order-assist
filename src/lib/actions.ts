@@ -676,6 +676,7 @@ export async function updateLotProperties(
   return { success: 'ok' };
 }
 
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface OutgoingCsvImportResult {
