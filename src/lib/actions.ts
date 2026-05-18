@@ -98,9 +98,12 @@ export async function receiveIncoming(
     expiryDate = expiry.toISOString().split('T')[0];
   }
 
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const lotNumber = incoming.lot_number ?? `${today}-${id}`;
+
   const { error: updateError } = await supabase
     .from('incoming_stock')
-    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate })
+    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate, lot_number: lotNumber })
     .eq('id', id);
 
   if (updateError) return { error: `Failed to mark as received: ${updateError.message}` };
@@ -118,9 +121,6 @@ export async function receiveIncoming(
   });
 
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
-
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const lotNumber = incoming.lot_number ?? `${today}-${id}`;
   await supabase.from('lots').insert({
     lot_number: lotNumber,
     product_id: incoming.product_id,
