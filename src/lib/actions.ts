@@ -385,6 +385,9 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   }
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: product } = await supabase
     .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: '商品が見つかりません' };
@@ -414,6 +417,9 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   }
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: product } = await supabase
     .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: '商品が見つかりません' };

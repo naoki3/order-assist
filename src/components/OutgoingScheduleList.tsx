@@ -24,7 +24,7 @@ function Item({ item, isNew }: { item: OutgoingStock; isNew: boolean }) {
         {isNew && (
           <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
         )}
-        {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+        {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
       </div>
       {confirming ? (
         <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -56,7 +56,7 @@ function AddProductForm({
   onAdded,
   onCancel,
 }: {
-  date?: string;
+  date: string;
   products: ProductOption[];
   onAdded: (id: number) => void;
   onCancel: () => void;
@@ -77,27 +77,23 @@ function AddProductForm({
       } else {
         onAdded(result.newId);
         formRef.current?.reset();
-        if (date) onCancel();
+        onCancel();
       }
     });
   }
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="mt-2 pt-2 border-t border-slate-100 space-y-2">
-      {date
-        ? <input type="hidden" name="scheduled_date" value={date} />
-        : <input type="date" name="scheduled_date" required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-      }
-      <div className="flex items-center gap-2">
+      <input type="hidden" name="scheduled_date" value={date} />
+      <div className="flex gap-2">
         <select name="product_id" required
-          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('shipping.selectProduct')}</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <input type="number" name="quantity" min={1} required
           placeholder={t('shipping.quantityPlaceholder')}
-          className="w-20 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          className="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
       </div>
       <input type="text" name="note"
         placeholder={t('shipping.notePlaceholder')}
@@ -123,16 +119,18 @@ function DateGroup({
   newIds,
   products,
   onAdded,
+  defaultOpen = true,
 }: {
   date: string;
   items: OutgoingStock[];
   newIds: Set<number>;
   products: ProductOption[];
   onAdded: (id: number) => void;
+  defaultOpen?: boolean;
 }) {
   const { t, tf } = useT();
-  const [isOpen, setIsOpen] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [showAddForm, setShowAddForm] = useState(items.length === 0);
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
 
   return (
@@ -145,18 +143,27 @@ function DateGroup({
           <span className="font-semibold text-slate-800">{date}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
-          <span>{tf<string>('common.itemCount', items.length)}</span>
-          <span>·</span>
-          <span>{tf<string>('common.totalUnits', totalQty)}</span>
+          {items.length > 0 && <>
+            <span>{tf<string>('common.itemCount', items.length)}</span>
+            <span>·</span>
+            <span>{tf<string>('common.totalUnits', totalQty)}</span>
+          </>}
         </div>
       </button>
       {isOpen && (
         <div className="px-4 pb-3">
-          <div className="divide-y divide-slate-100">
-            {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} />)}
-          </div>
+          {items.length > 0 && (
+            <div className="divide-y divide-slate-100">
+              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} />)}
+            </div>
+          )}
           {showAddForm ? (
-            <AddProductForm date={date} products={products} onAdded={onAdded} onCancel={() => setShowAddForm(false)} />
+            <AddProductForm
+              date={date}
+              products={products}
+              onAdded={onAdded}
+              onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
+            />
           ) : (
             <button type="button" onClick={() => setShowAddForm(true)}
               className="mt-2 flex items-center gap-1 text-xs text-green-700 hover:text-green-800 font-medium py-1">
@@ -188,33 +195,68 @@ interface Props {
 export default function OutgoingScheduleList({ items, emptyText, products }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
-  const [showNewDateForm, setShowNewDateForm] = useState(false);
+  const [pendingDate, setPendingDate] = useState<string | null>(null);
+  const [showDateInput, setShowDateInput] = useState(false);
+  const [dateInputValue, setDateInputValue] = useState('');
 
   const groups = groupByDate(items);
+  const pendingDateInGroups = pendingDate ? groups.some(g => g.date === pendingDate) : false;
 
   function handleAdded(id: number) {
     setNewIds((prev) => new Set([...prev, id]));
   }
 
+  function handleDateSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!dateInputValue) return;
+    setPendingDate(dateInputValue);
+    setShowDateInput(false);
+    setDateInputValue('');
+  }
+
   return (
     <div className="space-y-3">
-      {showNewDateForm ? (
-        <div className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
+      {showDateInput ? (
+        <form onSubmit={handleDateSubmit} className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
           <p className="text-sm font-semibold text-slate-700 mb-3">{t('shipping.newDateTitle')}</p>
-          <AddProductForm
-            products={products}
-            onAdded={(id) => { handleAdded(id); setShowNewDateForm(false); }}
-            onCancel={() => setShowNewDateForm(false)}
-          />
-        </div>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={dateInputValue}
+              onChange={(e) => setDateInputValue(e.target.value)}
+              required
+              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+            <button type="submit" disabled={!dateInputValue}
+              className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50 shrink-0">
+              {t('shipping.addButton')}
+            </button>
+            <button type="button" onClick={() => setShowDateInput(false)}
+              className="px-3 py-2 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors shrink-0">
+              {t('common.cancel')}
+            </button>
+          </div>
+        </form>
       ) : (
-        <button type="button" onClick={() => setShowNewDateForm(true)}
+        <button type="button" onClick={() => setShowDateInput(true)}
           className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-green-400 hover:text-green-700 transition-colors">
           <Plus size={15} /> {t('shipping.addDate')}
         </button>
       )}
 
-      {groups.length === 0
+      {pendingDate && !pendingDateInGroups && (
+        <DateGroup
+          key={`pending-${pendingDate}`}
+          date={pendingDate}
+          items={[]}
+          newIds={newIds}
+          products={products}
+          onAdded={(id) => { handleAdded(id); setPendingDate(null); }}
+          defaultOpen={true}
+        />
+      )}
+
+      {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
           <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} onAdded={handleAdded} />
