@@ -451,6 +451,17 @@ export async function confirmShipment(
     return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
   }
 
+  const { data: inv } = await supabase
+    .from('inventory')
+    .select('current_stock')
+    .eq('product_id', outgoing.product_id)
+    .single();
+
+  const currentStock = inv?.current_stock ?? 0;
+  if (currentStock < outgoing.quantity) {
+    return { error: `在庫不足: 現在庫 ${currentStock} 個、出荷予定 ${outgoing.quantity} 個` };
+  }
+
   const { error: updateError } = await supabase
     .from('outgoing_stock')
     .update({ shipped_at: new Date().toISOString() })
@@ -458,16 +469,9 @@ export async function confirmShipment(
 
   if (updateError) return { error: `Failed to confirm shipment: ${updateError.message}` };
 
-  const { data: inv } = await supabase
-    .from('inventory')
-    .select('current_stock')
-    .eq('product_id', outgoing.product_id)
-    .single();
-
-  const newStock = Math.max(0, (inv?.current_stock ?? 0) - outgoing.quantity);
   const { error: upsertError } = await supabase.from('inventory').upsert({
     product_id: outgoing.product_id,
-    current_stock: newStock,
+    current_stock: currentStock - outgoing.quantity,
     updated_at: new Date().toISOString().split('T')[0],
   });
 

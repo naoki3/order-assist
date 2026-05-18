@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { OutgoingStock } from '@/lib/db';
-import ShipConfirmForm from '@/components/ShipConfirmForm';
+import OutgoingConfirmList from '@/components/OutgoingConfirmList';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,24 +31,9 @@ export default async function ShippingConfirmPage() {
       <p className="text-sm text-slate-500 mb-4">{t('shipping.confirmSubtitle', lang)}</p>
 
       <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('shipping.pending', lang)}</h2>
-      {pending.length === 0 ? (
-        <p className="text-slate-400 text-sm mb-6">{t('shipping.noPending', lang)}</p>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {pending.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-800">{item.product_name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {item.quantity} {t('shipping.units', lang)} · {t('shipping.scheduledDate', lang)} {item.scheduled_date}
-                  {item.note && <span className="text-slate-400"> · {item.note}</span>}
-                </p>
-              </div>
-              <ShipConfirmForm id={item.id} />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mb-6">
+        <OutgoingConfirmList items={pending} emptyText={t('shipping.noPending', lang)} />
+      </div>
 
       {shipped.length > 0 && (
         <>

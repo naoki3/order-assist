@@ -213,6 +213,12 @@ export const translations = {
     'history.noHistory': '発注履歴がありません',
     'history.units': '個',
 
+    // Common
+    'common.confirmQuestion': '削除しますか？',
+    'common.cancel': 'キャンセル',
+    'common.itemCount': (n: number) => `${n}件`,
+    'common.totalUnits': (n: number) => `合計 ${n} 個`,
+
     // Login
     'login.subtitle': 'Inventory & Order Management',
     'login.email': 'Email',
@@ -436,6 +442,12 @@ export const translations = {
     'history.title': 'Order History',
     'history.noHistory': 'No order history',
     'history.units': 'units',
+
+    // Common
+    'common.confirmQuestion': 'Delete this item?',
+    'common.cancel': 'Cancel',
+    'common.itemCount': (n: number) => `${n} item${n !== 1 ? 's' : ''}`,
+    'common.totalUnits': (n: number) => `Total: ${n}`,
 
     // Login
     'login.subtitle': 'Inventory & Order Management',
