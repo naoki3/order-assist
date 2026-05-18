@@ -23,3 +23,20 @@ export async function logout() {
   await supabase.auth.signOut();
   redirect('/login');
 }
+
+export async function signup(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const email = String(formData.get('email') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+
+  if (!email || !password) return { error: 'Email and password are required' };
+  if (password !== confirm) return { error: 'Passwords do not match' };
+  if (password.length < 8) return { error: 'Password must be at least 8 characters' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({ email, password });
+
+  if (error) return { error: error.message };
+
+  redirect('/');
+}
