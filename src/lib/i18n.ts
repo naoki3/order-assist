@@ -222,6 +222,16 @@ export const translations = {
     'incoming.quantityPlaceholder': '数量',
     'incoming.todayTitle': '本日の入荷予定',
     'incoming.noToday': '本日の入荷予定はありません',
+    'incoming.importCsv': 'CSVインポート',
+    'incoming.csvFormat': 'CSVフォーマット',
+    'incoming.csvHint1': 'ヘッダー行は任意（商品名,数量,入荷予定日）',
+    'incoming.csvHint2': '日付形式：YYYY-MM-DD',
+    'incoming.csvHint3': '商品名は完全一致（大文字小文字不問）',
+    'incoming.csvHint4': '不明な商品・不正な行はスキップして報告',
+    'incoming.importing': 'インポート中...',
+    'incoming.import': 'インポート',
+    'incoming.imported': (n: number) => `${n}件インポートしました`,
+    'incoming.skipped': (n: number) => `${n}件スキップ（クリックで詳細）`,
 
     // History
     'history.title': '発注履歴',
@@ -473,6 +483,16 @@ export const translations = {
     'incoming.quantityPlaceholder': 'Qty',
     'incoming.todayTitle': "Today's Incoming",
     'incoming.noToday': 'No deliveries scheduled for today',
+    'incoming.importCsv': 'Import CSV',
+    'incoming.csvFormat': 'CSV Format',
+    'incoming.csvHint1': 'Header row optional (product_name,quantity,expected_date)',
+    'incoming.csvHint2': 'Date format: YYYY-MM-DD',
+    'incoming.csvHint3': 'Product name must match exactly (case-insensitive)',
+    'incoming.csvHint4': 'Unknown products and invalid rows are skipped and reported',
+    'incoming.importing': 'Importing...',
+    'incoming.import': 'Import',
+    'incoming.imported': (n: number) => `Imported ${n} row${n !== 1 ? 's' : ''}`,
+    'incoming.skipped': (n: number) => `${n} row${n !== 1 ? 's' : ''} skipped (click for details)`,
 
     // History
     'history.title': 'Order History',
