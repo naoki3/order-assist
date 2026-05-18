@@ -22,6 +22,12 @@ export default async function InventoryPage() {
 
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
 
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const d3 = new Date(now);
+  d3.setDate(d3.getDate() + 3);
+  const threeDaysLater = d3.toISOString().split('T')[0];
+
   const lastReceivedMap: Record<number, string> = {};
   const nearestExpiryMap: Record<number, string> = {};
   for (const item of incoming) {
@@ -48,8 +54,7 @@ export default async function InventoryPage() {
             const stock = stockMap[p.id] ?? 0;
             const lastReceived = lastReceivedMap[p.id];
             const nearestExpiry = nearestExpiryMap[p.id];
-            const today = new Date().toISOString().split('T')[0];
-            const isExpiringSoon = nearestExpiry && nearestExpiry <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
+            const isExpiringSoon = nearestExpiry && nearestExpiry <= threeDaysLater;
             const isExpired = nearestExpiry && nearestExpiry < today;
             return (
               <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
