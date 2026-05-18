@@ -2,11 +2,30 @@
 
 import { useActionState, useState } from 'react';
 import { signup } from '@/app/actions/auth';
+import type { SignupResult } from '@/lib/actions';
 
 export default function SignupPage() {
-  const [state, action, pending] = useActionState(signup, null);
+  const [state, action, pending] = useActionState<SignupResult, FormData>(signup, null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  if (state && 'needsConfirmation' in state) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%)' }}>
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-700 rounded-2xl mb-4 shadow-lg">
+            <span className="text-white text-2xl font-bold">OA</span>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 mt-4">
+            <div className="text-4xl mb-3">📧</div>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">確認メールを送りました</h2>
+            <p className="text-sm text-slate-500">メール内のリンクをクリックして登録を完了してください。その後ログインできます。</p>
+            <a href="/login" className="block mt-4 text-sm text-green-700 font-medium hover:underline">ログインページへ</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%)' }}>
@@ -76,7 +95,7 @@ export default function SignupPage() {
                 </button>
               </div>
             </div>
-            {state?.error && (
+            {state && 'error' in state && state.error && (
               <p className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">{state.error}</p>
             )}
             <button
