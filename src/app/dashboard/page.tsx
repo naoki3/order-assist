@@ -22,15 +22,20 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default async function DashboardPage() {
-  const [supabase, lang, recommendations] = await Promise.all([
-    createClient(),
-    getLang(),
-    getRecommendations(),
-  ]);
-  const dict = translations[lang];
+async function getSalesTrend(): Promise<{ date: string; quantity: number }[]> {
+  const today = new Date();
+  const dates: string[] = [];
+  for (let i = 7; i >= 1; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  const supabase = await createClient();
+  const { data } = await supabase.from('sales').select('date, quantity').in('date', dates);
+  return data ?? [];
+}
 
-  // Sales trend: last 7 days aggregated by date
+export default async function DashboardPage() {
   const today = new Date();
   const dates: string[] = [];
   for (let i = 7; i >= 1; i--) {
@@ -39,10 +44,12 @@ export default async function DashboardPage() {
     dates.push(d.toISOString().split('T')[0]);
   }
 
-  const { data: salesData } = await supabase
-    .from('sales')
-    .select('date, quantity')
-    .in('date', dates);
+  const [lang, recommendations, salesData] = await Promise.all([
+    getLang(),
+    getRecommendations(),
+    getSalesTrend(),
+  ]);
+  const dict = translations[lang];
 
   const totalByDate: Record<string, number> = {};
   for (const d of dates) totalByDate[d] = 0;
