@@ -24,21 +24,27 @@ export async function getRecommendations(today: Date = new Date(), lang: Lang = 
   if (!products || products.length === 0) return [];
 
   const dates = buildDateRange(today);
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
 
-  const [{ data: allSales }, { data: allInventory }] = await Promise.all([
+  const [{ data: allOutgoing }, { data: allInventory }] = await Promise.all([
     supabase
-      .from('sales')
-      .select('product_id, date, quantity')
-      .in('date', dates),
+      .from('outgoing_stock')
+      .select('product_id, quantity, shipped_at')
+      .not('shipped_at', 'is', null)
+      .gte('shipped_at', minDate + 'T00:00:00')
+      .lte('shipped_at', maxDate + 'T23:59:59'),
     supabase
       .from('inventory')
       .select('product_id, current_stock'),
   ]);
 
   const salesByProduct: Record<number, Record<string, number>> = {};
-  for (const s of allSales ?? []) {
+  for (const s of allOutgoing ?? []) {
+    if (!s.shipped_at) continue;
+    const dateStr = (s.shipped_at as string).slice(0, 10);
     if (!salesByProduct[s.product_id]) salesByProduct[s.product_id] = {};
-    salesByProduct[s.product_id][s.date] = s.quantity;
+    salesByProduct[s.product_id][dateStr] = (salesByProduct[s.product_id][dateStr] ?? 0) + s.quantity;
   }
 
   const stockByProduct: Record<number, number> = {};
