@@ -89,8 +89,8 @@ export default async function DashboardPage() {
     .slice(0, 5)
     .map((r) => ({ name: r.product.name, avgDemand: r.avgDemand7d }));
 
-  const hasAnyPrice = recommendations.some((r) => r.product.price != null);
-  const totalOrderValue = hasAnyPrice
+  const hasAnyOrderedPrice = recommendations.some((r) => r.orderQty > 0 && r.product.price != null);
+  const totalOrderValue = hasAnyOrderedPrice
     ? recommendations.reduce(
         (sum, r) => sum + (r.product.price != null ? r.orderQty * r.product.price : 0),
         0
