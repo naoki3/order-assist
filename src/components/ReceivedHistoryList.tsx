@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
 import LotTag from './LotTag';
@@ -56,26 +56,17 @@ export default function ReceivedHistoryList({ items, emptyText }: { items: Incom
   const [today] = useState(() => new Date().toISOString().split('T')[0]);
 
   const groups = groupByExpectedDate(items);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-    const recent = new Set(groups.slice(0, 2).map((g) => g.date));
-    return Object.fromEntries(groups.map((g) => [g.date, recent.has(g.date)]));
+  const [threshold] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - 10 * 60 * 1000).toISOString();
   });
-
-  useEffect(() => {
-    const threshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const recentDates = new Set(
-      items
-        .filter((i) => i.received_at && i.received_at > threshold)
-        .map((i) => i.expected_date ?? i.received_at!.slice(0, 10))
-    );
-    if (recentDates.size > 0) {
-      setExpanded((prev) => {
-        const updates: Record<string, boolean> = {};
-        for (const d of recentDates) updates[d] = true;
-        return { ...prev, ...updates };
-      });
-    }
-  }, [items]);
+  const defaultOpen = new Set(groups.slice(0, 2).map((g) => g.date));
+  const recentlyConfirmed = new Set(
+    items
+      .filter((i) => i.received_at && i.received_at > threshold)
+      .map((i) => i.expected_date ?? i.received_at!.slice(0, 10))
+  );
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
 
@@ -83,7 +74,7 @@ export default function ReceivedHistoryList({ items, emptyText }: { items: Incom
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => {
         const totalQty = dateItems.reduce((s, i) => s + i.quantity, 0);
-        const isOpen = expanded[date] ?? true;
+        const isOpen = date in expanded ? expanded[date] : (recentlyConfirmed.has(date) || defaultOpen.has(date));
         return (
           <div key={date} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <button
