@@ -9,6 +9,9 @@ export interface Product {
   pieces_per_ball: number | null;
   balls_per_case: number | null;
   cases_per_pallet: number | null;
+  incoming_fee_per_piece: number | null;
+  storage_fee_per_piece: number | null;
+  outgoing_fee_per_piece: number | null;
 }
 
 export interface Sale {

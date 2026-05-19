@@ -280,6 +280,12 @@ export async function addProduct(
   const balls_per_case = ballsPerCaseRaw && String(ballsPerCaseRaw).trim() !== '' ? Number(ballsPerCaseRaw) : null;
   const casesPerPalletRaw = formData.get('cases_per_pallet');
   const cases_per_pallet = casesPerPalletRaw && String(casesPerPalletRaw).trim() !== '' ? Number(casesPerPalletRaw) : null;
+  const incomingFeeRaw = formData.get('incoming_fee_per_piece');
+  const incoming_fee_per_piece = incomingFeeRaw && String(incomingFeeRaw).trim() !== '' ? Number(incomingFeeRaw) : null;
+  const storageFeeRaw = formData.get('storage_fee_per_piece');
+  const storage_fee_per_piece = storageFeeRaw && String(storageFeeRaw).trim() !== '' ? Number(storageFeeRaw) : null;
+  const outgoingFeeRaw = formData.get('outgoing_fee_per_piece');
+  const outgoing_fee_per_piece = outgoingFeeRaw && String(outgoingFeeRaw).trim() !== '' ? Number(outgoingFeeRaw) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -290,7 +296,7 @@ export async function addProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: user.id })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, user_id: user.id })
     .select('id')
     .single();
 
@@ -333,6 +339,12 @@ export async function updateProduct(
   const balls_per_case = ballsPerCaseRaw && String(ballsPerCaseRaw).trim() !== '' ? Number(ballsPerCaseRaw) : null;
   const casesPerPalletRaw = formData.get('cases_per_pallet');
   const cases_per_pallet = casesPerPalletRaw && String(casesPerPalletRaw).trim() !== '' ? Number(casesPerPalletRaw) : null;
+  const incomingFeeRaw2 = formData.get('incoming_fee_per_piece');
+  const incoming_fee_per_piece = incomingFeeRaw2 && String(incomingFeeRaw2).trim() !== '' ? Number(incomingFeeRaw2) : null;
+  const storageFeeRaw2 = formData.get('storage_fee_per_piece');
+  const storage_fee_per_piece = storageFeeRaw2 && String(storageFeeRaw2).trim() !== '' ? Number(storageFeeRaw2) : null;
+  const outgoingFeeRaw2 = formData.get('outgoing_fee_per_piece');
+  const outgoing_fee_per_piece = outgoingFeeRaw2 && String(outgoingFeeRaw2).trim() !== '' ? Number(outgoingFeeRaw2) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -340,7 +352,7 @@ export async function updateProduct(
   const supabase = await createClient();
   const { error } = await supabase
     .from('products')
-    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet })
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece })
     .eq('id', id);
 
   if (error) return { error: `Failed to update product: ${error.message}` };

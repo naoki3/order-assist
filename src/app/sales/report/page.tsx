@@ -6,6 +6,9 @@ import type { Product } from '@/lib/db';
 import SalesReportCharts from '@/components/SalesReportCharts';
 import TargetForm from '@/components/TargetForm';
 
+interface IncomingRow { product_id: number; quantity: number; received_at: string }
+interface OutgoingRow { product_id: number; quantity: number; shipped_at: string }
+
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
@@ -48,14 +51,28 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   const { from, to, label } = buildDateRange(period, month, periodLabel);
 
   const supabase = await createClient();
-  const [{ data: productsData }, { data: salesData }, { data: targetData }] = await Promise.all([
+  const fromTs = from + 'T00:00:00.000Z';
+  const toTs = to + 'T23:59:59.999Z';
+  const [{ data: productsData }, { data: salesData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('sales').select('date, product_id, quantity').gte('date', from).lte('date', to).order('date'),
     supabase.from('sales_targets').select('target_amount').eq('month', to.slice(0, 7)).maybeSingle(),
+    supabase.from('incoming_stock').select('product_id, quantity, received_at').not('received_at', 'is', null).gte('received_at', fromTs).lte('received_at', toTs),
+    supabase.from('outgoing_stock').select('product_id, quantity, shipped_at').not('shipped_at', 'is', null).gte('shipped_at', fromTs).lte('shipped_at', toTs),
+    supabase.from('lots').select('product_id, quantity'),
   ]);
 
   const products = (productsData ?? []) as Product[];
   const sales = salesData ?? [];
+  const incomings = (incomingData ?? []) as IncomingRow[];
+  const outgoings = (outgoingData ?? []) as OutgoingRow[];
+  const lots = (lotsData ?? []) as { product_id: number; quantity: number }[];
+  const feeMap = Object.fromEntries(products.map((p) => [p.id, {
+    inc: p.incoming_fee_per_piece,
+    sto: p.storage_fee_per_piece,
+    out: p.outgoing_fee_per_piece,
+  }]));
+  const hasFeeConfig = products.some((p) => p.incoming_fee_per_piece != null || p.storage_fee_per_piece != null || p.outgoing_fee_per_piece != null);
   const priceMap = Object.fromEntries(products.map((p) => [p.id, p.price]));
   const nameMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
   const hasRevenue = products.some((p) => p.price != null);
@@ -86,6 +103,23 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
     const price = priceMap[s.product_id];
     salesByDate[s.date].revenue += price != null ? s.quantity * price : 0;
   }
+
+  // Logistics cost per day
+  const storageFeePerDay = lots.reduce((sum, l) => sum + l.quantity * (feeMap[l.product_id]?.sto ?? 0), 0);
+  const logisticsByDate: Record<string, { incoming: number; storage: number; outgoing: number }> = {};
+  for (const d of allDates) logisticsByDate[d] = { incoming: 0, storage: storageFeePerDay, outgoing: 0 };
+  for (const row of incomings) {
+    const d = row.received_at.slice(0, 10);
+    if (logisticsByDate[d]) logisticsByDate[d].incoming += row.quantity * (feeMap[row.product_id]?.inc ?? 0);
+  }
+  for (const row of outgoings) {
+    const d = row.shipped_at.slice(0, 10);
+    if (logisticsByDate[d]) logisticsByDate[d].outgoing += row.quantity * (feeMap[row.product_id]?.out ?? 0);
+  }
+  const totalIncomingFee = Object.values(logisticsByDate).reduce((s, v) => s + v.incoming, 0);
+  const totalStorageFee = Object.values(logisticsByDate).reduce((s, v) => s + v.storage, 0);
+  const totalOutgoingFee = Object.values(logisticsByDate).reduce((s, v) => s + v.outgoing, 0);
+  const totalLogisticsCost = totalIncomingFee + totalStorageFee + totalOutgoingFee;
 
   const trend = allDates.map((d) => ({
     date: formatDate(d),
@@ -194,6 +228,49 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {hasFeeConfig && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-600">{t('report.logisticsCost', lang)}</h2>
+            <div className="flex gap-4 text-xs text-slate-500">
+              <span>{t('report.incomingFeeTotal', lang)}: <strong className="text-slate-700">{Math.round(totalIncomingFee).toLocaleString()}</strong></span>
+              <span>{t('report.storageFeeTotal', lang)}: <strong className="text-slate-700">{Math.round(totalStorageFee).toLocaleString()}</strong></span>
+              <span>{t('report.outgoingFeeTotal', lang)}: <strong className="text-slate-700">{Math.round(totalOutgoingFee).toLocaleString()}</strong></span>
+              <span className="font-semibold text-slate-800">{t('report.totalLogisticsCost', lang)}: <strong className="text-green-700">{Math.round(totalLogisticsCost).toLocaleString()}</strong></span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-slate-500 font-medium">日付</th>
+                  <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.incomingFeeTotal', lang)}</th>
+                  <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.storageFeeTotal', lang)}</th>
+                  <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.outgoingFeeTotal', lang)}</th>
+                  <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.totalLogisticsCost', lang)}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...allDates].reverse().map((d) => {
+                  const row = logisticsByDate[d];
+                  const total = row.incoming + row.storage + row.outgoing;
+                  return (
+                    <tr key={d} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 text-slate-700">{formatDate(d)}</td>
+                      <td className="px-4 py-2 text-right text-slate-600">{row.incoming > 0 ? Math.round(row.incoming).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-2 text-right text-slate-600">{row.storage > 0 ? Math.round(row.storage).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-2 text-right text-slate-600">{row.outgoing > 0 ? Math.round(row.outgoing).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-700">{total > 0 ? Math.round(total).toLocaleString() : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-4 py-2 text-xs text-slate-400 border-t border-slate-100">{t('report.storageNote', lang)}</p>
         </div>
       )}
 

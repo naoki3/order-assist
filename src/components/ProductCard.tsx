@@ -6,6 +6,7 @@ import type { Product } from '@/lib/db';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
+import FeeRateInput from './FeeRateInput';
 
 interface Props {
   product: Product;
@@ -115,6 +116,14 @@ export default function ProductCard({ product, currentStock }: Props) {
           {expiryLocked && (
             <span className="text-xs text-slate-400 self-center">（在庫がある間は変更不可）</span>
           )}
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <FeeRateInput name="incoming_fee_per_piece" unitConfig={product} defaultPerPiece={product.incoming_fee_per_piece} label={t('products.incomingFee')} />
+            <FeeRateInput name="storage_fee_per_piece" unitConfig={product} defaultPerPiece={product.storage_fee_per_piece} label={t('products.storageFee')} />
+            <FeeRateInput name="outgoing_fee_per_piece" unitConfig={product} defaultPerPiece={product.outgoing_fee_per_piece} label={t('products.outgoingFee')} />
+          </div>
         </div>
         <div className="border-t border-slate-100 pt-3 mt-1">
           <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
