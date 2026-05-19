@@ -24,7 +24,7 @@ export interface Inventory {
 export interface OrderHistoryItem {
   id: number;
   created_at: string;
-  items: string; // JSON
+  items: unknown; // JSON string or parsed array (depends on DB column type)
 }
 
 export interface OutgoingStock {
