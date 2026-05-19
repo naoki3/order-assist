@@ -48,7 +48,7 @@ export default async function HistoryPage() {
               <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-400 mb-2">{formatDate(order.created_at)}</p>
                 <div className="space-y-1">
-                  {items.map((item, i) => (
+                  {items.length > 0 ? items.map((item, i) => (
                     <div key={item.productId ?? i} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.productName}</span>
                       <div className="text-right">
@@ -58,7 +58,9 @@ export default async function HistoryPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-xs text-slate-400">（明細データなし）</p>
+                  )}
                 </div>
               </div>
             );
