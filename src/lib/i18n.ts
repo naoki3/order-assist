@@ -144,6 +144,10 @@ export const translations = {
     'products.import': 'インポート',
     'products.imported': (n: number) => `${n}件インポートしました`,
     'products.skipped': (n: number) => `${n}件スキップ`,
+    'products.feeConfig': '費用設定',
+    'products.incomingFee': '入荷料',
+    'products.storageFee': '保管料（1日）',
+    'products.outgoingFee': '出荷料',
 
     // Sales
     'sales.title': '売上入力',
@@ -222,6 +226,13 @@ export const translations = {
     'report.setTarget': (month: string) => `目標設定 — ${month}`,
     'report.noData': 'この期間の売上データがありません',
     'report.goToSales': '売上入力へ →',
+    'report.logisticsCost': '物流コスト',
+    'report.incomingFeeTotal': '入荷料計',
+    'report.storageFeeTotal': '保管料計',
+    'report.outgoingFeeTotal': '出荷料計',
+    'report.totalLogisticsCost': '物流コスト合計',
+    'report.noFeeConfig': '費用設定なし',
+    'report.storageNote': '※ 保管料は現在の在庫数量で算出',
 
     // Charts
     'chart.salesTrend': '7日間 売上推移（合計）',
@@ -534,6 +545,10 @@ export const translations = {
     'products.import': 'Import',
     'products.imported': (n: number) => `Imported ${n} product${n !== 1 ? 's' : ''}`,
     'products.skipped': (n: number) => `${n} skipped`,
+    'products.feeConfig': 'Cost Settings',
+    'products.incomingFee': 'Receiving fee',
+    'products.storageFee': 'Storage fee (per day)',
+    'products.outgoingFee': 'Outgoing fee',
 
     // Sales
     'sales.title': 'Sales Entry',
@@ -564,6 +579,13 @@ export const translations = {
     'report.setTarget': (month: string) => `Set Target — ${month}`,
     'report.noData': 'No sales data for this period',
     'report.goToSales': 'Go to Sales Entry →',
+    'report.logisticsCost': 'Logistics Cost',
+    'report.incomingFeeTotal': 'Receiving fees',
+    'report.storageFeeTotal': 'Storage fees',
+    'report.outgoingFeeTotal': 'Outgoing fees',
+    'report.totalLogisticsCost': 'Total logistics cost',
+    'report.noFeeConfig': 'No fee config',
+    'report.storageNote': '* Storage fee calculated from current inventory',
 
     // Charts
     'chart.salesTrend': '7-Day Sales Trend (Total)',

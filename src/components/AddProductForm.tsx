@@ -93,6 +93,23 @@ export default function AddProductForm() {
           </label>
         </div>
         <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">（任意・円/ピース）</span></p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.incomingFee')}
+              <input type="number" name="incoming_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.storageFee')}
+              <input type="number" name="storage_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.outgoingFee')}
+              <input type="number" name="outgoing_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
           <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="flex items-center gap-1 text-slate-600">
