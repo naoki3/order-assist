@@ -79,8 +79,11 @@ function Item({ item, isNew }: { item: IncomingStock; isNew: boolean }) {
           <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
-          <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
-            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <label className="flex-1 min-w-32 flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
+            <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
+              className="w-full border border-slate-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </label>
           {editError && <p className="text-red-600 text-xs w-full">{editError}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={isPending}
@@ -147,9 +150,11 @@ function AddProductForm({
         <input type="text" name="lot_number"
           placeholder={t('incoming.lotNumberPlaceholder')}
           className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-        <input type="date" name="expiry_date"
-          placeholder={t('incoming.expiryDate')}
-          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        <label className="flex-1 flex flex-col gap-0.5">
+          <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
+          <input type="date" name="expiry_date"
+            className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        </label>
       </div>
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex gap-2">

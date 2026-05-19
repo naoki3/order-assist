@@ -50,10 +50,13 @@ function Item({ item }: { item: IncomingStock }) {
           <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
-          <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
-            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <label className="flex-1 min-w-32 flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
+            <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
+              className="w-full border border-slate-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </label>
           <button type="submit"
-            className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium">
+            className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
             {t('incoming.markReceived')}
           </button>
         </form>
