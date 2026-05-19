@@ -1,5 +1,6 @@
 import { getRecommendations } from '@/lib/calculator';
-import { getLang } from '@/lib/lang';
+import { getLang, getTz } from '@/lib/lang';
+import { toLocalDateStr } from '@/lib/tz';
 import { t, translations } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase';
 import type { Recommendation } from '@/lib/calculator';
@@ -23,21 +24,26 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-async function getSalesTrend(): Promise<{ date: string; quantity: number }[]> {
-  const today = new Date();
-  const dates: string[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+function buildLastNDates(tz: string, n: number): string[] {
+  const todayStr = toLocalDateStr(tz);
+  const result: string[] = [];
+  for (let i = n; i >= 1; i--) {
+    const d = new Date(todayStr + 'T00:00:00');
+    d.setDate(d.getDate() - i);
+    result.push(toLocalDateStr(tz, d));
   }
+  return result;
+}
+
+async function getSalesTrend(tz: string): Promise<{ date: string; quantity: number }[]> {
+  const dates = buildLastNDates(tz, 7);
   const supabase = await createClient();
   const { data } = await supabase.from('sales').select('date, quantity').in('date', dates);
   return data ?? [];
 }
 
-async function getTodayIncoming(): Promise<IncomingStock[]> {
-  const today = new Date().toISOString().split('T')[0];
+async function getTodayIncoming(tz: string): Promise<IncomingStock[]> {
+  const today = toLocalDateStr(tz);
   const supabase = await createClient();
   const { data } = await supabase
     .from('incoming_stock')
@@ -49,19 +55,13 @@ async function getTodayIncoming(): Promise<IncomingStock[]> {
 }
 
 export default async function DashboardPage() {
-  const today = new Date();
-  const dates: string[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
-  }
+  const [lang, tz] = await Promise.all([getLang(), getTz()]);
+  const dates = buildLastNDates(tz, 7);
 
-  const lang = await getLang();
   const [recommendations, salesData, todayIncoming] = await Promise.all([
     getRecommendations(new Date(), lang),
-    getSalesTrend(),
-    getTodayIncoming(),
+    getSalesTrend(tz),
+    getTodayIncoming(tz),
   ]);
   const dict = translations[lang];
 

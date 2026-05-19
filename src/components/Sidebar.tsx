@@ -8,17 +8,13 @@ import {
   ClipboardList,
   Package,
   TrendingUp,
-  BarChart2,
   Truck,
-  History,
   LogOut,
-  Layers,
-  Settings2,
+  Settings,
   SendHorizonal,
   Database,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
-import LanguageToggle from './LanguageToggle';
 import type { LucideIcon } from 'lucide-react';
 
 type SubItem = { href: string; label: string; exact: boolean };
@@ -165,9 +161,19 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Language + Logout */}
+        {/* Settings + Logout */}
         <div className="p-2 border-t border-slate-100 space-y-0.5">
-          <LanguageToggle />
+          <Link
+            href="/settings"
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              pathname === '/settings'
+                ? 'bg-green-700 text-white font-medium'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Settings size={16} className="shrink-0" />
+            {t('nav.settings')}
+          </Link>
           <form action={logout}>
             <button
               type="submit"
@@ -190,7 +196,13 @@ export default function Sidebar() {
             <span className="font-bold text-sm text-slate-800">Order Assist</span>
           </div>
           <div className="flex items-center gap-1">
-            <LanguageToggle compact />
+            <Link
+              href="/settings"
+              className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              aria-label={t('nav.settings')}
+            >
+              <Settings size={16} />
+            </Link>
             <form action={logout}>
               <button
                 type="submit"

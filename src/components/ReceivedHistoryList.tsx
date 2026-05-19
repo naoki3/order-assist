@@ -53,7 +53,8 @@ function groupByExpectedDate(items: IncomingStock[]): { date: string; items: Inc
 
 export default function ReceivedHistoryList({ items, emptyText }: { items: IncomingStock[]; emptyText: string }) {
   const { tf } = useT();
-  const [today] = useState(() => new Date().toISOString().split('T')[0]);
+  const { localDate } = useT();
+  const [today] = useState(() => localDate());
 
   const groups = groupByExpectedDate(items);
   const [threshold] = useState(() => {

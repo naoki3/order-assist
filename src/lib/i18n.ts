@@ -21,7 +21,15 @@ export const translations = {
     'nav.salesReport': '売上レポート',
     'nav.salesEntry': '売上入力',
     'nav.products': '商品',
+    'nav.settings': '設定',
     'nav.logout': 'ログアウト',
+
+    // Settings
+    'settings.title': '設定',
+    'settings.timezone': 'タイムゾーン',
+    'settings.timezoneDesc': '日付・時刻の表示に使用されます',
+    'settings.language': '言語',
+    'settings.saved': '保存しました',
 
     // OrderBoard
     'order.placed': '発注完了！',
@@ -328,7 +336,15 @@ export const translations = {
     'nav.salesReport': 'Sales Report',
     'nav.salesEntry': 'Sales Entry',
     'nav.products': 'Products',
+    'nav.settings': 'Settings',
     'nav.logout': 'Logout',
+
+    // Settings
+    'settings.title': 'Settings',
+    'settings.timezone': 'Timezone',
+    'settings.timezoneDesc': 'Used for displaying dates and times',
+    'settings.language': 'Language',
+    'settings.saved': 'Saved',
 
     // OrderBoard
     'order.placed': 'Order placed!',

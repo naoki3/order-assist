@@ -47,7 +47,8 @@ function groupByScheduledDate(items: OutgoingStock[]): { date: string; items: Ou
 
 export default function ShippedHistoryList({ items, emptyText }: { items: OutgoingStock[]; emptyText: string }) {
   const { tf } = useT();
-  const [today] = useState(() => new Date().toISOString().split('T')[0]);
+  const { localDate } = useT();
+  const [today] = useState(() => localDate());
   const groups = groupByScheduledDate(items);
   const [threshold] = useState(() => {
     const now = new Date();
