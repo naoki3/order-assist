@@ -4,10 +4,12 @@ import { useActionState, useEffect, useState } from 'react';
 import { updateLotProperties } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
-import type { Lot } from '@/lib/db';
+import type { Lot, Product } from '@/lib/db';
 import LotTag from './LotTag';
+import { formatQty } from '@/lib/units';
+import type { UnitConfig } from '@/lib/units';
 
-function LotCorrectionRow({ lot, today }: { lot: Lot; today: string }) {
+function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string; unitConfig: UnitConfig }) {
   const { t } = useT();
   const [state, action] = useActionState(updateLotProperties, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
@@ -20,15 +22,16 @@ function LotCorrectionRow({ lot, today }: { lot: Lot; today: string }) {
     }
   }, [state]);
 
+  const qtyStr = unitConfig.pieces_per_ball
+    ? `${formatQty(lot.quantity, unitConfig)} (${lot.quantity}ピース)`
+    : `${lot.quantity} ${t('inventory.units')}`;
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-start justify-between mb-3">
-        <div className="space-y-1">
-          <p className="font-semibold text-slate-800">{lot.product_name}</p>
-          <LotTag lotNumber={lot.lot_number} expiryDate={lot.expiry_date} today={today} expiryLabel={t('inventory.lotExpiry')} />
-        </div>
+    <div className="py-3 border-t border-slate-100">
+      <div className="flex items-start justify-between mb-2">
+        <LotTag lotNumber={lot.lot_number} expiryDate={lot.expiry_date} today={today} expiryLabel={t('inventory.lotExpiry')} />
         <span className="text-sm text-slate-500 shrink-0 ml-3">
-          {t('inventory.currentStockLabel')}: {lot.quantity} {t('inventory.units')}
+          {t('inventory.currentStockLabel')}: {qtyStr}
         </span>
       </div>
       <form key={formKey} action={action} className="space-y-2">
@@ -67,12 +70,39 @@ function LotCorrectionRow({ lot, today }: { lot: Lot; today: string }) {
   );
 }
 
-export default function LotCorrectionForm({ lots }: { lots: Lot[] }) {
-  const { localDate } = useT();
+export default function LotCorrectionForm({ lots, products }: { lots: Lot[]; products: Product[] }) {
+  const { t, localDate } = useT();
   const [today] = useState(() => localDate());
+
+  const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+  const grouped: Map<number, { product: Product; lots: Lot[] }> = new Map();
+  for (const lot of lots) {
+    const p = productMap[lot.product_id];
+    if (!p) continue;
+    if (!grouped.has(lot.product_id)) grouped.set(lot.product_id, { product: p, lots: [] });
+    grouped.get(lot.product_id)!.lots.push(lot);
+  }
+
   return (
     <div className="space-y-3">
-      {lots.map((lot) => <LotCorrectionRow key={lot.id} lot={lot} today={today} />)}
+      {Array.from(grouped.values()).map(({ product, lots: productLots }) => {
+        const total = productLots.reduce((s, l) => s + l.quantity, 0);
+        const uc: UnitConfig = product;
+        const totalStr = uc.pieces_per_ball
+          ? `${formatQty(total, uc)} (${total}ピース)`
+          : `${total} ${t('inventory.units')}`;
+        return (
+          <div key={product.id} className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-semibold text-slate-800">{product.name}</p>
+              <span className="text-sm text-slate-500">{totalStr}</span>
+            </div>
+            {productLots.map((lot) => (
+              <LotCorrectionRow key={lot.id} lot={lot} today={today} unitConfig={uc} />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

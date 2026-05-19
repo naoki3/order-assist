@@ -20,7 +20,6 @@ export default async function InventoryAdjustPage() {
 
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
   const productsWithStock = products.map((p) => ({ id: p.id, name: p.name, currentStock: stockMap[p.id] ?? 0 }));
-
   const noLotProducts = productsWithStock.filter(p => !lots.some(l => l.product_id === p.id));
 
   return (
@@ -34,7 +33,7 @@ export default async function InventoryAdjustPage() {
         <p className="text-slate-400 text-sm">{t('inventory.noProducts', lang)}</p>
       ) : (
         <div className="space-y-3">
-          <LotAdjustForm lots={lots} />
+          <LotAdjustForm lots={lots} products={products} />
           <StockAdjustForm products={noLotProducts} />
         </div>
       )}

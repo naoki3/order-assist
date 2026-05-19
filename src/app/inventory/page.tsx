@@ -47,9 +47,9 @@ export default async function InventoryPage() {
                     <p className="text-2xl font-bold text-slate-700">
                       {p.pieces_per_ball ? formatQty(stock, p) : stock}
                     </p>
-                    {!p.pieces_per_ball && (
-                      <p className="text-xs text-slate-400">{t('inventory.units', lang)}</p>
-                    )}
+                    <p className="text-xs text-slate-400">
+                      {p.pieces_per_ball ? `(${stock}ピース)` : t('inventory.units', lang)}
+                    </p>
                   </div>
                 </div>
 
@@ -67,8 +67,10 @@ export default async function InventoryPage() {
                             expiryLabel={p.expiry_type ?? t('inventory.lotExpiry', lang)}
                           />
                           <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">
-                              {p.pieces_per_ball ? formatQty(lot.quantity, p) : `${lot.quantity} ${t('inventory.units', lang)}`}
-                            </span>
+                            {p.pieces_per_ball
+                              ? `${formatQty(lot.quantity, p)} (${lot.quantity}ピース)`
+                              : `${lot.quantity} ${t('inventory.units', lang)}`}
+                          </span>
                         </div>
                       );
                     })}

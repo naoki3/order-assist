@@ -1,19 +1,19 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { Lot } from '@/lib/db';
+import type { Lot, Product } from '@/lib/db';
 import LotCorrectionForm from '@/components/LotCorrectionForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryCorrectionPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const { data: lotsData } = await supabase
-    .from('lots')
-    .select('*')
-    .order('product_id')
-    .order('received_at', { ascending: false });
+  const [{ data: lotsData }, { data: productsData }] = await Promise.all([
+    supabase.from('lots').select('*').order('product_id').order('received_at', { ascending: false }),
+    supabase.from('products').select('*').order('id'),
+  ]);
   const lots = (lotsData ?? []) as Lot[];
+  const products = (productsData ?? []) as Product[];
 
   return (
     <div className="space-y-6">
@@ -25,7 +25,7 @@ export default async function InventoryCorrectionPage() {
       {lots.length === 0 ? (
         <p className="text-slate-400 text-sm">{t('inventory.correctionNoLots', lang)}</p>
       ) : (
-        <LotCorrectionForm lots={lots} />
+        <LotCorrectionForm lots={lots} products={products} />
       )}
     </div>
   );
