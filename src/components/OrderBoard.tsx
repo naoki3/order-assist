@@ -67,8 +67,10 @@ export default function OrderBoard({ recommendations }: Props) {
   }
 
   const orderCount = Object.values(quantities).filter((q) => q > 0).length;
-  const hasAnyPrice = recommendations.some((r) => r.product.price != null);
-  const totalOrderValue = hasAnyPrice
+  const hasAnyOrderedPrice = recommendations.some(
+    (r) => (quantities[r.product.id] ?? 0) > 0 && r.product.price != null
+  );
+  const totalOrderValue = hasAnyOrderedPrice
     ? recommendations.reduce((sum, r) => {
         const qty = quantities[r.product.id] ?? 0;
         return sum + (r.product.price != null ? qty * r.product.price : 0);
