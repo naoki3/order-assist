@@ -49,9 +49,10 @@ export default function ShippedHistoryList({ items, emptyText }: { items: Outgoi
   const { tf } = useT();
   const [today] = useState(() => new Date().toISOString().split('T')[0]);
   const groups = groupByShippedDate(items);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((g) => [g.date, g.date === new Date().toISOString().split('T')[0]]))
-  );
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    const recent = new Set(groups.slice(0, 2).map((g) => g.date));
+    return Object.fromEntries(groups.map((g) => [g.date, recent.has(g.date)]));
+  });
 
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
 
@@ -59,7 +60,7 @@ export default function ShippedHistoryList({ items, emptyText }: { items: Outgoi
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => {
         const totalQty = dateItems.reduce((s, i) => s + i.quantity, 0);
-        const isOpen = expanded[date] ?? (date === today);
+        const isOpen = expanded[date] ?? true;
         return (
           <div key={date} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <button

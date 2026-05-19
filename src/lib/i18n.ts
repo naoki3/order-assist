@@ -293,6 +293,7 @@ export const translations = {
     'common.deleted': '削除しました',
     'common.received': '入荷確認しました',
     'common.confirmed': '出荷確認しました',
+    'common.bulkConfirm': (n: number) => `${n}件を一括確認`,
     'common.saved': '保存しました',
 
     // Login
@@ -599,6 +600,7 @@ export const translations = {
     'common.deleted': 'Deleted',
     'common.received': 'Delivery confirmed',
     'common.confirmed': 'Shipment confirmed',
+    'common.bulkConfirm': (n: number) => `Confirm all ${n} items`,
     'common.saved': 'Saved',
 
     // Login
