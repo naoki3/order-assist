@@ -64,6 +64,7 @@ export const translations = {
     'dashboard.overstockDays': (days: string, rec: number) => `在庫 ${days} 日分 — 推奨 ${rec} 日`,
     'dashboard.todayIncoming': '本日の入荷予定',
     'dashboard.noTodayIncoming': '本日の入荷予定はありません',
+    'dashboard.allSufficient': '在庫は全商品十分です',
     'dashboard.incomingUnits': '個',
 
     // Inventory
@@ -369,6 +370,7 @@ export const translations = {
     'dashboard.overstockDays': (days: string, rec: number) => `${days} days of stock — recommended ${rec} days`,
     'dashboard.todayIncoming': "Today's Incoming",
     'dashboard.noTodayIncoming': 'No deliveries scheduled for today',
+    'dashboard.allSufficient': 'All products are sufficiently stocked',
     'dashboard.incomingUnits': 'units',
 
     // Shipping
