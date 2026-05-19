@@ -32,10 +32,10 @@ function Item({ item, today }: { item: OutgoingStock; today: string }) {
   );
 }
 
-function groupByShippedDate(items: OutgoingStock[]): { date: string; items: OutgoingStock[] }[] {
+function groupByScheduledDate(items: OutgoingStock[]): { date: string; items: OutgoingStock[] }[] {
   const map = new Map<string, OutgoingStock[]>();
   for (const item of items) {
-    const date = item.shipped_at?.slice(0, 10) ?? 'unknown';
+    const date = item.scheduled_date ?? item.shipped_at?.slice(0, 10) ?? 'unknown';
     const arr = map.get(date) ?? [];
     arr.push(item);
     map.set(date, arr);
@@ -48,7 +48,7 @@ function groupByShippedDate(items: OutgoingStock[]): { date: string; items: Outg
 export default function ShippedHistoryList({ items, emptyText }: { items: OutgoingStock[]; emptyText: string }) {
   const { tf } = useT();
   const [today] = useState(() => new Date().toISOString().split('T')[0]);
-  const groups = groupByShippedDate(items);
+  const groups = groupByScheduledDate(items);
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const recent = new Set(groups.slice(0, 2).map((g) => g.date));
     return Object.fromEntries(groups.map((g) => [g.date, recent.has(g.date)]));

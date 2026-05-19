@@ -38,16 +38,15 @@ function Item({ item, today }: { item: IncomingStock; today: string }) {
   );
 }
 
-function groupByReceivedDate(items: IncomingStock[]): { date: string; items: IncomingStock[] }[] {
+function groupByExpectedDate(items: IncomingStock[]): { date: string; items: IncomingStock[] }[] {
   const map = new Map<string, IncomingStock[]>();
   for (const item of items) {
-    const date = item.received_at?.slice(0, 10) ?? 'unknown';
+    const date = item.expected_date ?? item.received_at?.slice(0, 10) ?? 'unknown';
     const arr = map.get(date) ?? [];
     arr.push(item);
     map.set(date, arr);
   }
   const entries = Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
-  // Most recent date first
   entries.sort((a, b) => b.date.localeCompare(a.date));
   return entries;
 }
@@ -56,7 +55,7 @@ export default function ReceivedHistoryList({ items, emptyText }: { items: Incom
   const { tf } = useT();
   const [today] = useState(() => new Date().toISOString().split('T')[0]);
 
-  const groups = groupByReceivedDate(items);
+  const groups = groupByExpectedDate(items);
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const recent = new Set(groups.slice(0, 2).map((g) => g.date));
     return Object.fromEntries(groups.map((g) => [g.date, recent.has(g.date)]));
