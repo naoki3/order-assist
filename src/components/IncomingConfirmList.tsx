@@ -8,6 +8,7 @@ import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import DateInput from './DateInput';
 
 function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfig }) {
   const { t } = useT();
@@ -58,8 +59,7 @@ function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfi
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
             <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-            <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
-              className="w-full border border-slate-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" />
           </label>
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">

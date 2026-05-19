@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from 'react';
 import { addOutgoingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
+import DateInput from './DateInput';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 interface Props {
@@ -44,13 +45,7 @@ export default function OutgoingScheduleForm({ products, today }: Props) {
           placeholder={t('shipping.quantityPlaceholder')}
           className="w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <input
-          type="date"
-          name="scheduled_date"
-          defaultValue={today}
-          required
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <DateInput name="scheduled_date" defaultValue={today} required className="text-sm" />
       </div>
       <input
         type="text"
