@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { Product, IncomingStock } from '@/lib/db';
+import type { IncomingStock } from '@/lib/db';
 import IncomingScheduleList from '@/components/IncomingScheduleList';
 import IncomingCsvImport from '@/components/IncomingCsvImport';
 
@@ -16,10 +16,10 @@ export default async function IncomingSchedulePage() {
       .is('received_at', null)
       .order('expected_date')
       .order('id'),
-    supabase.from('products').select('id, name').order('id'),
+    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
-  const products = (productsData ?? []) as Pick<Product, 'id' | 'name'>[];
+  const products = (productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[];
 
   return (
     <div className="space-y-6">

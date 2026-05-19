@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { Product, OutgoingStock, Lot } from '@/lib/db';
+import type { OutgoingStock, Lot } from '@/lib/db';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
 import OutgoingScheduleList from '@/components/OutgoingScheduleList';
 
@@ -16,11 +16,11 @@ export default async function ShippingSchedulePage() {
       .is('shipped_at', null)
       .order('scheduled_date')
       .order('id'),
-    supabase.from('products').select('id, name').order('id'),
+    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
     supabase.from('lots').select('*').gt('quantity', 0).order('expiry_date', { ascending: true, nullsFirst: false }),
   ]);
   const pending = (pendingData ?? []) as OutgoingStock[];
-  const products = (productsData ?? []) as Pick<Product, 'id' | 'name'>[];
+  const products = (productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[];
   const lots = (lotsData ?? []) as Lot[];
 
   return (

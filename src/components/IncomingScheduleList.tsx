@@ -6,10 +6,19 @@ import type { IncomingStock } from '@/lib/db';
 import { deleteIncomingSchedule, addIncomingItem, updateIncomingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
+import QtyInput from './QtyInput';
+import { formatQty } from '@/lib/units';
+import type { UnitConfig } from '@/lib/units';
 
-interface ProductOption { id: number; name: string }
+interface ProductOption {
+  id: number;
+  name: string;
+  pieces_per_ball: number | null;
+  balls_per_case: number | null;
+  cases_per_pallet: number | null;
+}
 
-function Item({ item, isNew }: { item: IncomingStock; isNew: boolean }) {
+function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -34,7 +43,11 @@ function Item({ item, isNew }: { item: IncomingStock; isNew: boolean }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-          <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+          {unitConfig.pieces_per_ball ? (
+            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig)}</span>
+          ) : (
+            <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+          )}
           {isNew && (
             <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
           )}
@@ -115,7 +128,11 @@ function AddProductForm({
   const { t } = useT();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
+
+  const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
+  const unitConfig: UnitConfig = selectedProduct ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -128,6 +145,7 @@ function AddProductForm({
       } else {
         onAdded(result.newId);
         formRef.current?.reset();
+        setSelectedProductId('');
         onCancel();
       }
     });
@@ -138,13 +156,19 @@ function AddProductForm({
       <input type="hidden" name="expected_date" value={date} />
       <div className="flex gap-2">
         <select name="product_id" required
+          value={selectedProductId}
+          onChange={(e) => setSelectedProductId(e.target.value)}
           className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('incoming.selectProduct')}</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <input type="number" name="quantity" min={1} required
+        <QtyInput
+          name="quantity"
+          unitConfig={unitConfig}
+          min={1}
           placeholder={t('incoming.quantityPlaceholder')}
-          className="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          inputClassName="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
       </div>
       <div className="flex gap-2">
         <input type="text" name="lot_number"
@@ -176,6 +200,7 @@ function DateGroup({
   items,
   newIds,
   products,
+  unitMap,
   onAdded,
   defaultOpen = true,
 }: {
@@ -183,6 +208,7 @@ function DateGroup({
   items: IncomingStock[];
   newIds: Set<number>;
   products: ProductOption[];
+  unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   defaultOpen?: boolean;
 }) {
@@ -212,7 +238,7 @@ function DateGroup({
         <div className="px-4 pb-3">
           {items.length > 0 && (
             <div className="divide-y divide-slate-100">
-              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} />)}
+              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
             </div>
           )}
           {showAddForm ? (
@@ -256,6 +282,10 @@ export default function IncomingScheduleList({ items, emptyText, products }: Pro
   const [pendingDate, setPendingDate] = useState<string | null>(null);
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputValue, setDateInputValue] = useState('');
+
+  const unitMap: Record<number, UnitConfig> = Object.fromEntries(
+    products.map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
 
   const groups = groupByDate(items);
   const pendingDateInGroups = pendingDate ? groups.some(g => g.date === pendingDate) : false;
@@ -309,6 +339,7 @@ export default function IncomingScheduleList({ items, emptyText, products }: Pro
           items={[]}
           newIds={newIds}
           products={products}
+          unitMap={unitMap}
           onAdded={(id) => { handleAdded(id); setPendingDate(null); }}
           defaultOpen={true}
         />
@@ -317,7 +348,7 @@ export default function IncomingScheduleList({ items, emptyText, products }: Pro
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} onAdded={handleAdded} />
+          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} unitMap={unitMap} onAdded={handleAdded} />
         ))
       }
     </div>

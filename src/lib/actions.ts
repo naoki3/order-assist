@@ -274,6 +274,12 @@ export async function addProduct(
   const shelfLifeRaw = formData.get('shelf_life_days');
   const shelf_life_days = shelfLifeRaw && String(shelfLifeRaw).trim() !== '' ? Number(shelfLifeRaw) : null;
   const expiry_type = (formData.get('expiry_type') as string) || null;
+  const piecesPerBallRaw = formData.get('pieces_per_ball');
+  const pieces_per_ball = piecesPerBallRaw && String(piecesPerBallRaw).trim() !== '' ? Number(piecesPerBallRaw) : null;
+  const ballsPerCaseRaw = formData.get('balls_per_case');
+  const balls_per_case = ballsPerCaseRaw && String(ballsPerCaseRaw).trim() !== '' ? Number(ballsPerCaseRaw) : null;
+  const casesPerPalletRaw = formData.get('cases_per_pallet');
+  const cases_per_pallet = casesPerPalletRaw && String(casesPerPalletRaw).trim() !== '' ? Number(casesPerPalletRaw) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -284,7 +290,7 @@ export async function addProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, user_id: user.id })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: user.id })
     .select('id')
     .single();
 
@@ -321,6 +327,12 @@ export async function updateProduct(
   const shelfLifeRaw = formData.get('shelf_life_days');
   const shelf_life_days = shelfLifeRaw && String(shelfLifeRaw).trim() !== '' ? Number(shelfLifeRaw) : null;
   const expiry_type = (formData.get('expiry_type') as string) || null;
+  const piecesPerBallRaw = formData.get('pieces_per_ball');
+  const pieces_per_ball = piecesPerBallRaw && String(piecesPerBallRaw).trim() !== '' ? Number(piecesPerBallRaw) : null;
+  const ballsPerCaseRaw = formData.get('balls_per_case');
+  const balls_per_case = ballsPerCaseRaw && String(ballsPerCaseRaw).trim() !== '' ? Number(ballsPerCaseRaw) : null;
+  const casesPerPalletRaw = formData.get('cases_per_pallet');
+  const cases_per_pallet = casesPerPalletRaw && String(casesPerPalletRaw).trim() !== '' ? Number(casesPerPalletRaw) : null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -328,7 +340,7 @@ export async function updateProduct(
   const supabase = await createClient();
   const { error } = await supabase
     .from('products')
-    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type })
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet })
     .eq('id', id);
 
   if (error) return { error: `Failed to update product: ${error.message}` };
@@ -932,6 +944,80 @@ export async function importIncomingCsv(
   revalidatePath('/incoming');
   revalidatePath('/dashboard');
   return { imported: rows.length, skipped };
+}
+
+// ─── Product CSV Import ───────────────────────────────────────────────────────
+
+export interface ProductCsvImportResult {
+  imported: number;
+  skipped: string[];
+  error?: string;
+}
+
+export async function importProductsCsv(
+  _prev: ProductCsvImportResult | null,
+  formData: FormData
+): Promise<ProductCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+
+  const lines = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length === 0) return { imported: 0, skipped: [], error: 'No data provided' };
+
+  const firstLine = lines[0].toLowerCase();
+  const dataLines = firstLine.startsWith('name') || firstLine.startsWith('商品名') ? lines.slice(1) : lines;
+
+  const skipped: string[] = [];
+  let imported = 0;
+
+  const localToday = await getLocalDate();
+
+  for (const line of dataLines) {
+    if (!line.trim()) continue;
+    const parts = line.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+    const [rawName, rawLeadTime, rawSafetyStock, rawPrice, rawPpb, rawBpc, rawCpp] = parts;
+
+    if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
+    const leadTime = parseInt(rawLeadTime ?? '', 10);
+    const safetyStock = parseInt(rawSafetyStock ?? '', 10);
+    if (isNaN(leadTime) || leadTime < 1) { skipped.push(`リードタイムが不正: ${line.trim()}`); continue; }
+    if (isNaN(safetyStock) || safetyStock < 1) { skipped.push(`安全在庫日数が不正: ${line.trim()}`); continue; }
+
+    const price = rawPrice && rawPrice.trim() !== '' ? Number(rawPrice) : null;
+    const pieces_per_ball = rawPpb && rawPpb.trim() !== '' ? parseInt(rawPpb, 10) : null;
+    const balls_per_case = rawBpc && rawBpc.trim() !== '' ? parseInt(rawBpc, 10) : null;
+    const cases_per_pallet = rawCpp && rawCpp.trim() !== '' ? parseInt(rawCpp, 10) : null;
+
+    const { data: product, error } = await supabase
+      .from('products')
+      .insert({ name: rawName, lead_time_days: leadTime, safety_stock_days: safetyStock, price, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: user.id })
+      .select('id')
+      .single();
+
+    if (error || !product) {
+      skipped.push(`登録失敗: ${rawName} (${error?.message ?? 'unknown'})`);
+      continue;
+    }
+
+    await supabase.from('inventory').upsert({
+      product_id: product.id,
+      current_stock: 0,
+      updated_at: localToday,
+    });
+
+    imported++;
+  }
+
+  if (imported > 0) {
+    revalidatePath('/products');
+    revalidatePath('/');
+  }
+
+  return { imported, skipped };
 }
 
 // ─── Sales Targets ────────────────────────────────────────────────────────────
