@@ -89,8 +89,8 @@ export default async function DashboardPage() {
     .slice(0, 5)
     .map((r) => ({ name: r.product.name, avgDemand: r.avgDemand7d }));
 
-  const hasAnyPrice = recommendations.some((r) => r.product.price != null);
-  const totalOrderValue = hasAnyPrice
+  const hasAnyOrderedPrice = recommendations.some((r) => r.orderQty > 0 && r.product.price != null);
+  const totalOrderValue = hasAnyOrderedPrice
     ? recommendations.reduce(
         (sum, r) => sum + (r.product.price != null ? r.orderQty * r.product.price : 0),
         0
@@ -195,6 +195,14 @@ export default async function DashboardPage() {
                   <p className="font-semibold text-slate-800">{r.product.name}</p>
                   <p className="text-xs text-red-600 mt-0.5">
                     {(dict['dashboard.daysRemaining'] as (d: string, l: number) => string)(days.toFixed(1), r.product.lead_time_days)}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 font-mono">
+                    {(dict['dashboard.stockoutFormula'] as (s: number, d: string, day: string, l: number) => string)(
+                      r.currentStock,
+                      r.avgDemand7d.toFixed(1),
+                      days.toFixed(1),
+                      r.product.lead_time_days
+                    )}
                   </p>
                 </div>
               );
