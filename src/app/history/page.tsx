@@ -44,19 +44,20 @@ export default async function HistoryPage() {
         <div className="space-y-3">
           {orders.map((order) => {
             const items = parseItems(order.items);
+            const expectedDates = [...new Set(items.map(i => i.expectedDate).filter(Boolean))];
             return (
               <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-400 mb-2">{formatDate(order.created_at)}</p>
+                <div className="flex items-baseline justify-between mb-2">
+                  <p className="text-xs text-slate-400">{t('history.orderedAt', lang)}{formatDate(order.created_at)}</p>
+                  {expectedDates.length > 0 && (
+                    <p className="text-xs font-medium text-slate-600">{t('history.expectedDate', lang)}{expectedDates.join(', ')}</p>
+                  )}
+                </div>
                 <div className="space-y-1">
                   {items.length > 0 ? items.map((item, i) => (
                     <div key={item.productId ?? i} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.productName}</span>
-                      <div className="text-right">
-                        <span className="font-semibold text-slate-800">{item.quantity} {t('history.units', lang)}</span>
-                        {item.expectedDate && (
-                          <span className="text-xs text-slate-400 ml-2">{item.expectedDate}</span>
-                        )}
-                      </div>
+                      <span className="font-semibold text-slate-800">{item.quantity} {t('history.units', lang)}</span>
                     </div>
                   )) : (
                     <p className="text-xs text-slate-400">（明細データなし）</p>
