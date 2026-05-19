@@ -20,6 +20,7 @@ export interface OrderItem {
   productId: number;
   productName: string;
   quantity: number;
+  expectedDate: string;
 }
 
 export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
@@ -40,29 +41,13 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
     return { error: `Failed to place order: ${error?.message ?? 'unknown error'}` };
   }
 
-  const orderHistoryId = orderData.id;
-  const localToday = await getLocalDate();
-  const todayBase = new Date(localToday + 'T00:00:00');
-
-  const incomingRows = await Promise.all(
-    nonZero.map(async (item) => {
-      const { data: product } = await supabase
-        .from('products')
-        .select('lead_time_days')
-        .eq('id', item.productId)
-        .single();
-      const leadDays = product?.lead_time_days ?? 1;
-      const expected = new Date(todayBase);
-      expected.setDate(todayBase.getDate() + leadDays);
-      return {
-        order_history_id: orderHistoryId,
-        product_id: item.productId,
-        product_name: item.productName,
-        quantity: item.quantity,
-        expected_date: expected.toISOString().split('T')[0],
-      };
-    })
-  );
+  const incomingRows = nonZero.map((item) => ({
+    order_history_id: orderData.id,
+    product_id: item.productId,
+    product_name: item.productName,
+    quantity: item.quantity,
+    expected_date: item.expectedDate,
+  }));
 
   const { error: insertError } = await supabase.from('incoming_stock').insert(incomingRows);
   if (insertError) {
@@ -220,22 +205,10 @@ export async function receiveIncoming(
     return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
   }
 
-  const { data: product } = await supabase
-    .from('products')
-    .select('shelf_life_days')
-    .eq('id', incoming.product_id)
-    .single();
-
   const localToday = await getLocalDate();
-  let expiryDate: string | null = null;
-  if (product?.shelf_life_days) {
-    const expiry = new Date(localToday + 'T00:00:00');
-    expiry.setDate(expiry.getDate() + product.shelf_life_days);
-    expiryDate = expiry.toISOString().split('T')[0];
-  }
-
   const todayStr = localToday.replace(/-/g, '');
   const lotNumber = incoming.lot_number ?? `${todayStr}-${id}`;
+  const expiryDate: string | null = null;
 
   const { error: updateError } = await supabase
     .from('incoming_stock')

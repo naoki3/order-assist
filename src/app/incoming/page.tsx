@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase';
-import { getLang } from '@/lib/lang';
+import { getLang, getTz } from '@/lib/lang';
+import { toLocalDateStr } from '@/lib/tz';
 import { translations } from '@/lib/i18n';
 import IncomingConfirmList from '@/components/IncomingConfirmList';
 import ReceivedHistoryList from '@/components/ReceivedHistoryList';
@@ -8,12 +9,18 @@ import type { IncomingStock } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function IncomingPage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
   const dict = translations[lang];
+  const today = toLocalDateStr(tz);
 
   const [{ data: pendingData }, { data: receivedData }] = await Promise.all([
-    supabase.from('incoming_stock').select('*').is('received_at', null).order('expected_date').order('id'),
-    supabase.from('incoming_stock').select('*').not('received_at', 'is', null).order('received_at', { ascending: false }).limit(60),
+    supabase.from('incoming_stock').select('*')
+      .is('received_at', null)
+      .lte('expected_date', today)
+      .order('expected_date').order('id'),
+    supabase.from('incoming_stock').select('*')
+      .not('received_at', 'is', null)
+      .order('received_at', { ascending: false }).limit(60),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
   const received = (receivedData ?? []) as IncomingStock[];
