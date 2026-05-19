@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
 import LotTag from './LotTag';
@@ -60,6 +60,22 @@ export default function ReceivedHistoryList({ items, emptyText }: { items: Incom
     const recent = new Set(groups.slice(0, 2).map((g) => g.date));
     return Object.fromEntries(groups.map((g) => [g.date, recent.has(g.date)]));
   });
+
+  useEffect(() => {
+    const threshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const recentDates = new Set(
+      items
+        .filter((i) => i.received_at && i.received_at > threshold)
+        .map((i) => i.expected_date ?? i.received_at!.slice(0, 10))
+    );
+    if (recentDates.size > 0) {
+      setExpanded((prev) => {
+        const updates: Record<string, boolean> = {};
+        for (const d of recentDates) updates[d] = true;
+        return { ...prev, ...updates };
+      });
+    }
+  }, [items]);
 
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
 
