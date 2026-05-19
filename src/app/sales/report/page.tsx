@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase';
-import { getLang } from '@/lib/lang';
+import { getLang, getCurrency, CURRENCY_SYMBOLS } from '@/lib/lang';
 import { t, translations } from '@/lib/i18n';
 import Link from 'next/link';
 import type { Product } from '@/lib/db';
@@ -44,7 +44,8 @@ function formatDate(dateStr: string): string {
 
 export default async function SalesReportPage({ searchParams }: PageProps) {
   const { period = '7', month } = await searchParams;
-  const lang = await getLang();
+  const [lang, currency] = await Promise.all([getLang(), getCurrency()]);
+  const currencySymbol = CURRENCY_SYMBOLS[currency];
   const dict = translations[lang];
 
   const periodLabel = (dict['report.lastNDays'] as (n: number) => string)(period === '30' ? 30 : 7);
@@ -179,7 +180,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
         {totalRevenue != null ? (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <p className="text-xs text-slate-500">{t('report.totalRevenue', lang)}</p>
-            <p className="text-3xl font-bold text-green-700 mt-1">{totalRevenue.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-green-700 mt-1">{currencySymbol}{totalRevenue.toLocaleString()}</p>
           </div>
         ) : (
           <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center">
@@ -189,7 +190,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
         {dailyAvgRevenue != null && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <p className="text-xs text-slate-500">{t('report.dailyAvg', lang)}</p>
-            <p className="text-3xl font-bold text-slate-700 mt-1">{Math.round(dailyAvgRevenue).toLocaleString()}</p>
+            <p className="text-3xl font-bold text-slate-700 mt-1">{currencySymbol}{Math.round(dailyAvgRevenue).toLocaleString()}</p>
           </div>
         )}
         {achievementPct !== null && (

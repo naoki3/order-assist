@@ -11,7 +11,7 @@ import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
 
 function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string; unitConfig: UnitConfig }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [state, action] = useActionState(updateLotProperties, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
   const [formKey, setFormKey] = useState(0);
@@ -24,7 +24,7 @@ function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string;
   }, [state]);
 
   const qtyStr = unitConfig.pieces_per_ball
-    ? `${formatQty(lot.quantity, unitConfig)} (${lot.quantity}ピース)`
+    ? `${formatQty(lot.quantity, unitConfig, lang)} (${lot.quantity}${lang === 'en' ? ' pieces' : 'ピース'})`
     : `${lot.quantity} ${t('inventory.units')}`;
 
   return (
@@ -67,7 +67,7 @@ function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string;
 }
 
 export default function LotCorrectionForm({ lots, products }: { lots: Lot[]; products: Product[] }) {
-  const { t, localDate } = useT();
+  const { t, localDate, lang } = useT();
   const [today] = useState(() => localDate());
 
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
@@ -85,7 +85,7 @@ export default function LotCorrectionForm({ lots, products }: { lots: Lot[]; pro
         const total = productLots.reduce((s, l) => s + l.quantity, 0);
         const uc: UnitConfig = product;
         const totalStr = uc.pieces_per_ball
-          ? `${formatQty(total, uc)} (${total}ピース)`
+          ? `${formatQty(total, uc, lang)} (${total}${lang === 'en' ? ' pieces' : 'ピース'})`
           : `${total} ${t('inventory.units')}`;
         return (
           <div key={product.id} className="bg-white rounded-xl border border-slate-200 p-4">

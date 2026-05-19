@@ -168,7 +168,7 @@ export default function OrderBoard({ recommendations }: Props) {
               )}
             </div>
             {showBreakdown && (
-              <p className="text-xs text-slate-400">= {formatQty(inputPieces, unitConfig)}</p>
+              <p className="text-xs text-slate-400">= {formatQty(inputPieces, unitConfig, lang)}</p>
             )}
           </div>
           <button
@@ -199,7 +199,7 @@ export default function OrderBoard({ recommendations }: Props) {
                 <div>
                   <span className="text-sm font-medium text-slate-800">{line.productName}</span>
                   {lineUnitConfig.pieces_per_ball ? (
-                    <span className="text-xs text-slate-500 ml-2">{formatQty(line.qty, lineUnitConfig)}</span>
+                    <span className="text-xs text-slate-500 ml-2">{formatQty(line.qty, lineUnitConfig, lang)}</span>
                   ) : (
                     <span className="text-xs text-slate-500 ml-2">{line.qty} {t('incoming.units')}</span>
                   )}

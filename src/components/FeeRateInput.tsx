@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label }: Props) {
-  const { lang } = useT();
+  const { lang, currencySymbol } = useT();
   const unitLabels = getUnitLabels(lang);
   const units = getAvailableUnits(unitConfig);
   const [unit, setUnit] = useState<UnitType>(units[0]); // default to largest unit
@@ -51,7 +51,7 @@ export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label 
           placeholder="—"
           className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500"
         />
-        <span className="text-sm text-slate-500 shrink-0">円/</span>
+        <span className="text-sm text-slate-500 shrink-0">{currencySymbol}/</span>
         {units.length > 1 ? (
           <select
             value={unit}
@@ -65,7 +65,7 @@ export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label 
         )}
       </div>
       {amount !== '' && unit !== 'piece' && perPieceVal !== '' && (
-        <p className="text-xs text-slate-400">= {Number(perPieceVal).toFixed(4)}円/ピース</p>
+        <p className="text-xs text-slate-400">= {Number(perPieceVal).toFixed(4)}{currencySymbol}/{lang === 'en' ? 'piece' : 'ピース'}</p>
       )}
     </label>
   );

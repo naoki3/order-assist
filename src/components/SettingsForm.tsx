@@ -3,10 +3,19 @@
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
 import { SUPPORTED_TZ } from '@/lib/tz';
+import { CURRENCY_SYMBOLS } from '@/lib/lang';
+import type { Currency } from '@/lib/lang';
 import { useState } from 'react';
 
+const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
+  { value: 'JPY', label: '¥ 日本円' },
+  { value: 'USD', label: '$ 米ドル' },
+  { value: 'EUR', label: '€ ユーロ' },
+  { value: 'GBP', label: '£ 英ポンド' },
+];
+
 export default function SettingsForm() {
-  const { t, tz, setTz } = useT();
+  const { t, tz, setTz, currency, setCurrency } = useT();
   const [saved, setSaved] = useState(false);
 
   function handleTzChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -14,6 +23,14 @@ export default function SettingsForm() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
+
+  function handleCurrencyChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setCurrency(e.target.value as Currency);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  void CURRENCY_SYMBOLS; // imported for type usage via Currency type
 
   return (
     <div className="space-y-6">
@@ -37,6 +54,22 @@ export default function SettingsForm() {
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-semibold text-slate-700 mb-2">{t('settings.language')}</p>
           <LanguageToggle />
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <label className="block text-sm font-semibold text-slate-700 mb-1">
+            {t('settings.currency')}
+          </label>
+          <p className="text-xs text-slate-400 mb-2">{t('settings.currencyDesc')}</p>
+          <select
+            value={currency}
+            onChange={handleCurrencyChange}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+          >
+            {CURRENCY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
