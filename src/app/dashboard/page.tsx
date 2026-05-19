@@ -151,37 +151,55 @@ export default async function DashboardPage() {
       <DashboardCharts salesTrend={salesTrend} bestSellers={bestSellers} />
 
       {/* Stock status progress bars */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.stockStatus', lang)}</h2>
-        <div className="space-y-3">
-          {recommendations.map((r) => {
-            const pct = stockPct(r);
-            const barColor =
-              pct < 50 ? 'bg-red-500' : pct < 100 ? 'bg-amber-400' : 'bg-green-500';
-            return (
-              <div key={r.product.id}>
-                <div className="flex justify-between text-xs text-slate-600 mb-1">
-                  <span className="font-medium truncate mr-2">{r.product.name}</span>
-                  <span className="shrink-0 text-slate-400">
-                    {r.currentStock} / {r.requiredStock} {t('dashboard.units', lang)}
-                  </span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${barColor} rounded-full`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+      {(() => {
+        const lowStock = recommendations.filter((r) => stockPct(r) < 100);
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.stockStatus', lang)}</h2>
+            {lowStock.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('dashboard.allSufficient', lang)}</p>
+            ) : (
+              <div className="space-y-3">
+                {lowStock.map((r) => {
+                  const pct = stockPct(r);
+                  const barColor = pct < 50 ? 'bg-red-500' : 'bg-amber-400';
+                  const days = daysRemaining(r);
+                  return (
+                    <div key={r.product.id}>
+                      <div className="flex justify-between text-xs text-slate-600 mb-1">
+                        <span className="font-medium truncate mr-2">{r.product.name}</span>
+                        <span className="shrink-0 text-slate-400">
+                          {r.currentStock} / {r.requiredStock} {t('dashboard.units', lang)}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${barColor} rounded-full`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      {days !== null && (
+                        <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                          {(dict['dashboard.stockoutFormula'] as (s: number, d: string, day: string, l: number) => string)(
+                            r.currentStock,
+                            r.avgDemand7d.toFixed(1),
+                            days.toFixed(1),
+                            r.product.lead_time_days
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-        <div className="flex gap-4 mt-3 text-xs text-slate-400">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> {t('dashboard.sufficient', lang)}</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> {t('dashboard.low', lang)}</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {t('dashboard.critical', lang)}</span>
-        </div>
-      </div>
+            )}
+            <div className="flex gap-4 mt-3 text-xs text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> {t('dashboard.low', lang)}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {t('dashboard.critical', lang)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stockout risk detail */}
       {stockoutRisk.length > 0 && (
