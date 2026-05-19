@@ -1,7 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { createClient } from './supabase';
+import { toLocalDateStr, DEFAULT_TZ } from './tz';
+
+async function getLocalDate(): Promise<string> {
+  const store = await cookies();
+  const tz = store.get('tz')?.value ?? DEFAULT_TZ;
+  return toLocalDateStr(tz);
+}
 
 export type ActionResult = { error: string } | { success: string } | null;
 export type SignupResult = { error: string } | { needsConfirmation: true } | null;
@@ -33,7 +41,8 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
   }
 
   const orderHistoryId = orderData.id;
-  const today = new Date();
+  const localToday = await getLocalDate();
+  const todayBase = new Date(localToday + 'T00:00:00');
 
   const incomingRows = await Promise.all(
     nonZero.map(async (item) => {
@@ -43,8 +52,8 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
         .eq('id', item.productId)
         .single();
       const leadDays = product?.lead_time_days ?? 1;
-      const expected = new Date(today);
-      expected.setDate(today.getDate() + leadDays);
+      const expected = new Date(todayBase);
+      expected.setDate(todayBase.getDate() + leadDays);
       return {
         order_history_id: orderHistoryId,
         product_id: item.productId,
@@ -82,7 +91,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
 
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0].replace(/-/g, '');
+  const localToday = await getLocalDate();
+  const todayStr = localToday.replace(/-/g, '');
   const productIds = [...new Set(items.map((i) => i.product_id))];
 
   const [{ data: products }, { data: inventories }] = await Promise.all([
@@ -105,8 +115,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     const shelfLifeDays = shelfLifeMap[item.product_id];
     let expiryDate: string | null = null;
     if (shelfLifeDays) {
-      const exp = new Date(now);
-      exp.setDate(now.getDate() + shelfLifeDays);
+      const exp = new Date(localToday + 'T00:00:00');
+      exp.setDate(exp.getDate() + shelfLifeDays);
       expiryDate = exp.toISOString().split('T')[0];
     }
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
@@ -114,7 +124,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
       .update({ lot_number: lotNumber, expiry_date: expiryDate }).eq('id', item.id);
     await supabase.from('lots').insert({
       lot_number: lotNumber, product_id: item.product_id, product_name: item.product_name,
-      quantity: item.quantity, received_at: now.toISOString().split('T')[0],
+      quantity: item.quantity, received_at: localToday,
       expiry_date: expiryDate, incoming_stock_id: item.id, user_id: user.id,
     });
   }
@@ -123,7 +133,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     const pid = Number(pidStr);
     const { error: invError } = await supabase.from('inventory').upsert({
       product_id: pid, current_stock: (stockMap[pid] ?? 0) + qty,
-      updated_at: now.toISOString().split('T')[0],
+      updated_at: localToday,
     });
     if (invError) return { error: `Failed to update inventory: ${invError.message}` };
   }
@@ -147,6 +157,7 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
 
   const now = new Date();
+  const localToday = await getLocalDate();
   const productIds = [...new Set(items.map((i) => i.product_id))];
   const { data: inventories } = await supabase
     .from('inventory').select('product_id, current_stock').in('product_id', productIds);
@@ -170,7 +181,7 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
     const pid = Number(pidStr);
     const { error: invError } = await supabase.from('inventory').upsert({
       product_id: pid, current_stock: (stockMap[pid] ?? 0) - qty,
-      updated_at: now.toISOString().split('T')[0],
+      updated_at: localToday,
     });
     if (invError) return { error: `Failed to update inventory: ${invError.message}` };
   }
@@ -215,15 +226,16 @@ export async function receiveIncoming(
     .eq('id', incoming.product_id)
     .single();
 
+  const localToday = await getLocalDate();
   let expiryDate: string | null = null;
   if (product?.shelf_life_days) {
-    const expiry = new Date();
+    const expiry = new Date(localToday + 'T00:00:00');
     expiry.setDate(expiry.getDate() + product.shelf_life_days);
     expiryDate = expiry.toISOString().split('T')[0];
   }
 
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const lotNumber = incoming.lot_number ?? `${today}-${id}`;
+  const todayStr = localToday.replace(/-/g, '');
+  const lotNumber = incoming.lot_number ?? `${todayStr}-${id}`;
 
   const { error: updateError } = await supabase
     .from('incoming_stock')
@@ -241,7 +253,7 @@ export async function receiveIncoming(
   const { error: upsertError } = await supabase.from('inventory').upsert({
     product_id: incoming.product_id,
     current_stock: (inv?.current_stock ?? 0) + incoming.quantity,
-    updated_at: new Date().toISOString().split('T')[0],
+    updated_at: localToday,
   });
 
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
@@ -250,7 +262,7 @@ export async function receiveIncoming(
     product_id: incoming.product_id,
     product_name: incoming.product_name,
     quantity: incoming.quantity,
-    received_at: new Date().toISOString().split('T')[0],
+    received_at: localToday,
     expiry_date: expiryDate,
     incoming_stock_id: id,
     user_id: user.id,
@@ -295,10 +307,11 @@ export async function addProduct(
     return { error: `Failed to add product: ${error?.message ?? 'unknown error'}` };
   }
 
+  const localToday = await getLocalDate();
   const { error: invError } = await supabase.from('inventory').upsert({
     product_id: product.id,
     current_stock: 0,
-    updated_at: new Date().toISOString().split('T')[0],
+    updated_at: localToday,
   });
 
   if (invError) {
@@ -377,10 +390,11 @@ export async function updateStock(
     return { error: `出荷予定で ${reserved} 個が確保されているため、${reserved} 個未満には設定できません` };
   }
 
+  const localToday = await getLocalDate();
   const { error } = await supabase.from('inventory').upsert({
     product_id: productId,
     current_stock: stock,
-    updated_at: new Date().toISOString().split('T')[0],
+    updated_at: localToday,
   });
 
   if (error) return { error: `Failed to update stock: ${error.message}` };
@@ -723,10 +737,11 @@ export async function confirmShipment(
 
   if (updateError) return { error: `Failed to confirm shipment: ${updateError.message}` };
 
+  const localToday = await getLocalDate();
   const { error: upsertError } = await supabase.from('inventory').upsert({
     product_id: outgoing.product_id,
     current_stock: currentStock - outgoing.quantity,
-    updated_at: new Date().toISOString().split('T')[0],
+    updated_at: localToday,
   });
 
   if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
@@ -762,6 +777,7 @@ export async function updateLotQuantity(
     return { error: `出荷予定で ${reservedQty} 個確保済みのため、${reservedQty} 個未満には設定できません` };
   }
 
+  const localToday = await getLocalDate();
   await supabase.from('lots').update({ quantity: newQty }).eq('id', lotId);
 
   const { data: allLots } = await supabase.from('lots').select('quantity').eq('product_id', lot.product_id);
@@ -769,7 +785,7 @@ export async function updateLotQuantity(
   await supabase.from('inventory').upsert({
     product_id: lot.product_id,
     current_stock: totalStock,
-    updated_at: new Date().toISOString().split('T')[0],
+    updated_at: localToday,
   });
 
   revalidatePath('/inventory');

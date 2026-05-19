@@ -68,7 +68,8 @@ function LotCorrectionRow({ lot, today }: { lot: Lot; today: string }) {
 }
 
 export default function LotCorrectionForm({ lots }: { lots: Lot[] }) {
-  const [today] = useState(() => new Date().toISOString().split('T')[0]);
+  const { localDate } = useT();
+  const [today] = useState(() => localDate());
   return (
     <div className="space-y-3">
       {lots.map((lot) => <LotCorrectionRow key={lot.id} lot={lot} today={today} />)}

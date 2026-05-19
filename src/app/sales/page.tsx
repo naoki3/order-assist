@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase';
-import { getLang } from '@/lib/lang';
+import { getLang, getTz } from '@/lib/lang';
+import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
 import SaleForm from '@/components/SaleForm';
 import Link from 'next/link';
@@ -8,15 +9,14 @@ import type { Product, Sale } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
-  const today = new Date();
+  const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
+  const todayStr = toLocalDateStr(tz);
   const dates: string[] = [];
   for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    const d = new Date(todayStr + 'T00:00:00');
+    d.setDate(d.getDate() - i);
+    dates.push(toLocalDateStr(tz, d));
   }
-
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data: productsData }, { data: salesData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('sales').select('*').in('date', dates).order('product_id').order('date', { ascending: false }),

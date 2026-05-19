@@ -56,7 +56,8 @@ function LotRow({ lot, today }: { lot: Lot; today: string }) {
 }
 
 export default function LotAdjustForm({ lots }: { lots: Lot[] }) {
-  const [today] = useState(() => new Date().toISOString().split('T')[0]);
+  const { localDate } = useT();
+  const [today] = useState(() => localDate());
   return (
     <div className="space-y-3">
       {lots.map((lot) => <LotRow key={lot.id} lot={lot} today={today} />)}

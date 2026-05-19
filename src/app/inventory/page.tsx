@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase';
-import { getLang } from '@/lib/lang';
+import { getLang, getTz } from '@/lib/lang';
+import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
 import type { Product, Inventory, Lot } from '@/lib/db';
 import LotTag from '@/components/LotTag';
@@ -7,7 +8,7 @@ import LotTag from '@/components/LotTag';
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
   const [{ data: productsData }, { data: inventoriesData }, { data: lotsData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('inventory').select('*'),
@@ -24,7 +25,7 @@ export default async function InventoryPage() {
     lotsMap[lot.product_id].push(lot);
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateStr(tz);
 
   return (
     <div>
