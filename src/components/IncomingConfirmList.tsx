@@ -3,7 +3,7 @@
 import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
-import { receiveIncoming, deleteIncomingSchedule } from '@/lib/actions';
+import { receiveIncoming, deleteIncomingSchedule, receiveBulkIncoming } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
@@ -60,6 +60,50 @@ function Item({ item }: { item: IncomingStock }) {
   );
 }
 
+function DateGroup({ date, items }: { date: string; items: IncomingStock[] }) {
+  const { t, tf } = useT();
+  const [isOpen, setIsOpen] = useState(true);
+  const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
+  const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
+  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <button type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-2">
+          {isOpen
+            ? <ChevronDown size={15} className="text-slate-400" />
+            : <ChevronRight size={15} className="text-slate-400" />}
+          <span className="font-semibold text-slate-800">{date}</span>
+        </div>
+        <div className="text-xs text-slate-400 flex items-center gap-1.5">
+          <span>{tf<string>('common.itemCount', items.length)}</span>
+          <span>·</span>
+          <span>{tf<string>('common.totalUnits', totalQty)}</span>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-3">
+          <div className="divide-y divide-slate-100">
+            {items.map(item => <Item key={item.id} item={item} />)}
+          </div>
+          {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
+          {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
+          <form action={bulkAction} className="pt-2">
+            <input type="hidden" name="ids" value={JSON.stringify(items.map(i => i.id))} />
+            <button type="submit"
+              className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+              {tf<string>('common.bulkConfirm', items.length)}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function groupByDate(items: IncomingStock[]) {
   const map = new Map<string, IncomingStock[]>();
   for (const item of items) {
@@ -71,44 +115,13 @@ function groupByDate(items: IncomingStock[]) {
 }
 
 export default function IncomingConfirmList({ items, emptyText }: { items: IncomingStock[]; emptyText: string }) {
-  const { tf } = useT();
   const groups = groupByDate(items);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map(g => [g.date, true]))
-  );
-
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
-
   return (
     <div className="space-y-2">
-      {groups.map(({ date, items: dateItems }) => {
-        const totalQty = dateItems.reduce((s, i) => s + i.quantity, 0);
-        const isOpen = expanded[date] ?? true;
-        return (
-          <div key={date} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <button type="button"
-              onClick={() => setExpanded(prev => ({ ...prev, [date]: !isOpen }))}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-2">
-                {isOpen
-                  ? <ChevronDown size={15} className="text-slate-400" />
-                  : <ChevronRight size={15} className="text-slate-400" />}
-                <span className="font-semibold text-slate-800">{date}</span>
-              </div>
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <span>{tf<string>('common.itemCount', dateItems.length)}</span>
-                <span>·</span>
-                <span>{tf<string>('common.totalUnits', totalQty)}</span>
-              </div>
-            </button>
-            {isOpen && (
-              <div className="px-4 pb-2 divide-y divide-slate-100">
-                {dateItems.map(item => <Item key={item.id} item={item} />)}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {groups.map(({ date, items: dateItems }) => (
+        <DateGroup key={date} date={date} items={dateItems} />
+      ))}
     </div>
   );
 }

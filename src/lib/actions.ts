@@ -65,6 +65,130 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
   return { success: 'ok' };
 }
 
+export async function receiveBulkIncoming(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  let ids: number[];
+  try { ids = JSON.parse(String(formData.get('ids') ?? '[]')); } catch { return { error: 'Invalid input' }; }
+  if (ids.length === 0) return { success: 'ok' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data: items, error: fetchError } = await supabase
+    .from('incoming_stock')
+    .select('id, product_id, product_name, quantity, lot_number')
+    .in('id', ids)
+    .is('received_at', null);
+  if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0].replace(/-/g, '');
+  const productIds = [...new Set(items.map((i) => i.product_id))];
+
+  const [{ data: products }, { data: inventories }] = await Promise.all([
+    supabase.from('products').select('id, shelf_life_days').in('id', productIds),
+    supabase.from('inventory').select('product_id, current_stock').in('product_id', productIds),
+  ]);
+  const shelfLifeMap: Record<number, number | null> = {};
+  for (const p of products ?? []) shelfLifeMap[p.id] = p.shelf_life_days;
+  const stockMap: Record<number, number> = {};
+  for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
+
+  const delta: Record<number, number> = {};
+  for (const item of items) delta[item.product_id] = (delta[item.product_id] ?? 0) + item.quantity;
+
+  const { error: markError } = await supabase
+    .from('incoming_stock').update({ received_at: now.toISOString() }).in('id', ids);
+  if (markError) return { error: `Failed to mark received: ${markError.message}` };
+
+  for (const item of items) {
+    const shelfLifeDays = shelfLifeMap[item.product_id];
+    let expiryDate: string | null = null;
+    if (shelfLifeDays) {
+      const exp = new Date(now);
+      exp.setDate(now.getDate() + shelfLifeDays);
+      expiryDate = exp.toISOString().split('T')[0];
+    }
+    const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
+    await supabase.from('incoming_stock')
+      .update({ lot_number: lotNumber, expiry_date: expiryDate }).eq('id', item.id);
+    await supabase.from('lots').insert({
+      lot_number: lotNumber, product_id: item.product_id, product_name: item.product_name,
+      quantity: item.quantity, received_at: now.toISOString().split('T')[0],
+      expiry_date: expiryDate, incoming_stock_id: item.id, user_id: user.id,
+    });
+  }
+
+  for (const [pidStr, qty] of Object.entries(delta)) {
+    const pid = Number(pidStr);
+    const { error: invError } = await supabase.from('inventory').upsert({
+      product_id: pid, current_stock: (stockMap[pid] ?? 0) + qty,
+      updated_at: now.toISOString().split('T')[0],
+    });
+    if (invError) return { error: `Failed to update inventory: ${invError.message}` };
+  }
+
+  revalidatePath('/incoming');
+  revalidatePath('/inventory');
+  revalidatePath('/');
+  revalidatePath('/products');
+  return { success: 'ok' };
+}
+
+export async function confirmBulkShipment(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  let ids: number[];
+  try { ids = JSON.parse(String(formData.get('ids') ?? '[]')); } catch { return { error: 'Invalid input' }; }
+  if (ids.length === 0) return { success: 'ok' };
+
+  const supabase = await createClient();
+  const { data: items, error: fetchError } = await supabase
+    .from('outgoing_stock').select('id, product_id, quantity, lot_id')
+    .in('id', ids).is('shipped_at', null);
+  if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
+
+  const now = new Date();
+  const productIds = [...new Set(items.map((i) => i.product_id))];
+  const { data: inventories } = await supabase
+    .from('inventory').select('product_id, current_stock').in('product_id', productIds);
+  const stockMap: Record<number, number> = {};
+  for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
+
+  const delta: Record<number, number> = {};
+  for (const item of items) delta[item.product_id] = (delta[item.product_id] ?? 0) + item.quantity;
+
+  for (const [pidStr, qty] of Object.entries(delta)) {
+    const pid = Number(pidStr);
+    if ((stockMap[pid] ?? 0) < qty)
+      return { error: `在庫不足: 商品ID ${pid} の現在庫 ${stockMap[pid] ?? 0} 個、出荷予定 ${qty} 個` };
+  }
+
+  const { error: markError } = await supabase
+    .from('outgoing_stock').update({ shipped_at: now.toISOString() }).in('id', ids);
+  if (markError) return { error: `Failed to confirm shipment: ${markError.message}` };
+
+  for (const [pidStr, qty] of Object.entries(delta)) {
+    const pid = Number(pidStr);
+    const { error: invError } = await supabase.from('inventory').upsert({
+      product_id: pid, current_stock: (stockMap[pid] ?? 0) - qty,
+      updated_at: now.toISOString().split('T')[0],
+    });
+    if (invError) return { error: `Failed to update inventory: ${invError.message}` };
+  }
+
+  for (const item of items) {
+    if (item.lot_id) {
+      const { data: lot } = await supabase.from('lots').select('quantity').eq('id', item.lot_id).single();
+      if (lot) await supabase.from('lots')
+        .update({ quantity: Math.max(0, lot.quantity - item.quantity) }).eq('id', item.lot_id);
+    }
+  }
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
 export async function receiveIncoming(
   _prev: ActionResult,
   formData: FormData
