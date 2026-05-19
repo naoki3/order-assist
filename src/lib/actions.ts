@@ -20,6 +20,7 @@ export interface OrderItem {
   productId: number;
   productName: string;
   quantity: number;
+  expectedDate: string;
 }
 
 export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
@@ -40,29 +41,13 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
     return { error: `Failed to place order: ${error?.message ?? 'unknown error'}` };
   }
 
-  const orderHistoryId = orderData.id;
-  const localToday = await getLocalDate();
-  const todayBase = new Date(localToday + 'T00:00:00');
-
-  const incomingRows = await Promise.all(
-    nonZero.map(async (item) => {
-      const { data: product } = await supabase
-        .from('products')
-        .select('lead_time_days')
-        .eq('id', item.productId)
-        .single();
-      const leadDays = product?.lead_time_days ?? 1;
-      const expected = new Date(todayBase);
-      expected.setDate(todayBase.getDate() + leadDays);
-      return {
-        order_history_id: orderHistoryId,
-        product_id: item.productId,
-        product_name: item.productName,
-        quantity: item.quantity,
-        expected_date: expected.toISOString().split('T')[0],
-      };
-    })
-  );
+  const incomingRows = nonZero.map((item) => ({
+    order_history_id: orderData.id,
+    product_id: item.productId,
+    product_name: item.productName,
+    quantity: item.quantity,
+    expected_date: item.expectedDate,
+  }));
 
   const { error: insertError } = await supabase.from('incoming_stock').insert(incomingRows);
   if (insertError) {
@@ -85,7 +70,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
 
   const { data: items, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('id, product_id, product_name, quantity, lot_number')
+    .select('id, product_id, product_name, quantity, lot_number, expiry_date')
     .in('id', ids)
     .is('received_at', null);
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
@@ -95,12 +80,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   const todayStr = localToday.replace(/-/g, '');
   const productIds = [...new Set(items.map((i) => i.product_id))];
 
-  const [{ data: products }, { data: inventories }] = await Promise.all([
-    supabase.from('products').select('id, shelf_life_days').in('id', productIds),
-    supabase.from('inventory').select('product_id, current_stock').in('product_id', productIds),
-  ]);
-  const shelfLifeMap: Record<number, number | null> = {};
-  for (const p of products ?? []) shelfLifeMap[p.id] = p.shelf_life_days;
+  const { data: inventories } = await supabase
+    .from('inventory').select('product_id, current_stock').in('product_id', productIds);
   const stockMap: Record<number, number> = {};
   for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
 
@@ -112,13 +93,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   if (markError) return { error: `Failed to mark received: ${markError.message}` };
 
   for (const item of items) {
-    const shelfLifeDays = shelfLifeMap[item.product_id];
-    let expiryDate: string | null = null;
-    if (shelfLifeDays) {
-      const exp = new Date(localToday + 'T00:00:00');
-      exp.setDate(exp.getDate() + shelfLifeDays);
-      expiryDate = exp.toISOString().split('T')[0];
-    }
+    const expiryDate: string | null = item.expiry_date ?? null;
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
     await supabase.from('incoming_stock')
       .update({ lot_number: lotNumber, expiry_date: expiryDate }).eq('id', item.id);
@@ -200,11 +175,33 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   return { success: 'ok' };
 }
 
+export async function updateIncomingSchedule(formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+  const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('incoming_stock')
+    .update({ lot_number: lotNumber, expiry_date: expiryDate })
+    .eq('id', id)
+    .is('received_at', null);
+
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/incoming');
+  return { success: 'ok' };
+}
+
 export async function receiveIncoming(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
+  const formLot = String(formData.get('lot_number') ?? '').trim();
+  const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -220,22 +217,10 @@ export async function receiveIncoming(
     return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
   }
 
-  const { data: product } = await supabase
-    .from('products')
-    .select('shelf_life_days')
-    .eq('id', incoming.product_id)
-    .single();
-
   const localToday = await getLocalDate();
-  let expiryDate: string | null = null;
-  if (product?.shelf_life_days) {
-    const expiry = new Date(localToday + 'T00:00:00');
-    expiry.setDate(expiry.getDate() + product.shelf_life_days);
-    expiryDate = expiry.toISOString().split('T')[0];
-  }
-
   const todayStr = localToday.replace(/-/g, '');
-  const lotNumber = incoming.lot_number ?? `${todayStr}-${id}`;
+  const lotNumber = formLot || incoming.lot_number || `${todayStr}-${id}`;
+  const expiryDate: string | null = formExpiry;
 
   const { error: updateError } = await supabase
     .from('incoming_stock')

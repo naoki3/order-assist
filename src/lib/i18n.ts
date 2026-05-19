@@ -44,6 +44,12 @@ export const translations = {
     'order.estimatedValue': '発注金額合計：',
     'order.processing': '処理中...',
     'order.noProducts': '発注する商品がありません',
+    'order.expectedDate': '入荷予定日',
+    'order.addProduct': '商品を追加',
+    'order.selectProduct': '商品を選択してください',
+    'order.qtyPlaceholder': '数量',
+    'order.orderLines': (n: number) => `発注リスト（${n}件）`,
+    'order.suggestedQty': (n: number) => `推奨: ${n}個`,
     'order.placeOrder': (n: number) => `発注する（${n}件）`,
 
     // Home
@@ -253,6 +259,9 @@ export const translations = {
     'incoming.receivedQty': (n: number, date: string) => `${n} 個 · 入荷日 ${date}`,
     'incoming.receivedLabel': '入荷済み',
     'incoming.markReceived': '入荷確認',
+    'incoming.lotNumber': 'ロット番号',
+    'incoming.lotPlaceholder': 'ロット番号（任意）',
+    'incoming.expiryDate': '賞味期限',
     'incoming.scheduleTitle': '入荷予定',
     'incoming.scheduleSubtitle': '入荷予定の追加・削除ができます',
     'incoming.noScheduled': '入荷予定がありません',
@@ -285,6 +294,9 @@ export const translations = {
     'incoming.receivedDate': '入荷日',
     'incoming.expectedDate2': '予定日',
     'incoming.recentReceived': '直近の入荷済み',
+    'incoming.editButton': '編集',
+    'incoming.saveButton': '保存',
+    'incoming.saving': '保存中...',
 
     // History
     'history.title': '発注履歴',
@@ -359,6 +371,12 @@ export const translations = {
     'order.estimatedValue': 'Estimated order value: ',
     'order.processing': 'Processing...',
     'order.noProducts': 'No products to order',
+    'order.expectedDate': 'Expected Arrival Date',
+    'order.addProduct': 'Add Product',
+    'order.selectProduct': 'Select a product',
+    'order.qtyPlaceholder': 'Qty',
+    'order.orderLines': (n: number) => `Order list (${n} item${n === 1 ? '' : 's'})`,
+    'order.suggestedQty': (n: number) => `Suggested: ${n}`,
     'order.placeOrder': (n: number) => `Place order (${n} item${n === 1 ? '' : 's'})`,
 
     // Home
@@ -568,6 +586,9 @@ export const translations = {
     'incoming.receivedQty': (n: number, date: string) => `${n} units · Received ${date}`,
     'incoming.receivedLabel': 'Received',
     'incoming.markReceived': 'Mark Received',
+    'incoming.lotNumber': 'Lot Number',
+    'incoming.lotPlaceholder': 'Lot number (optional)',
+    'incoming.expiryDate': 'Expiry Date',
     'incoming.scheduleTitle': 'Incoming Schedule',
     'incoming.scheduleSubtitle': 'Add or remove scheduled deliveries',
     'incoming.noScheduled': 'No scheduled deliveries',
@@ -600,6 +621,9 @@ export const translations = {
     'incoming.receivedDate': 'Received',
     'incoming.expectedDate2': 'Expected',
     'incoming.recentReceived': 'Recently Received',
+    'incoming.editButton': 'Edit',
+    'incoming.saveButton': 'Save',
+    'incoming.saving': 'Saving...',
 
     // History
     'history.title': 'Order History',
