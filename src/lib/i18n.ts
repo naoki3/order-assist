@@ -302,6 +302,8 @@ export const translations = {
     'history.title': '発注履歴',
     'history.noHistory': '発注履歴がありません',
     'history.units': '個',
+    'history.orderedAt': '発注日: ',
+    'history.expectedDate': '入荷予定日: ',
 
     // Common
     'common.confirmQuestion': '削除しますか？',
@@ -629,6 +631,8 @@ export const translations = {
     'history.title': 'Order History',
     'history.noHistory': 'No order history',
     'history.units': 'units',
+    'history.orderedAt': 'Ordered: ',
+    'history.expectedDate': 'Expected: ',
 
     // Common
     'common.confirmQuestion': 'Delete this item?',
