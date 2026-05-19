@@ -143,9 +143,14 @@ function AddProductForm({
           placeholder={t('incoming.quantityPlaceholder')}
           className="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
       </div>
-      <input type="text" name="lot_number"
-        placeholder={t('incoming.lotNumberPlaceholder')}
-        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+      <div className="flex gap-2">
+        <input type="text" name="lot_number"
+          placeholder={t('incoming.lotNumberPlaceholder')}
+          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        <input type="date" name="expiry_date"
+          placeholder={t('incoming.expiryDate')}
+          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+      </div>
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={isPending}

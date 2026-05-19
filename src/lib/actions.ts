@@ -535,6 +535,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   const quantity = Number(formData.get('quantity'));
   const expectedDate = String(formData.get('expected_date') ?? '').trim();
   const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+  const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
 
   if (!productId || isNaN(quantity) || quantity < 1 || !expectedDate) {
     return { error: '入力値が不正です' };
@@ -550,7 +551,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, user_id: user.id })
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: user.id })
     .select('id')
     .single();
 
