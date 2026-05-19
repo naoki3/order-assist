@@ -70,7 +70,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
 
   const { data: items, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('id, product_id, product_name, quantity, lot_number')
+    .select('id, product_id, product_name, quantity, lot_number, expiry_date')
     .in('id', ids)
     .is('received_at', null);
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
@@ -80,12 +80,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   const todayStr = localToday.replace(/-/g, '');
   const productIds = [...new Set(items.map((i) => i.product_id))];
 
-  const [{ data: products }, { data: inventories }] = await Promise.all([
-    supabase.from('products').select('id, shelf_life_days').in('id', productIds),
-    supabase.from('inventory').select('product_id, current_stock').in('product_id', productIds),
-  ]);
-  const shelfLifeMap: Record<number, number | null> = {};
-  for (const p of products ?? []) shelfLifeMap[p.id] = p.shelf_life_days;
+  const { data: inventories } = await supabase
+    .from('inventory').select('product_id, current_stock').in('product_id', productIds);
   const stockMap: Record<number, number> = {};
   for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
 
@@ -97,13 +93,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   if (markError) return { error: `Failed to mark received: ${markError.message}` };
 
   for (const item of items) {
-    const shelfLifeDays = shelfLifeMap[item.product_id];
-    let expiryDate: string | null = null;
-    if (shelfLifeDays) {
-      const exp = new Date(localToday + 'T00:00:00');
-      exp.setDate(exp.getDate() + shelfLifeDays);
-      expiryDate = exp.toISOString().split('T')[0];
-    }
+    const expiryDate: string | null = item.expiry_date ?? null;
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
     await supabase.from('incoming_stock')
       .update({ lot_number: lotNumber, expiry_date: expiryDate }).eq('id', item.id);
@@ -185,11 +175,33 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   return { success: 'ok' };
 }
 
+export async function updateIncomingSchedule(formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+  const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('incoming_stock')
+    .update({ lot_number: lotNumber, expiry_date: expiryDate })
+    .eq('id', id)
+    .is('received_at', null);
+
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/incoming');
+  return { success: 'ok' };
+}
+
 export async function receiveIncoming(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
+  const formLot = String(formData.get('lot_number') ?? '').trim();
+  const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -207,8 +219,8 @@ export async function receiveIncoming(
 
   const localToday = await getLocalDate();
   const todayStr = localToday.replace(/-/g, '');
-  const lotNumber = incoming.lot_number ?? `${todayStr}-${id}`;
-  const expiryDate: string | null = null;
+  const lotNumber = formLot || incoming.lot_number || `${todayStr}-${id}`;
+  const expiryDate: string | null = formExpiry;
 
   const { error: updateError } = await supabase
     .from('incoming_stock')

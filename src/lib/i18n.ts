@@ -294,6 +294,9 @@ export const translations = {
     'incoming.receivedDate': '入荷日',
     'incoming.expectedDate2': '予定日',
     'incoming.recentReceived': '直近の入荷済み',
+    'incoming.editButton': '編集',
+    'incoming.saveButton': '保存',
+    'incoming.saving': '保存中...',
 
     // History
     'history.title': '発注履歴',
@@ -618,6 +621,9 @@ export const translations = {
     'incoming.receivedDate': 'Received',
     'incoming.expectedDate2': 'Expected',
     'incoming.recentReceived': 'Recently Received',
+    'incoming.editButton': 'Edit',
+    'incoming.saveButton': 'Save',
+    'incoming.saving': 'Saving...',
 
     // History
     'history.title': 'Order History',

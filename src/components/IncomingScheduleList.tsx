@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useActionState } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
-import { deleteIncomingSchedule, addIncomingItem } from '@/lib/actions';
+import { deleteIncomingSchedule, addIncomingItem, updateIncomingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
@@ -12,38 +12,87 @@ interface ProductOption { id: number; name: string }
 function Item({ item, isNew }: { item: IncomingStock; isNew: boolean }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [editError, setEditError] = useState<string | null>(null);
   const [state, action] = useActionState(deleteIncomingSchedule, null);
   const { errorMsg } = useActionFeedback(state, t('common.deleted'));
 
+  function handleEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setEditError(null);
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await updateIncomingSchedule(formData);
+      if (result && 'error' in result) setEditError(result.error);
+      else setEditing(false);
+    });
+  }
+
   return (
-    <div className={`flex items-center justify-between gap-3 py-2.5 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
-      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-        <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
-        {isNew && (
-          <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
-        )}
-        {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
-      </div>
-      {confirming ? (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
-          <button type="button" onClick={() => setConfirming(false)}
-            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
-            {t('common.cancel')}
-          </button>
-          <form action={action}>
-            <input type="hidden" name="id" value={item.id} />
-            <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+    <div className={`py-2.5 space-y-2 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+          {isNew && (
+            <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
+          )}
+          {item.lot_number && (
+            <span className="text-xs text-slate-400">#{item.lot_number}</span>
+          )}
+          {item.expiry_date && (
+            <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {item.expiry_date}</span>
+          )}
+          {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
+        </div>
+        {confirming ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
+            <button type="button" onClick={() => setConfirming(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+            <form action={action}>
+              <input type="hidden" name="id" value={item.id} />
+              <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+                {t('incoming.delete')}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button type="button" onClick={() => { setEditing(!editing); setEditError(null); }}
+              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              {t('incoming.editButton')}
+            </button>
+            <button type="button" onClick={() => setConfirming(true)}
+              className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
               {t('incoming.delete')}
             </button>
-          </form>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setConfirming(true)}
-          className="text-red-400 text-xs hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
-          {t('incoming.delete')}
-        </button>
+          </div>
+        )}
+      </div>
+      {editing && (
+        <form onSubmit={handleEdit} className="flex flex-wrap gap-2 pb-1">
+          <input type="hidden" name="id" value={item.id} />
+          <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
+            placeholder={t('incoming.lotPlaceholder')}
+            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
+            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          {editError && <p className="text-red-600 text-xs w-full">{editError}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={isPending}
+              className="px-3 py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50">
+              {isPending ? t('incoming.saving') : t('incoming.saveButton')}
+            </button>
+            <button type="button" onClick={() => { setEditing(false); setEditError(null); }}
+              className="px-3 py-1.5 text-slate-500 text-xs rounded-lg hover:bg-slate-100 transition-colors">
+              {t('common.cancel')}
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

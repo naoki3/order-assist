@@ -17,14 +17,11 @@ function Item({ item }: { item: IncomingStock }) {
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
 
   return (
-    <div className="py-2.5">
+    <div className="py-2.5 space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
           <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
-          {receiveError && <p className="text-red-600 text-xs mt-0.5">{receiveError}</p>}
-          {delError && <p className="text-red-600 text-xs mt-0.5">{delError}</p>}
-          {receiveSuccess && <p className="text-green-600 text-xs mt-0.5">{receiveSuccess}</p>}
         </div>
         {confirming ? (
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -41,21 +38,29 @@ function Item({ item }: { item: IncomingStock }) {
             </form>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <form action={receiveAction}>
-              <input type="hidden" name="id" value={item.id} />
-              <button type="submit"
-                className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">
-                {t('incoming.markReceived')}
-              </button>
-            </form>
-            <button type="button" onClick={() => setConfirming(true)}
-              className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-              {t('incoming.delete')}
-            </button>
-          </div>
+          <button type="button" onClick={() => setConfirming(true)}
+            className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
+            {t('incoming.delete')}
+          </button>
         )}
       </div>
+      {!confirming && (
+        <form action={receiveAction} className="flex flex-wrap gap-2">
+          <input type="hidden" name="id" value={item.id} />
+          <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
+            placeholder={t('incoming.lotPlaceholder')}
+            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
+            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <button type="submit"
+            className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium">
+            {t('incoming.markReceived')}
+          </button>
+        </form>
+      )}
+      {receiveError && <p className="text-red-600 text-xs">{receiveError}</p>}
+      {delError && <p className="text-red-600 text-xs">{delError}</p>}
+      {receiveSuccess && <p className="text-green-600 text-xs">{receiveSuccess}</p>}
     </div>
   );
 }
