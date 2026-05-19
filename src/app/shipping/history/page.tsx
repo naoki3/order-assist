@@ -3,6 +3,7 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { OutgoingStock } from '@/lib/db';
 import ShippedHistoryList from '@/components/ShippedHistoryList';
+import type { UnitConfig } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,8 +26,14 @@ export default async function ShippingHistoryPage({
     query = query.order('shipped_at', { ascending: false }).limit(60);
   }
 
-  const { data } = await query;
+  const [{ data }, { data: productsData }] = await Promise.all([
+    query,
+    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
+  ]);
   const items = (data ?? []) as OutgoingStock[];
+  const unitMap: Record<number, UnitConfig> = Object.fromEntries(
+    (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
 
   return (
     <div className="space-y-6">
@@ -58,7 +65,7 @@ export default async function ShippingHistoryPage({
         <p className="text-xs text-slate-400 mb-2">
           {date ? `${t('shipping.shippedDate', lang)}: ${date}` : t('shipping.recentShippedLabel', lang)}
         </p>
-        <ShippedHistoryList items={items} emptyText={t('shipping.historyEmpty', lang)} />
+        <ShippedHistoryList items={items} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} />
       </div>
     </div>
   );
