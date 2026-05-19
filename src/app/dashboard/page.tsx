@@ -37,9 +37,22 @@ function buildLastNDates(tz: string, n: number): string[] {
 
 async function getSalesTrend(tz: string): Promise<{ date: string; quantity: number }[]> {
   const dates = buildLastNDates(tz, 7);
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
   const supabase = await createClient();
-  const { data } = await supabase.from('sales').select('date, quantity').in('date', dates);
-  return data ?? [];
+  const { data } = await supabase
+    .from('outgoing_stock')
+    .select('shipped_at, quantity')
+    .not('shipped_at', 'is', null)
+    .gte('shipped_at', minDate + 'T00:00:00')
+    .lte('shipped_at', maxDate + 'T23:59:59');
+  const byDate: Record<string, number> = {};
+  for (const row of data ?? []) {
+    if (!row.shipped_at) continue;
+    const d = toLocalDateStr(tz, new Date(row.shipped_at));
+    byDate[d] = (byDate[d] ?? 0) + row.quantity;
+  }
+  return Object.entries(byDate).map(([date, quantity]) => ({ date, quantity }));
 }
 
 async function getTodayIncoming(tz: string): Promise<IncomingStock[]> {
@@ -250,20 +263,22 @@ export default async function DashboardPage() {
       )}
 
       {/* Today's incoming */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.todayIncoming', lang)}</h2>
-        {todayIncoming.length === 0 ? (
-          <p className="text-sm text-slate-400">{t('dashboard.noTodayIncoming', lang)}</p>
-        ) : (
-          <div className="space-y-2">
-            {todayIncoming.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700 font-medium">{item.product_name}</span>
-                <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayIncoming', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayIncoming.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayIncoming', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayIncoming.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
