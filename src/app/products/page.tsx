@@ -3,6 +3,7 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import ProductCard from '@/components/ProductCard';
 import AddProductForm from '@/components/AddProductForm';
+import ProductCsvImport from '@/components/ProductCsvImport';
 import type { Product, Inventory } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,7 @@ export default async function ProductsPage() {
       </div>
 
       <AddProductForm />
+      <ProductCsvImport />
     </div>
   );
 }

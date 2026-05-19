@@ -4,6 +4,7 @@ import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
 import type { Product, Inventory, Lot } from '@/lib/db';
 import LotTag from '@/components/LotTag';
+import { formatQty } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +44,12 @@ export default async function InventoryPage() {
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-slate-800">{p.name}</p>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-slate-700">{stock}</p>
-                    <p className="text-xs text-slate-400">{t('inventory.units', lang)}</p>
+                    <p className="text-2xl font-bold text-slate-700">
+                      {p.pieces_per_ball ? formatQty(stock, p) : stock}
+                    </p>
+                    {!p.pieces_per_ball && (
+                      <p className="text-xs text-slate-400">{t('inventory.units', lang)}</p>
+                    )}
                   </div>
                 </div>
 
@@ -61,7 +66,9 @@ export default async function InventoryPage() {
                             today={today}
                             expiryLabel={p.expiry_type ?? t('inventory.lotExpiry', lang)}
                           />
-                          <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">{lot.quantity} {t('inventory.units', lang)}</span>
+                          <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">
+                              {p.pieces_per_ball ? formatQty(lot.quantity, p) : `${lot.quantity} ${t('inventory.units', lang)}`}
+                            </span>
                         </div>
                       );
                     })}

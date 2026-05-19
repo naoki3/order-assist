@@ -6,8 +6,10 @@ import type { OutgoingStock } from '@/lib/db';
 import { confirmShipment, deleteOutgoingSchedule, confirmBulkShipment } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
+import { formatQty } from '@/lib/units';
+import type { UnitConfig } from '@/lib/units';
 
-function Item({ item }: { item: OutgoingStock }) {
+function Item({ item, unitConfig }: { item: OutgoingStock; unitConfig: UnitConfig }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [shipState, shipAction] = useActionState(confirmShipment, null);
@@ -21,7 +23,11 @@ function Item({ item }: { item: OutgoingStock }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-          <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('shipping.units')}</span>
+          {unitConfig.pieces_per_ball ? (
+            <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig)}</span>
+          ) : (
+            <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('shipping.units')}</span>
+          )}
           {item.note && <span className="text-xs text-slate-400 ml-1">· {item.note}</span>}
           {shipError && <p className="text-red-600 text-xs mt-0.5">{shipError}</p>}
           {delError && <p className="text-red-600 text-xs mt-0.5">{delError}</p>}
@@ -61,7 +67,7 @@ function Item({ item }: { item: OutgoingStock }) {
   );
 }
 
-function DateGroup({ date, items }: { date: string; items: OutgoingStock[] }) {
+function DateGroup({ date, items, unitMap }: { date: string; items: OutgoingStock[]; unitMap: Record<number, UnitConfig> }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(true);
   const [bulkState, bulkAction] = useActionState(confirmBulkShipment, null);
@@ -88,7 +94,7 @@ function DateGroup({ date, items }: { date: string; items: OutgoingStock[] }) {
       {isOpen && (
         <div className="px-4 pb-3">
           <div className="divide-y divide-slate-100">
-            {items.map(item => <Item key={item.id} item={item} />)}
+            {items.map(item => <Item key={item.id} item={item} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
           </div>
           {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
           {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
@@ -115,13 +121,13 @@ function groupByDate(items: OutgoingStock[]) {
   return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
 }
 
-export default function OutgoingConfirmList({ items, emptyText }: { items: OutgoingStock[]; emptyText: string }) {
+export default function OutgoingConfirmList({ items, emptyText, unitMap = {} }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig> }) {
   const groups = groupByDate(items);
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} />
+        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} />
       ))}
     </div>
   );

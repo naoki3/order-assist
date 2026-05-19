@@ -7,10 +7,19 @@ import { deleteOutgoingSchedule, addOutgoingItem } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import LotTag from './LotTag';
+import QtyInput from './QtyInput';
+import { formatQty } from '@/lib/units';
+import type { UnitConfig } from '@/lib/units';
 
-interface ProductOption { id: number; name: string }
+interface ProductOption {
+  id: number;
+  name: string;
+  pieces_per_ball: number | null;
+  balls_per_case: number | null;
+  cases_per_pallet: number | null;
+}
 
-function Item({ item, isNew }: { item: OutgoingStock; isNew: boolean }) {
+function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean; unitConfig: UnitConfig }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [state, action] = useActionState(deleteOutgoingSchedule, null);
@@ -21,7 +30,11 @@ function Item({ item, isNew }: { item: OutgoingStock; isNew: boolean }) {
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-          <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+          {unitConfig.pieces_per_ball ? (
+            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig)}</span>
+          ) : (
+            <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+          )}
           {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
         </div>
         {item.lot_number && <LotTag lotNumber={item.lot_number} />}
@@ -76,6 +89,9 @@ function AddProductForm({
   const [selectedLotId, setSelectedLotId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
 
+  const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
+  const unitConfig: UnitConfig = selectedProduct ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
+
   const productLots = lots
     .filter(l => l.product_id === Number(selectedProductId) && l.quantity > 0)
     .sort((a, b) => {
@@ -109,14 +125,18 @@ function AddProductForm({
       <div className="flex gap-2">
         <select name="product_id" required
           value={selectedProductId}
-          onChange={(e) => setSelectedProductId(e.target.value)}
+          onChange={(e) => { setSelectedProductId(e.target.value); setSelectedLotId(''); }}
           className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('shipping.selectProduct')}</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <input type="number" name="quantity" min={1} required
+        <QtyInput
+          name="quantity"
+          unitConfig={unitConfig}
+          min={1}
           placeholder={t('shipping.quantityPlaceholder')}
-          className="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          inputClassName="w-20 shrink-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
       </div>
       {selectedProductId && (
         <>
@@ -158,13 +178,14 @@ function AddProductForm({
 }
 
 function DateGroup({
-  date, items, newIds, products, lots, onAdded, defaultOpen = true,
+  date, items, newIds, products, lots, unitMap, onAdded, defaultOpen = true,
 }: {
   date: string;
   items: OutgoingStock[];
   newIds: Set<number>;
   products: ProductOption[];
   lots: Lot[];
+  unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   defaultOpen?: boolean;
 }) {
@@ -194,7 +215,7 @@ function DateGroup({
         <div className="px-4 pb-3">
           {items.length > 0 && (
             <div className="divide-y divide-slate-100">
-              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} />)}
+              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
             </div>
           )}
           {showAddForm ? (
@@ -237,6 +258,9 @@ interface Props {
 export default function OutgoingScheduleList({ items, emptyText, products, lots }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
+  const unitMap: Record<number, UnitConfig> = Object.fromEntries(
+    products.map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
   const [pendingDate, setPendingDate] = useState<string | null>(null);
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputValue, setDateInputValue] = useState('');
@@ -281,14 +305,14 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots 
 
       {pendingDate && !pendingDateInGroups && (
         <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
-          products={products} lots={lots} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
+          products={products} lots={lots} unitMap={unitMap} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
       )}
 
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
           <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
-            products={products} lots={lots} onAdded={handleAdded} />
+            products={products} lots={lots} unitMap={unitMap} onAdded={handleAdded} />
         ))
       }
     </div>

@@ -6,6 +6,8 @@ import { placeOrder } from '@/lib/actions';
 import type { OrderItem } from '@/lib/actions';
 import type { Recommendation } from '@/lib/calculator';
 import { useT } from './LanguageProvider';
+import { getAvailableUnits, unitToPieces, formatQty, UNIT_LABELS_JA } from '@/lib/units';
+import type { UnitType, UnitConfig } from '@/lib/units';
 
 interface Props {
   recommendations: Recommendation[];
@@ -26,15 +28,26 @@ export default function OrderBoard({ recommendations }: Props) {
   const [lines, setLines] = useState<OrderLine[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [inputQty, setInputQty] = useState('');
+  const [inputUnit, setInputUnit] = useState<UnitType>('piece');
+
+  const selectedRec = recommendations.find((r) => r.product.id === Number(selectedId));
+  const unitConfig: UnitConfig = selectedRec?.product ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
+  const units = getAvailableUnits(unitConfig);
+  const inputPieces = unitToPieces(Number(inputQty) || 0, inputUnit, unitConfig);
+  const showBreakdown = inputPieces > 0 && inputUnit !== 'piece' && unitConfig.pieces_per_ball != null;
 
   function handleProductChange(id: string) {
     setSelectedId(id);
     if (id) {
       const rec = recommendations.find((r) => r.product.id === Number(id));
+      const recUnitConfig: UnitConfig = rec?.product ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
+      const recUnits = getAvailableUnits(recUnitConfig);
+      setInputUnit(recUnits[recUnits.length - 1]); // default to smallest unit (piece)
       if (rec && rec.orderQty > 0) setInputQty(String(rec.orderQty));
       else setInputQty('');
     } else {
       setInputQty('');
+      setInputUnit('piece');
     }
   }
 
@@ -43,14 +56,16 @@ export default function OrderBoard({ recommendations }: Props) {
     if (!selectedId || isNaN(qty) || qty < 1) return;
     const rec = recommendations.find((r) => r.product.id === Number(selectedId));
     if (!rec) return;
+    const pieces = inputPieces > 0 ? inputPieces : qty;
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.productId === Number(selectedId));
-      const line: OrderLine = { productId: rec.product.id, productName: rec.product.name, qty };
+      const line: OrderLine = { productId: rec.product.id, productName: rec.product.name, qty: pieces };
       if (idx >= 0) { const next = [...prev]; next[idx] = line; return next; }
       return [...prev, line];
     });
     setSelectedId('');
     setInputQty('');
+    setInputUnit('piece');
   }
 
   function handleOrder() {
@@ -128,20 +143,38 @@ export default function OrderBoard({ recommendations }: Props) {
               </option>
             ))}
           </select>
-          <input
-            type="number"
-            min={1}
-            value={inputQty}
-            onChange={(e) => setInputQty(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addLine()}
-            placeholder={t('order.qtyPlaceholder')}
-            className="w-20 border border-slate-300 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
+          <div className="flex flex-col gap-0.5">
+            <div className="flex gap-1">
+              <input
+                type="number"
+                min={1}
+                value={inputQty}
+                onChange={(e) => setInputQty(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addLine()}
+                placeholder={t('order.qtyPlaceholder')}
+                className="w-20 border border-slate-300 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              {units.length > 1 ? (
+                <select
+                  value={inputUnit}
+                  onChange={(e) => { setInputUnit(e.target.value as UnitType); setInputQty(''); }}
+                  className="border border-slate-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white shrink-0"
+                >
+                  {units.map((u) => <option key={u} value={u}>{UNIT_LABELS_JA[u]}</option>)}
+                </select>
+              ) : (
+                <span className="text-sm text-slate-500 self-center px-1 shrink-0">{UNIT_LABELS_JA[units[0]]}</span>
+              )}
+            </div>
+            {showBreakdown && (
+              <p className="text-xs text-slate-400">= {formatQty(inputPieces, unitConfig)}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={addLine}
             disabled={!selectedId || !inputQty}
-            className="px-3 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-start"
           >
             <Plus size={16} />
           </button>
@@ -157,18 +190,26 @@ export default function OrderBoard({ recommendations }: Props) {
             </p>
           </div>
           <div className="divide-y divide-slate-100">
-            {lines.map((line) => (
+            {lines.map((line) => {
+              const lineRec = recommendations.find((r) => r.product.id === line.productId);
+              const lineUnitConfig: UnitConfig = lineRec?.product ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
+              return (
               <div key={line.productId} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <span className="text-sm font-medium text-slate-800">{line.productName}</span>
-                  <span className="text-xs text-slate-500 ml-2">{line.qty} {t('incoming.units')}</span>
+                  {lineUnitConfig.pieces_per_ball ? (
+                    <span className="text-xs text-slate-500 ml-2">{formatQty(line.qty, lineUnitConfig)}</span>
+                  ) : (
+                    <span className="text-xs text-slate-500 ml-2">{line.qty} {t('incoming.units')}</span>
+                  )}
                 </div>
                 <button type="button" onClick={() => setLines((p) => p.filter((l) => l.productId !== line.productId))}
                   className="text-slate-300 hover:text-red-500 transition-colors ml-3">
                   <X size={16} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
           {totalOrderValue !== null && (
             <div className="px-4 py-2.5 border-t border-slate-100 text-right">

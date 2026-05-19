@@ -5,6 +5,7 @@ import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
 import type { Product } from '@/lib/db';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
+import { formatQty } from '@/lib/units';
 
 interface Props {
   product: Product;
@@ -115,6 +116,26 @@ export default function ProductCard({ product, currentStock }: Props) {
             <span className="text-xs text-slate-400 self-center">（在庫がある間は変更不可）</span>
           )}
         </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.piecesPerBall')}
+              <input type="number" name="pieces_per_ball" min={1} defaultValue={product.pieces_per_ball ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitPieces')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.ballsPerCase')}
+              <input type="number" name="balls_per_case" min={1} defaultValue={product.balls_per_case ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitBalls')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.casesPerPallet')}
+              <input type="number" name="cases_per_pallet" min={1} defaultValue={product.cases_per_pallet ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitCases')}
+            </label>
+          </div>
+        </div>
         {updateError && (
           <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateError}</p>
         )}
@@ -135,7 +156,11 @@ export default function ProductCard({ product, currentStock }: Props) {
             min={0}
             className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
           />
-          <span className="text-sm text-slate-500">{t('products.units')}</span>
+          {product.pieces_per_ball ? (
+            <span className="text-sm text-slate-500">{formatQty(currentStock, product)}</span>
+          ) : (
+            <span className="text-sm text-slate-500">{t('products.units')}</span>
+          )}
           <button
             type="submit"
             className="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"

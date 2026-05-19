@@ -6,6 +6,9 @@ export interface Product {
   price: number | null;
   shelf_life_days: number | null;
   expiry_type: string | null;
+  pieces_per_ball: number | null;
+  balls_per_case: number | null;
+  cases_per_pallet: number | null;
 }
 
 export interface Sale {

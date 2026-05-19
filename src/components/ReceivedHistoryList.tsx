@@ -5,8 +5,10 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { IncomingStock } from '@/lib/db';
 import LotTag from './LotTag';
 import { useT } from './LanguageProvider';
+import { formatQty } from '@/lib/units';
+import type { UnitConfig } from '@/lib/units';
 
-function Item({ item, today }: { item: IncomingStock; today: string }) {
+function Item({ item, today, unitConfig }: { item: IncomingStock; today: string; unitConfig: UnitConfig }) {
   const { t } = useT();
   return (
     <div className="py-2.5">
@@ -14,7 +16,11 @@ function Item({ item, today }: { item: IncomingStock; today: string }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-bold text-slate-800">{item.product_name}</span>
-            <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+            {unitConfig.pieces_per_ball ? (
+              <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig)}</span>
+            ) : (
+              <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+            )}
           </div>
           {item.lot_number && (
             <div className="mt-0.5">
@@ -51,7 +57,7 @@ function groupByExpectedDate(items: IncomingStock[]): { date: string; items: Inc
   return entries;
 }
 
-export default function ReceivedHistoryList({ items, emptyText }: { items: IncomingStock[]; emptyText: string }) {
+export default function ReceivedHistoryList({ items, emptyText, unitMap = {} }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig> }) {
   const { tf } = useT();
   const { localDate } = useT();
   const [today] = useState(() => localDate());
@@ -98,7 +104,7 @@ export default function ReceivedHistoryList({ items, emptyText }: { items: Incom
             {isOpen && (
               <div className="px-4 pb-2 divide-y divide-slate-100">
                 {dateItems.map((item) => (
-                  <Item key={item.id} item={item} today={today} />
+                  <Item key={item.id} item={item} today={today} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />
                 ))}
               </div>
             )}
