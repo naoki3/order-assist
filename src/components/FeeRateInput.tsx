@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import type { UnitConfig, UnitType } from '@/lib/units';
-import { getAvailableUnits, unitToPieces, UNIT_LABELS_JA } from '@/lib/units';
+import { getAvailableUnits, unitToPieces, getUnitLabels } from '@/lib/units';
+import { useT } from './LanguageProvider';
 
 interface Props {
   name: string;          // hidden input stores per-piece value
@@ -12,6 +13,8 @@ interface Props {
 }
 
 export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label }: Props) {
+  const { lang } = useT();
+  const unitLabels = getUnitLabels(lang);
   const units = getAvailableUnits(unitConfig);
   const [unit, setUnit] = useState<UnitType>(units[0]); // default to largest unit
 
@@ -55,10 +58,10 @@ export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label 
             onChange={(e) => handleUnitChange(e.target.value as UnitType)}
             className="border border-slate-300 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
           >
-            {units.map((u) => <option key={u} value={u}>{UNIT_LABELS_JA[u]}</option>)}
+            {units.map((u) => <option key={u} value={u}>{unitLabels[u]}</option>)}
           </select>
         ) : (
-          <span className="text-sm text-slate-500">{UNIT_LABELS_JA[units[0]]}</span>
+          <span className="text-sm text-slate-500">{unitLabels[units[0]]}</span>
         )}
       </div>
       {amount !== '' && unit !== 'piece' && perPieceVal !== '' && (

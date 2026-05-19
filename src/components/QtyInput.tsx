@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import type { UnitConfig, UnitType } from '@/lib/units';
-import { getAvailableUnits, unitToPieces, formatQty, UNIT_LABELS_JA } from '@/lib/units';
+import { getAvailableUnits, unitToPieces, formatQty, getUnitLabels } from '@/lib/units';
+import { useT } from './LanguageProvider';
 
 interface Props {
   name: string;           // form field name — stores pieces
@@ -16,6 +17,8 @@ interface Props {
 export default function QtyInput({
   name, unitConfig, defaultPieces = 0, min = 1, placeholder, className, inputClassName,
 }: Props) {
+  const { lang } = useT();
+  const unitLabels = getUnitLabels(lang);
   const units = getAvailableUnits(unitConfig);
   const [unit, setUnit] = useState<UnitType>(units[units.length - 1]); // default smallest (piece)
   const [val, setVal] = useState('');
@@ -43,10 +46,10 @@ export default function QtyInput({
             onChange={(e) => { setUnit(e.target.value as UnitType); setVal(''); }}
             className="border border-slate-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white shrink-0"
           >
-            {units.map((u) => <option key={u} value={u}>{UNIT_LABELS_JA[u]}</option>)}
+            {units.map((u) => <option key={u} value={u}>{unitLabels[u]}</option>)}
           </select>
         ) : (
-          <span className="text-sm text-slate-500 self-center px-1 shrink-0">{UNIT_LABELS_JA[units[0]]}</span>
+          <span className="text-sm text-slate-500 self-center px-1 shrink-0">{unitLabels[units[0]]}</span>
         )}
       </div>
       {showPreview && (
