@@ -10,6 +10,14 @@ export const UNIT_LABELS_JA: Record<UnitType, string> = {
   pallet: 'パレット', case: 'ケース', ball: 'ボール', piece: 'ピース',
 };
 
+export const UNIT_LABELS_EN: Record<UnitType, string> = {
+  pallet: 'Pallet', case: 'Case / Carton', ball: 'Inner pack / Box', piece: 'Piece / Each',
+};
+
+export function getUnitLabels(lang: string): Record<UnitType, string> {
+  return lang === 'en' ? UNIT_LABELS_EN : UNIT_LABELS_JA;
+}
+
 export function getAvailableUnits(config: UnitConfig): UnitType[] {
   const units: UnitType[] = ['piece'];
   if (config.pieces_per_ball) {
