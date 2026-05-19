@@ -196,6 +196,14 @@ export default async function DashboardPage() {
                   <p className="text-xs text-red-600 mt-0.5">
                     {(dict['dashboard.daysRemaining'] as (d: string, l: number) => string)(days.toFixed(1), r.product.lead_time_days)}
                   </p>
+                  <p className="text-xs text-slate-400 mt-1 font-mono">
+                    {(dict['dashboard.stockoutFormula'] as (s: number, d: string, day: string, l: number) => string)(
+                      r.currentStock,
+                      r.avgDemand7d.toFixed(1),
+                      days.toFixed(1),
+                      r.product.lead_time_days
+                    )}
+                  </p>
                 </div>
               );
             })}
