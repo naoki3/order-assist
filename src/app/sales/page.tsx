@@ -2,33 +2,41 @@ import { createClient } from '@/lib/supabase';
 import { getLang, getTz } from '@/lib/lang';
 import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
-import SaleForm from '@/components/SaleForm';
 import Link from 'next/link';
-import type { Product, Sale } from '@/lib/db';
+import type { Product, OutgoingStock } from '@/lib/db';
+import { formatQty } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
   const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
   const todayStr = toLocalDateStr(tz);
-  const dates: string[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(todayStr + 'T00:00:00');
-    d.setDate(d.getDate() - i);
-    dates.push(toLocalDateStr(tz, d));
-  }
-  const [{ data: productsData }, { data: salesData }] = await Promise.all([
-    supabase.from('products').select('*').order('id'),
-    supabase.from('sales').select('*').in('date', dates).order('product_id').order('date', { ascending: false }),
-  ]);
-  const products = (productsData ?? []) as Product[];
-  const sales = (salesData ?? []) as Sale[];
+  const start = new Date(todayStr + 'T00:00:00');
+  start.setDate(start.getDate() - 30);
+  const startStr = start.toISOString().split('T')[0];
 
-  const salesMap: Record<number, Record<string, number>> = {};
-  for (const s of sales) {
-    if (!salesMap[s.product_id]) salesMap[s.product_id] = {};
-    salesMap[s.product_id][s.date] = s.quantity;
+  const [{ data: outgoingData }, { data: productsData }] = await Promise.all([
+    supabase
+      .from('outgoing_stock')
+      .select('*')
+      .not('shipped_at', 'is', null)
+      .gte('shipped_at', startStr + 'T00:00:00')
+      .order('shipped_at', { ascending: false }),
+    supabase.from('products').select('*').order('id'),
+  ]);
+
+  const outgoing = (outgoingData ?? []) as OutgoingStock[];
+  const products = (productsData ?? []) as Product[];
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  const byDate: Record<string, OutgoingStock[]> = {};
+  for (const o of outgoing) {
+    if (!o.shipped_at) continue;
+    const dateStr = toLocalDateStr(tz, new Date(o.shipped_at));
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push(o);
   }
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
   function formatDate(dateStr: string): string {
     const d = new Date(dateStr + 'T00:00:00');
@@ -39,38 +47,57 @@ export default async function SalesPage() {
     <div>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-bold text-slate-800">{t('sales.title', lang)}</h1>
-        <div className="flex gap-2 text-xs">
-          <Link href="/sales/report" className="px-3 py-1.5 bg-green-50 text-green-700 font-medium rounded-lg hover:bg-green-100 transition-colors">
-            {t('nav.salesReport', lang)}
-          </Link>
-          <Link href="/sales/import" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
-            {t('sales.importCsv', lang)}
-          </Link>
-          <a href="/api/export-sales" className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
-            {t('sales.exportCsv', lang)}
-          </a>
-        </div>
+        <Link
+          href="/sales/report"
+          className="px-3 py-1.5 bg-green-50 text-green-700 font-medium rounded-lg hover:bg-green-100 transition-colors text-xs"
+        >
+          {t('nav.salesReport', lang)}
+        </Link>
       </div>
       <p className="text-sm text-slate-500 mb-4">{t('sales.subtitle', lang)}</p>
 
-      {products.length === 0 ? (
-        <p className="text-slate-400 text-sm">{t('sales.noProducts', lang)}</p>
+      {dates.length === 0 ? (
+        <p className="text-slate-400 text-sm">{t('sales.noData', lang)}</p>
       ) : (
         <div className="space-y-4">
-          {products.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
-              <p className="font-semibold text-slate-800 mb-3">{p.name}</p>
-              <SaleForm
-                productId={p.id}
-                price={p.price}
-                entries={dates.map((date) => ({
-                  date,
-                  label: formatDate(date),
-                  defaultQuantity: salesMap[p.id]?.[date] ?? 0,
-                }))}
-              />
-            </div>
-          ))}
+          {dates.map((date) => {
+            const rows = byDate[date];
+            const totalRevenue = rows.reduce((sum, r) => {
+              const p = productMap.get(r.product_id);
+              return sum + (p?.price ? p.price * r.quantity : 0);
+            }, 0);
+            return (
+              <div key={date} className="bg-white rounded-xl border border-slate-200 p-4">
+                <p className="font-semibold text-slate-700 mb-3">{formatDate(date)}</p>
+                <div className="space-y-2">
+                  {rows.map((r) => {
+                    const p = productMap.get(r.product_id);
+                    const qtyLabel = p ? formatQty(r.quantity, p) : `${r.quantity}`;
+                    return (
+                      <div key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="text-slate-700">{r.product_name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-600">{qtyLabel}</span>
+                          {p?.price != null && (
+                            <span className="text-slate-500">
+                              ¥{(p.price * r.quantity).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {totalRevenue > 0 && (
+                  <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
+                    <span className="text-sm font-medium text-slate-700">
+                      {t('sales.total', lang)}: ¥{totalRevenue.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
