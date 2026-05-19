@@ -53,9 +53,8 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const fromTs = from + 'T00:00:00.000Z';
   const toTs = to + 'T23:59:59.999Z';
-  const [{ data: productsData }, { data: salesData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }] = await Promise.all([
+  const [{ data: productsData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
-    supabase.from('sales').select('date, product_id, quantity').gte('date', from).lte('date', to).order('date'),
     supabase.from('sales_targets').select('target_amount').eq('month', to.slice(0, 7)).maybeSingle(),
     supabase.from('incoming_stock').select('product_id, quantity, received_at').not('received_at', 'is', null).gte('received_at', fromTs).lte('received_at', toTs),
     supabase.from('outgoing_stock').select('product_id, quantity, shipped_at').not('shipped_at', 'is', null).gte('shipped_at', fromTs).lte('shipped_at', toTs),
@@ -63,7 +62,6 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   ]);
 
   const products = (productsData ?? []) as Product[];
-  const sales = salesData ?? [];
   const incomings = (incomingData ?? []) as IncomingRow[];
   const outgoings = (outgoingData ?? []) as OutgoingRow[];
   const lots = (lotsData ?? []) as { product_id: number; quantity: number }[];
@@ -78,11 +76,11 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   const hasRevenue = products.some((p) => p.price != null);
 
   const byProduct: Record<number, { units: number; revenue: number }> = {};
-  for (const s of sales) {
-    if (!byProduct[s.product_id]) byProduct[s.product_id] = { units: 0, revenue: 0 };
-    byProduct[s.product_id].units += s.quantity;
-    const price = priceMap[s.product_id];
-    byProduct[s.product_id].revenue += price != null ? s.quantity * price : 0;
+  for (const o of outgoings) {
+    if (!byProduct[o.product_id]) byProduct[o.product_id] = { units: 0, revenue: 0 };
+    byProduct[o.product_id].units += o.quantity;
+    const price = priceMap[o.product_id];
+    byProduct[o.product_id].revenue += price != null ? o.quantity * price : 0;
   }
 
   const totalUnits = Object.values(byProduct).reduce((s, v) => s + v.units, 0);
@@ -97,11 +95,12 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   }
 
   const salesByDate: Record<string, { units: number; revenue: number }> = {};
-  for (const s of sales) {
-    if (!salesByDate[s.date]) salesByDate[s.date] = { units: 0, revenue: 0 };
-    salesByDate[s.date].units += s.quantity;
-    const price = priceMap[s.product_id];
-    salesByDate[s.date].revenue += price != null ? s.quantity * price : 0;
+  for (const o of outgoings) {
+    const d = o.shipped_at.slice(0, 10);
+    if (!salesByDate[d]) salesByDate[d] = { units: 0, revenue: 0 };
+    salesByDate[d].units += o.quantity;
+    const price = priceMap[o.product_id];
+    salesByDate[d].revenue += price != null ? o.quantity * price : 0;
   }
 
   // Logistics cost per day
@@ -283,7 +282,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
         </div>
       )}
 
-      {sales.length === 0 && (
+      {outgoings.length === 0 && (
         <div className="text-center py-12 text-slate-400">
           <p>{t('report.noData', lang)}</p>
           <Link href="/sales" className="text-sm text-green-700 hover:underline mt-1 block">{t('report.goToSales', lang)}</Link>
