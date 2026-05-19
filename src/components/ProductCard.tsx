@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default function ProductCard({ product, currentStock }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [updateState, updateAction] = useActionState(updateProduct, null);
   const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
@@ -114,11 +114,11 @@ export default function ProductCard({ product, currentStock }: Props) {
             {t('products.days')}
           </label>
           {expiryLocked && (
-            <span className="text-xs text-slate-400 self-center">（在庫がある間は変更不可）</span>
+            <span className="text-xs text-slate-400 self-center">{t('products.expiryLocked')}</span>
           )}
         </div>
         <div className="border-t border-slate-100 pt-3 mt-1">
-          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
           <div className="flex flex-wrap gap-4 text-sm">
             <FeeRateInput name="incoming_fee_per_piece" unitConfig={product} defaultPerPiece={product.incoming_fee_per_piece} label={t('products.incomingFee')} />
             <FeeRateInput name="storage_fee_per_piece" unitConfig={product} defaultPerPiece={product.storage_fee_per_piece} label={t('products.storageFee')} />
@@ -126,7 +126,7 @@ export default function ProductCard({ product, currentStock }: Props) {
           </div>
         </div>
         <div className="border-t border-slate-100 pt-3 mt-1">
-          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">（任意）</span></p>
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="flex items-center gap-1 text-slate-600">
               {t('products.piecesPerBall')}

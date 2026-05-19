@@ -30,6 +30,8 @@ export const translations = {
     'settings.timezoneDesc': '日付・時刻の表示に使用されます',
     'settings.language': '言語',
     'settings.saved': '保存しました',
+    'settings.currency': '通貨',
+    'settings.currencyDesc': '金額の表示通貨',
 
     // OrderBoard
     'order.placed': '発注完了！',
@@ -148,6 +150,8 @@ export const translations = {
     'products.incomingFee': '入荷料',
     'products.storageFee': '保管料（1日）',
     'products.outgoingFee': '出荷料',
+    'products.expiryLocked': '（在庫がある間は変更不可）',
+    'products.optionalParens': '（任意）',
 
     // Sales
     'sales.title': '売上確認',
@@ -384,6 +388,8 @@ export const translations = {
     'settings.timezoneDesc': 'Used for displaying dates and times',
     'settings.language': 'Language',
     'settings.saved': 'Saved',
+    'settings.currency': 'Currency',
+    'settings.currencyDesc': 'Display currency for prices',
 
     // OrderBoard
     'order.placed': 'Order placed!',
@@ -550,6 +556,8 @@ export const translations = {
     'products.incomingFee': 'Receiving fee',
     'products.storageFee': 'Storage fee (per day)',
     'products.outgoingFee': 'Outgoing fee',
+    'products.expiryLocked': '(Cannot change while items are in stock)',
+    'products.optionalParens': '(Optional)',
 
     // Sales
     'sales.title': 'Sales Confirmation',
