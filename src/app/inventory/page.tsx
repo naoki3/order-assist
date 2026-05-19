@@ -45,10 +45,10 @@ export default async function InventoryPage() {
                   <p className="font-semibold text-slate-800">{p.name}</p>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-slate-700">
-                      {p.pieces_per_ball ? formatQty(stock, p) : stock}
+                      {p.pieces_per_ball ? formatQty(stock, p, lang) : stock}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {p.pieces_per_ball ? `(${stock}ピース)` : t('inventory.units', lang)}
+                      {p.pieces_per_ball ? `(${stock}${lang === 'en' ? ' pieces' : 'ピース'})` : t('inventory.units', lang)}
                     </p>
                   </div>
                 </div>
@@ -68,7 +68,7 @@ export default async function InventoryPage() {
                           />
                           <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">
                             {p.pieces_per_ball
-                              ? `${formatQty(lot.quantity, p)} (${lot.quantity}ピース)`
+                              ? `${formatQty(lot.quantity, p, lang)} (${lot.quantity}${lang === 'en' ? ' pieces' : 'ピース'})`
                               : `${lot.quantity} ${t('inventory.units', lang)}`}
                           </span>
                         </div>

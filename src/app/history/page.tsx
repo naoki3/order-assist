@@ -61,7 +61,7 @@ export default async function HistoryPage() {
                 <div className="space-y-1">
                   {items.length > 0 ? items.map((item, i) => {
                     const uc = item.productId != null ? (unitMap[item.productId] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }) : { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
-                    const qtyStr = uc.pieces_per_ball ? formatQty(item.quantity, uc) : `${item.quantity} ${t('history.units', lang)}`;
+                    const qtyStr = uc.pieces_per_ball ? formatQty(item.quantity, uc, lang) : `${item.quantity} ${t('history.units', lang)}`;
                     return (
                     <div key={item.productId ?? i} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.productName}</span>

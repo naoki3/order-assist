@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase';
-import { getLang, getTz } from '@/lib/lang';
+import { getLang, getTz, getCurrency, CURRENCY_SYMBOLS } from '@/lib/lang';
 import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
 import Link from 'next/link';
@@ -9,7 +9,8 @@ import { formatQty } from '@/lib/units';
 export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
-  const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
+  const [supabase, lang, tz, currency] = await Promise.all([createClient(), getLang(), getTz(), getCurrency()]);
+  const currencySymbol = CURRENCY_SYMBOLS[currency];
   const todayStr = toLocalDateStr(tz);
   const start = new Date(todayStr + 'T00:00:00');
   start.setDate(start.getDate() - 30);
@@ -78,10 +79,12 @@ export default async function SalesPage() {
                 <div className="space-y-2">
                   {rows.map((r) => {
                     const p = productMap.get(r.productId);
-                    const unitLabel = p ? formatQty(r.totalPieces, p) : null;
-                    const qtyLabel = unitLabel && unitLabel !== `${r.totalPieces}ピース`
-                      ? `${unitLabel} (${r.totalPieces}ピース)`
-                      : `${r.totalPieces}ピース`;
+                    const unitLabel = p ? formatQty(r.totalPieces, p, lang) : null;
+                    const piecesSuffix = lang === 'en' ? ` pieces` : 'ピース';
+                    const piecesStr = `${r.totalPieces}${piecesSuffix}`;
+                    const qtyLabel = unitLabel && unitLabel !== piecesStr
+                      ? `${unitLabel} (${piecesStr})`
+                      : piecesStr;
                     return (
                       <div key={r.productId} className="flex items-center justify-between text-sm">
                         <span className="text-slate-700">{r.productName}</span>
@@ -89,7 +92,7 @@ export default async function SalesPage() {
                           <span className="text-slate-600">{qtyLabel}</span>
                           {p?.price != null && (
                             <span className="text-slate-500">
-                              ¥{(p.price * r.totalPieces).toLocaleString()}
+                              {currencySymbol}{(p.price * r.totalPieces).toLocaleString()}
                             </span>
                           )}
                         </div>
@@ -100,7 +103,7 @@ export default async function SalesPage() {
                 {totalRevenue > 0 && (
                   <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
                     <span className="text-sm font-medium text-slate-700">
-                      {t('sales.total', lang)}: ¥{totalRevenue.toLocaleString()}
+                      {t('sales.total', lang)}: {currencySymbol}{totalRevenue.toLocaleString()}
                     </span>
                   </div>
                 )}

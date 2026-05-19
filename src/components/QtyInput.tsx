@@ -53,7 +53,7 @@ export default function QtyInput({
         )}
       </div>
       {showPreview && (
-        <p className="text-xs text-slate-400 mt-0.5">= {formatQty(pieces, unitConfig)}</p>
+        <p className="text-xs text-slate-400 mt-0.5">= {formatQty(pieces, unitConfig, lang)}</p>
       )}
     </div>
   );
