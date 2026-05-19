@@ -29,12 +29,18 @@ export default async function SalesPage() {
   const products = (productsData ?? []) as Product[];
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  const byDate: Record<string, OutgoingStock[]> = {};
+  // Group by date → product, summing quantities
+  const byDate: Record<string, { productId: number; productName: string; totalPieces: number }[]> = {};
   for (const o of outgoing) {
     if (!o.shipped_at) continue;
     const dateStr = toLocalDateStr(tz, new Date(o.shipped_at));
     if (!byDate[dateStr]) byDate[dateStr] = [];
-    byDate[dateStr].push(o);
+    const existing = byDate[dateStr].find((r) => r.productId === o.product_id);
+    if (existing) {
+      existing.totalPieces += o.quantity;
+    } else {
+      byDate[dateStr].push({ productId: o.product_id, productName: o.product_name, totalPieces: o.quantity });
+    }
   }
   const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
@@ -63,24 +69,27 @@ export default async function SalesPage() {
           {dates.map((date) => {
             const rows = byDate[date];
             const totalRevenue = rows.reduce((sum, r) => {
-              const p = productMap.get(r.product_id);
-              return sum + (p?.price ? p.price * r.quantity : 0);
+              const p = productMap.get(r.productId);
+              return sum + (p?.price ? p.price * r.totalPieces : 0);
             }, 0);
             return (
               <div key={date} className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="font-semibold text-slate-700 mb-3">{formatDate(date)}</p>
                 <div className="space-y-2">
                   {rows.map((r) => {
-                    const p = productMap.get(r.product_id);
-                    const qtyLabel = p ? formatQty(r.quantity, p) : `${r.quantity}`;
+                    const p = productMap.get(r.productId);
+                    const unitLabel = p ? formatQty(r.totalPieces, p) : null;
+                    const qtyLabel = unitLabel && unitLabel !== `${r.totalPieces}ピース`
+                      ? `${unitLabel} (${r.totalPieces}ピース)`
+                      : `${r.totalPieces}ピース`;
                     return (
-                      <div key={r.id} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-700">{r.product_name}</span>
+                      <div key={r.productId} className="flex items-center justify-between text-sm">
+                        <span className="text-slate-700">{r.productName}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-600">{qtyLabel}</span>
                           {p?.price != null && (
                             <span className="text-slate-500">
-                              ¥{(p.price * r.quantity).toLocaleString()}
+                              ¥{(p.price * r.totalPieces).toLocaleString()}
                             </span>
                           )}
                         </div>
