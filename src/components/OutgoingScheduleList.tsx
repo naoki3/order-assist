@@ -10,6 +10,7 @@ import LotTag from './LotTag';
 import QtyInput from './QtyInput';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import DateInput from './DateInput';
 
 interface ProductOption {
   id: number;
@@ -284,8 +285,7 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots 
         <form onSubmit={handleDateSubmit} className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
           <p className="text-sm font-semibold text-slate-700 mb-3">{t('shipping.newDateTitle')}</p>
           <div className="flex gap-2">
-            <input type="date" value={dateInputValue} onChange={(e) => setDateInputValue(e.target.value)} required
-              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <DateInput value={dateInputValue} onChange={setDateInputValue} required className="flex-1 min-w-0 text-sm" />
             <button type="submit" disabled={!dateInputValue}
               className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50 shrink-0">
               {t('shipping.addButton')}

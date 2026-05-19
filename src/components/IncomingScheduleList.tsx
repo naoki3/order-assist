@@ -9,6 +9,7 @@ import { useActionFeedback } from '@/hooks/useActionFeedback';
 import QtyInput from './QtyInput';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import DateInput from './DateInput';
 
 interface ProductOption {
   id: number;
@@ -94,8 +95,7 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
             <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-            <input type="date" name="expiry_date" defaultValue={item.expiry_date ?? ''}
-              className="w-full border border-slate-300 rounded-lg px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" />
           </label>
           {editError && <p className="text-red-600 text-xs w-full">{editError}</p>}
           <div className="flex gap-2">
@@ -176,8 +176,7 @@ function AddProductForm({
           className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
         <label className="flex-1 flex flex-col gap-0.5">
           <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-          <input type="date" name="expiry_date"
-            className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <DateInput name="expiry_date" className="w-full text-sm" />
         </label>
       </div>
       {error && <p className="text-red-600 text-xs">{error}</p>}
@@ -308,12 +307,11 @@ export default function IncomingScheduleList({ items, emptyText, products }: Pro
         <form onSubmit={handleDateSubmit} className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
           <p className="text-sm font-semibold text-slate-700 mb-3">{t('incoming.newDateTitle')}</p>
           <div className="flex gap-2">
-            <input
-              type="date"
+            <DateInput
               value={dateInputValue}
-              onChange={(e) => setDateInputValue(e.target.value)}
+              onChange={setDateInputValue}
               required
-              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="flex-1 min-w-0 text-sm"
             />
             <button type="submit" disabled={!dateInputValue}
               className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50 shrink-0">

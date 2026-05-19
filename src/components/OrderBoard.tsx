@@ -6,6 +6,7 @@ import { placeOrder } from '@/lib/actions';
 import type { OrderItem } from '@/lib/actions';
 import type { Recommendation } from '@/lib/calculator';
 import { useT } from './LanguageProvider';
+import DateInput from './DateInput';
 import { getAvailableUnits, unitToPieces, formatQty, getUnitLabels } from '@/lib/units';
 import type { UnitType, UnitConfig } from '@/lib/units';
 
@@ -119,11 +120,10 @@ export default function OrderBoard({ recommendations }: Props) {
         <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
           {t('order.expectedDate')}
         </label>
-        <input
-          type="date"
+        <DateInput
           value={expectedDate}
-          onChange={(e) => setExpectedDate(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          onChange={setExpectedDate}
+          className="w-full text-sm"
         />
       </div>
 

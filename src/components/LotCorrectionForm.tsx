@@ -8,6 +8,7 @@ import type { Lot, Product } from '@/lib/db';
 import LotTag from './LotTag';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import DateInput from './DateInput';
 
 function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string; unitConfig: UnitConfig }) {
   const { t } = useT();
@@ -48,12 +49,7 @@ function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string;
         </div>
         <div>
           <label className="text-xs font-medium text-slate-500 mb-1 block">{t('inventory.correctionExpiry')}</label>
-          <input
-            type="date"
-            name="expiry_date"
-            defaultValue={lot.expiry_date ?? ''}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
+          <DateInput name="expiry_date" defaultValue={lot.expiry_date ?? ''} className="w-full text-sm" />
         </div>
         <div className="flex justify-end">
           <button
