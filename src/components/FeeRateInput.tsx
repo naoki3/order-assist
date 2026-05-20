@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label }: Props) {
-  const { lang, currencySymbol } = useT();
+  const { t, lang, currencySymbol } = useT();
   const unitLabels = getUnitLabels(lang);
   const units = getAvailableUnits(unitConfig);
   const [unit, setUnit] = useState<UnitType>(units[0]); // default to largest unit
@@ -65,7 +65,7 @@ export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label 
         )}
       </div>
       {amount !== '' && unit !== 'piece' && perPieceVal !== '' && (
-        <p className="text-xs text-slate-400">= {Number(perPieceVal).toFixed(4)}{currencySymbol}/{lang === 'en' ? 'piece' : 'ピース'}</p>
+        <p className="text-xs text-slate-400">= {Number(perPieceVal).toFixed(4)}{currencySymbol}/{t('units.piece')}</p>
       )}
     </label>
   );

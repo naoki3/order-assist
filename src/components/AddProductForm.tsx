@@ -6,7 +6,7 @@ import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 export default function AddProductForm() {
-  const { t, lang, currencySymbol } = useT();
+  const { t, currencySymbol } = useT();
   const [state, action] = useActionState(addProduct, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
   const [formKey, setFormKey] = useState(0);
@@ -93,7 +93,7 @@ export default function AddProductForm() {
           </label>
         </div>
         <div className="border-t border-slate-100 pt-3 mt-1">
-          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')} {currencySymbol}/{lang === 'en' ? 'piece' : 'ピース'}</span></p>
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')} {currencySymbol}/{t('units.piece')}</span></p>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="flex items-center gap-1 text-slate-600">
               {t('products.incomingFee')}

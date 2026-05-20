@@ -3,19 +3,17 @@
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
 import { SUPPORTED_TZ } from '@/lib/tz';
-import { CURRENCY_SYMBOLS } from '@/lib/currency';
 import type { Currency } from '@/lib/currency';
 import { useState } from 'react';
 
-const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
-  { value: 'JPY', label: '¥ 日本円' },
-  { value: 'USD', label: '$ 米ドル' },
-  { value: 'EUR', label: '€ ユーロ' },
-  { value: 'GBP', label: '£ 英ポンド' },
-];
-
 export default function SettingsForm() {
   const { t, tz, setTz, currency, setCurrency } = useT();
+  const currencyOptions: { value: Currency; label: string }[] = [
+    { value: 'JPY', label: t('settings.currencyJPY') },
+    { value: 'USD', label: t('settings.currencyUSD') },
+    { value: 'EUR', label: t('settings.currencyEUR') },
+    { value: 'GBP', label: t('settings.currencyGBP') },
+  ];
   const [saved, setSaved] = useState(false);
 
   function handleTzChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -29,8 +27,6 @@ export default function SettingsForm() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
-
-  void CURRENCY_SYMBOLS; // imported for type usage via Currency type
 
   return (
     <div className="space-y-6">
@@ -66,7 +62,7 @@ export default function SettingsForm() {
             onChange={handleCurrencyChange}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
           >
-            {CURRENCY_OPTIONS.map((opt) => (
+            {currencyOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>

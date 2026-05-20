@@ -17,7 +17,7 @@ function Item({ item, today, unitConfig }: { item: IncomingStock; today: string;
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-bold text-slate-800">{item.product_name}</span>
             {unitConfig.pieces_per_ball ? (
-              <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)} ({item.quantity}{lang === 'en' ? ' pieces' : 'ピース'})</span>
+              <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)} ({item.quantity}{t('units.pieceSuffix')})</span>
             ) : (
               <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
             )}
