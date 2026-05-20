@@ -80,7 +80,7 @@ export default async function SalesPage() {
                   {rows.map((r) => {
                     const p = productMap.get(r.productId);
                     const unitLabel = p ? formatQty(r.totalPieces, p, lang) : null;
-                    const piecesSuffix = lang === 'en' ? ` pieces` : 'ピース';
+                    const piecesSuffix = t('units.pieceSuffix', lang);
                     const piecesStr = `${r.totalPieces}${piecesSuffix}`;
                     const qtyLabel = unitLabel && unitLabel !== piecesStr
                       ? `${unitLabel} (${piecesStr})`

@@ -97,10 +97,7 @@ export default function Sidebar() {
             <div className="w-8 h-8 bg-green-700 rounded-lg flex items-center justify-center shrink-0">
               <span className="text-white text-xs font-bold">OA</span>
             </div>
-            <div>
-              <p className="font-bold text-sm text-slate-800 leading-tight">Order Assist</p>
-              <p className="text-xs text-slate-400 leading-tight">発注アシスト</p>
-            </div>
+            <p className="font-bold text-sm text-slate-800 leading-tight">Order Assist</p>
           </div>
         </div>
 

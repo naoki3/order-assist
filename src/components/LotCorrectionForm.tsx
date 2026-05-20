@@ -24,7 +24,7 @@ function LotCorrectionRow({ lot, today, unitConfig }: { lot: Lot; today: string;
   }, [state]);
 
   const qtyStr = unitConfig.pieces_per_ball
-    ? `${formatQty(lot.quantity, unitConfig, lang)} (${lot.quantity}${lang === 'en' ? ' pieces' : 'ピース'})`
+    ? `${formatQty(lot.quantity, unitConfig, lang)} (${lot.quantity}${t('units.pieceSuffix')})`
     : `${lot.quantity} ${t('inventory.units')}`;
 
   return (
@@ -85,7 +85,7 @@ export default function LotCorrectionForm({ lots, products }: { lots: Lot[]; pro
         const total = productLots.reduce((s, l) => s + l.quantity, 0);
         const uc: UnitConfig = product;
         const totalStr = uc.pieces_per_ball
-          ? `${formatQty(total, uc, lang)} (${total}${lang === 'en' ? ' pieces' : 'ピース'})`
+          ? `${formatQty(total, uc, lang)} (${total}${t('units.pieceSuffix')})`
           : `${total} ${t('inventory.units')}`;
         return (
           <div key={product.id} className="bg-white rounded-xl border border-slate-200 p-4">

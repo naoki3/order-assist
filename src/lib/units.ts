@@ -89,17 +89,3 @@ export function formatQty(pieces: number, config: UnitConfig, lang = 'ja'): stri
   if (rem > 0 || parts.length === 0) parts.push(`${rem}ピース`);
   return parts.join('');
 }
-
-// Given pieces, find the best representation in a single unit (for default display in input)
-export function piecesToDisplay(pieces: number, config: UnitConfig): { val: number; unit: UnitType } {
-  const ppb = config.pieces_per_ball;
-  const bpc = config.balls_per_case;
-  const cpp = config.cases_per_pallet;
-  if (cpp && bpc && ppb && pieces % (cpp * bpc * ppb) === 0)
-    return { val: pieces / (cpp * bpc * ppb), unit: 'pallet' };
-  if (bpc && ppb && pieces % (bpc * ppb) === 0)
-    return { val: pieces / (bpc * ppb), unit: 'case' };
-  if (ppb && pieces % ppb === 0)
-    return { val: pieces / ppb, unit: 'ball' };
-  return { val: pieces, unit: 'piece' };
-}

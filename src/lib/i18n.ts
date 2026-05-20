@@ -32,6 +32,10 @@ export const translations = {
     'settings.saved': '保存しました',
     'settings.currency': '通貨',
     'settings.currencyDesc': '金額の表示通貨',
+    'settings.currencyJPY': '¥ 日本円',
+    'settings.currencyUSD': '$ 米ドル',
+    'settings.currencyEUR': '€ ユーロ',
+    'settings.currencyGBP': '£ 英ポンド',
 
     // OrderBoard
     'order.placed': '発注完了！',
@@ -347,6 +351,10 @@ export const translations = {
     'common.bulkConfirm': (n: number) => `${n}件を一括確認`,
     'common.saved': '保存しました',
 
+    // Units
+    'units.piece': 'ピース',
+    'units.pieceSuffix': 'ピース',
+
     // Login
     'login.subtitle': 'Inventory & Order Management',
     'login.email': 'Email',
@@ -390,6 +398,10 @@ export const translations = {
     'settings.saved': 'Saved',
     'settings.currency': 'Currency',
     'settings.currencyDesc': 'Display currency for prices',
+    'settings.currencyJPY': '¥ Japanese Yen',
+    'settings.currencyUSD': '$ US Dollar',
+    'settings.currencyEUR': '€ Euro',
+    'settings.currencyGBP': '£ British Pound',
 
     // OrderBoard
     'order.placed': 'Order placed!',
@@ -704,6 +716,10 @@ export const translations = {
     'common.confirmed': 'Shipment confirmed',
     'common.bulkConfirm': (n: number) => `Confirm all ${n} items`,
     'common.saved': 'Saved',
+
+    // Units
+    'units.piece': 'piece',
+    'units.pieceSuffix': ' pieces',
 
     // Login
     'login.subtitle': 'Inventory & Order Management',

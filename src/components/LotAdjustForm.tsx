@@ -23,7 +23,7 @@ function LotRow({ lot, today, unitConfig }: { lot: Lot; today: string; unitConfi
   }, [state]);
 
   const qtyStr = unitConfig.pieces_per_ball
-    ? `${formatQty(lot.quantity, unitConfig, lang)} (${lot.quantity}${lang === 'en' ? ' pieces' : 'ピース'})`
+    ? `${formatQty(lot.quantity, unitConfig, lang)} (${lot.quantity}${t('units.pieceSuffix')})`
     : `${lot.quantity}`;
 
   return (
@@ -59,7 +59,7 @@ function LotRow({ lot, today, unitConfig }: { lot: Lot; today: string; unitConfi
 }
 
 export default function LotAdjustForm({ lots, products }: { lots: Lot[]; products: Product[] }) {
-  const { localDate, lang } = useT();
+  const { t, localDate, lang } = useT();
   const [today] = useState(() => localDate());
 
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
@@ -77,7 +77,7 @@ export default function LotAdjustForm({ lots, products }: { lots: Lot[]; product
         const total = productLots.reduce((s, l) => s + l.quantity, 0);
         const uc: UnitConfig = product;
         const totalStr = uc.pieces_per_ball
-          ? `${formatQty(total, uc, lang)} (${total}${lang === 'en' ? ' pieces' : 'ピース'})`
+          ? `${formatQty(total, uc, lang)} (${total}${t('units.pieceSuffix')})`
           : `${total}`;
         return (
           <div key={product.id} className="bg-white rounded-xl border border-slate-200 p-4">
