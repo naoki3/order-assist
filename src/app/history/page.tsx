@@ -69,7 +69,7 @@ export default async function HistoryPage() {
                     </div>
                     );
                   }) : (
-                    <p className="text-xs text-slate-400">（明細データなし）</p>
+                    <p className="text-xs text-slate-400">{t('history.noDetails', lang)}</p>
                   )}
                 </div>
               </div>

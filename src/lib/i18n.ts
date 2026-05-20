@@ -220,6 +220,7 @@ export const translations = {
 
     // Sales Report
     'report.title': '売上レポート',
+    'report.date': '日付',
     'report.backToSales': '← 売上入力',
     'report.period7': '7日間',
     'report.period30': '30日間',
@@ -334,6 +335,7 @@ export const translations = {
     // History
     'history.title': '発注履歴',
     'history.noHistory': '発注履歴がありません',
+    'history.noDetails': '（明細データなし）',
     'history.units': '個',
     'history.orderedAt': '発注日: ',
     'history.expectedDate': '入荷予定日: ',
@@ -586,6 +588,7 @@ export const translations = {
 
     // Sales Report
     'report.title': 'Sales Report',
+    'report.date': 'Date',
     'report.backToSales': '← Sales Entry',
     'report.period7': '7 days',
     'report.period30': '30 days',
@@ -700,6 +703,7 @@ export const translations = {
     // History
     'history.title': 'Order History',
     'history.noHistory': 'No order history',
+    'history.noDetails': '(No details)',
     'history.units': 'units',
     'history.orderedAt': 'Ordered: ',
     'history.expectedDate': 'Expected: ',
