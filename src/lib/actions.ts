@@ -856,8 +856,8 @@ export async function importOutgoingCsv(
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
 
-  const firstLine = lines[0].toLowerCase();
-  const dataLines = firstLine.startsWith('商品名') || firstLine.startsWith('product') ? lines.slice(1) : lines;
+  const firstField = lines[0].split(',')[0].trim().replace(/^"|"$/g, '');
+  const dataLines = DATE_RE.test(firstField) ? lines : lines.slice(1);
 
   const { data: products } = await supabase.from('products').select('id, name');
   const productMap = new Map(
@@ -874,7 +874,7 @@ export async function importOutgoingCsv(
     if (!line.trim()) continue;
     const parts = line.split(',');
     if (parts.length < 3) { skipped.push(`列数不足: ${line.trim()}`); continue; }
-    const [rawName, rawQty, rawDate, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const [rawDate, rawName, rawQty, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
     const quantity = parseInt(rawQty, 10);
     if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
     if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
@@ -918,25 +918,25 @@ export async function importIncomingCsv(
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
 
-  const firstLine = lines[0].toLowerCase();
-  const dataLines = firstLine.startsWith('商品名') || firstLine.startsWith('product') ? lines.slice(1) : lines;
+  const firstField = lines[0].split(',')[0].trim().replace(/^"|"$/g, '');
+  const dataLines = DATE_RE.test(firstField) ? lines : lines.slice(1);
 
   const { data: products } = await supabase.from('products').select('id, name');
   const productMap = new Map((products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id]));
   const productNameMap = new Map((products ?? []).map((p) => [p.id, p.name]));
 
-  const rows: { product_id: number; product_name: string; quantity: number; expected_date: string }[] = [];
+  const rows: { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null }[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
     if (!line.trim()) continue;
     const parts = line.split(',');
     if (parts.length < 3) { skipped.push(`列数不足: ${line.trim()}`); continue; }
-    const [rawName, rawQty, rawDate] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const [rawDate, rawName, rawQty, rawLot, rawExpiry] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
     const quantity = parseInt(rawQty, 10);
+    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
     if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
     if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
-    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
     const productId = productMap.get(rawName.toLowerCase());
     if (!productId) { skipped.push(`商品マスタに存在しない: ${rawName}`); continue; }
     rows.push({
@@ -944,6 +944,8 @@ export async function importIncomingCsv(
       product_name: productNameMap.get(productId) ?? rawName,
       quantity,
       expected_date: rawDate,
+      lot_number: rawLot?.trim() || null,
+      expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
     });
   }
 
