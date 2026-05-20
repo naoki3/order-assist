@@ -166,7 +166,7 @@ export default function ProductCard({ product, currentStock }: Props) {
             className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
           />
           {product.pieces_per_ball ? (
-            <span className="text-sm text-slate-500">{formatQty(currentStock, product)}</span>
+            <span className="text-sm text-slate-500">{formatQty(currentStock, product, lang)}</span>
           ) : (
             <span className="text-sm text-slate-500">{t('products.units')}</span>
           )}
