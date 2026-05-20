@@ -4,8 +4,8 @@ import { createContext, useContext, useState, useCallback } from 'react';
 import type { Lang, TranslationKey } from '@/lib/i18n';
 import { translations } from '@/lib/i18n';
 import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
-import type { Currency } from '@/lib/lang';
-import { CURRENCY_SYMBOLS } from '@/lib/lang';
+import type { Currency } from '@/lib/currency';
+import { CURRENCY_SYMBOLS } from '@/lib/currency';
 
 interface LangContext {
   lang: Lang;

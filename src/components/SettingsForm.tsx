@@ -3,8 +3,8 @@
 import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
 import { SUPPORTED_TZ } from '@/lib/tz';
-import { CURRENCY_SYMBOLS } from '@/lib/lang';
-import type { Currency } from '@/lib/lang';
+import { CURRENCY_SYMBOLS } from '@/lib/currency';
+import type { Currency } from '@/lib/currency';
 import { useState } from 'react';
 
 const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
