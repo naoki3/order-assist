@@ -867,18 +867,18 @@ export async function importOutgoingCsv(
     (products ?? []).map((p) => [p.id, p.name])
   );
 
-  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; note: string | null }[] = [];
+  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null }[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
     if (!line.trim()) continue;
     const parts = line.split(',');
     if (parts.length < 3) { skipped.push(`列数不足: ${line.trim()}`); continue; }
-    const [rawDate, rawName, rawQty, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const [rawDate, rawName, rawQty, rawLot, rawExpiry, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
     const quantity = parseInt(rawQty, 10);
+    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
     if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
     if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
-    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
     const productId = productMap.get(rawName.toLowerCase());
     if (!productId) { skipped.push(`商品マスタに存在しない: ${rawName}`); continue; }
     rows.push({
@@ -886,6 +886,8 @@ export async function importOutgoingCsv(
       product_name: productNameMap.get(productId) ?? rawName,
       quantity,
       scheduled_date: rawDate,
+      lot_number: rawLot?.trim() || null,
+      expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
       note: rawNote?.trim() || null,
     });
   }

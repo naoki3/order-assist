@@ -43,6 +43,7 @@ export interface OutgoingStock {
   shipped_at: string | null;
   lot_id: number | null;
   lot_number: string | null;
+  expiry_date: string | null;
 }
 
 export interface IncomingStock {
