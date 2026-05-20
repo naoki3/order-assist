@@ -20,7 +20,7 @@ interface ProductOption {
 }
 
 function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -45,7 +45,7 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
         <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig)}</span>
+            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
           ) : (
             <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
           )}

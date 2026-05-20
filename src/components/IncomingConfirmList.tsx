@@ -11,7 +11,7 @@ import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
 
 function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfig }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
   const [delState, delAction] = useActionState(deleteIncomingSchedule, null);
@@ -25,7 +25,7 @@ function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfi
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig)}</span>
+            <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig, lang)}</span>
           ) : (
             <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
           )}

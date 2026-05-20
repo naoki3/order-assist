@@ -21,7 +21,7 @@ interface ProductOption {
 }
 
 function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean; unitConfig: UnitConfig }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [state, action] = useActionState(deleteOutgoingSchedule, null);
   const { errorMsg } = useActionFeedback(state, t('common.deleted'));
@@ -32,7 +32,7 @@ function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig)}</span>
+            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
           ) : (
             <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
           )}
