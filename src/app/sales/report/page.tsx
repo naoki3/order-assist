@@ -246,7 +246,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
             <table className="w-full text-xs">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-slate-500 font-medium">日付</th>
+                  <th className="px-4 py-2 text-left text-slate-500 font-medium">{t('report.date', lang)}</th>
                   <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.incomingFeeTotal', lang)}</th>
                   <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.storageFeeTotal', lang)}</th>
                   <th className="px-4 py-2 text-right text-slate-500 font-medium">{t('report.outgoingFeeTotal', lang)}</th>

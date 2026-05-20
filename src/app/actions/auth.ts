@@ -15,7 +15,7 @@ export async function login(_prev: ActionResult, formData: FormData): Promise<Ac
 
   if (error) return { error: error.message };
 
-  redirect('/');
+  redirect('/dashboard');
 }
 
 export async function logout() {
