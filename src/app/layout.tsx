@@ -21,7 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <LanguageProvider initialLang={lang} initialTz={tz} initialCurrency={currency}>
           {user && <Sidebar />}
           <div className={user ? 'md:ml-56' : ''}>
-            <main className="max-w-3xl mx-auto w-full px-4 md:px-8 py-6">
+            <main className="w-full px-4 md:px-8 py-6">
               {children}
             </main>
           </div>
