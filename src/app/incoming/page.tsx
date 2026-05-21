@@ -19,12 +19,16 @@ export default async function IncomingPage() {
     supabase.from('incoming_stock').select('*')
       .not('received_at', 'is', null)
       .order('received_at', { ascending: false }).limit(60),
-    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
+    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type'),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
   const received = (receivedData ?? []) as IncomingStock[];
+  type ProductRow = { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null };
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
-    (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+    (productsData ?? []).map((p: ProductRow) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
+  const expiryTypeMap: Record<number, string | null> = Object.fromEntries(
+    (productsData ?? []).map((p: ProductRow) => [p.id, p.expiry_type ?? null])
   );
 
   return (
@@ -36,7 +40,7 @@ export default async function IncomingPage() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
-        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} />
+        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} />
       </div>
 
       <div>

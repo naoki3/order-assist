@@ -10,7 +10,7 @@ import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
 
-function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfig }) {
+function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfig: UnitConfig; expiryType: string | null }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
@@ -58,8 +58,8 @@ function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfi
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
-            <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" />
+            <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
+            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} />
           </label>
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
@@ -74,7 +74,7 @@ function Item({ item, unitConfig }: { item: IncomingStock; unitConfig: UnitConfi
   );
 }
 
-function DateGroup({ date, items, unitMap }: { date: string; items: IncomingStock[]; unitMap: Record<number, UnitConfig> }) {
+function DateGroup({ date, items, unitMap, expiryTypeMap }: { date: string; items: IncomingStock[]; unitMap: Record<number, UnitConfig>; expiryTypeMap: Record<number, string | null> }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(true);
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
@@ -101,7 +101,7 @@ function DateGroup({ date, items, unitMap }: { date: string; items: IncomingStoc
       {isOpen && (
         <div className="px-4 pb-3">
           <div className="divide-y divide-slate-100">
-            {items.map(item => <Item key={item.id} item={item} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
+            {items.map(item => <Item key={item.id} item={item} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} expiryType={expiryTypeMap[item.product_id] ?? null} />)}
           </div>
           {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
           {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
@@ -128,13 +128,13 @@ function groupByDate(items: IncomingStock[]) {
   return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
 }
 
-export default function IncomingConfirmList({ items, emptyText, unitMap = {} }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig> }) {
+export default function IncomingConfirmList({ items, emptyText, unitMap = {}, expiryTypeMap = {} }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; expiryTypeMap?: Record<number, string | null> }) {
   const groups = groupByDate(items);
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} />
+        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} />
       ))}
     </div>
   );
