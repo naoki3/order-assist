@@ -669,6 +669,9 @@ export async function addOutgoingSchedule(
   }
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const { data: product } = await supabase
     .from('products')
     .select('name')
@@ -683,6 +686,7 @@ export async function addOutgoingSchedule(
     quantity,
     scheduled_date: scheduledDate,
     note,
+    user_id: user.id,
   });
 
   if (error) return { error: `Failed to add schedule: ${error.message}` };
@@ -852,6 +856,9 @@ export async function importOutgoingCsv(
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+
   const text = await file.text();
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
@@ -867,7 +874,7 @@ export async function importOutgoingCsv(
     (products ?? []).map((p) => [p.id, p.name])
   );
 
-  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null }[] = [];
+  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null; user_id: string }[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
@@ -889,6 +896,7 @@ export async function importOutgoingCsv(
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
       note: rawNote?.trim() || null,
+      user_id: user.id,
     });
   }
 
