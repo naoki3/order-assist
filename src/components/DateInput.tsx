@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 interface Props {
   value?: string;
@@ -20,14 +20,29 @@ export default function DateInput({ value: controlledValue, defaultValue, onChan
   const isControlled = controlledValue !== undefined;
   const [internalValue, setInternalValue] = useState(defaultValue ?? '');
   const value = isControlled ? controlledValue : internalValue;
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!isControlled) setInternalValue(e.target.value);
     onChange?.(e.target.value);
   }
 
+  function handleClick() {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    try {
+      (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+    } catch {
+      // showPicker not supported — native click fallback
+    }
+  }
+
   return (
-    <div className={`relative border border-slate-300 rounded-lg focus-within:ring-2 focus-within:ring-green-500 bg-white ${className ?? ''}`}>
+    <div
+      className={`relative border border-slate-300 rounded-lg focus-within:ring-2 focus-within:ring-green-500 bg-white cursor-pointer ${className ?? ''}`}
+      onClick={handleClick}
+    >
       <div className="px-3 py-2 text-sm pointer-events-none select-none">
         {value
           ? <span className="text-slate-800">{formatDisplay(value)}</span>
@@ -35,6 +50,7 @@ export default function DateInput({ value: controlledValue, defaultValue, onChan
         }
       </div>
       <input
+        ref={inputRef}
         type="date"
         name={name}
         value={isControlled ? value : undefined}
@@ -46,3 +62,4 @@ export default function DateInput({ value: controlledValue, defaultValue, onChan
     </div>
   );
 }
+
