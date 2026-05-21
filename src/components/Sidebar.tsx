@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import type { LucideIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 type SubItem = { href: string; label: string; exact: boolean };
 type NavGroup = { type: 'group'; key: string; label: string; icon: LucideIcon; items: SubItem[] };
@@ -89,22 +89,16 @@ export default function Sidebar() {
     (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
   )?.key ?? null;
 
-  const [openGroups, setOpenGroups] = useState<Set<string>>(
-    () => new Set(activeGroupKey ? [activeGroupKey] : [])
-  );
+  // Extra groups the user has manually opened (active group is always open)
+  const [extraOpenGroups, setExtraOpenGroups] = useState<Set<string>>(new Set());
 
-  // Auto-open the group when navigating into it
-  useEffect(() => {
-    if (activeGroupKey) {
-      setOpenGroups((prev) => {
-        if (prev.has(activeGroupKey)) return prev;
-        return new Set([...prev, activeGroupKey]);
-      });
-    }
-  }, [activeGroupKey]);
+  function isOpen(key: string) {
+    return key === activeGroupKey || extraOpenGroups.has(key);
+  }
 
   function toggleGroup(key: string) {
-    setOpenGroups((prev) => {
+    if (key === activeGroupKey) return;
+    setExtraOpenGroups((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -155,7 +149,7 @@ export default function Sidebar() {
 
             const Icon = item.icon;
             const active = groupIsActive(item, pathname);
-            const open = openGroups.has(item.key);
+            const open = isOpen(item.key);
             return (
               <div key={item.key} className="space-y-0.5">
                 <button
