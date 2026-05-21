@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { importOutgoingCsv } from '@/lib/actions';
-import { useT, useT as useTAlias } from './LanguageProvider';
+import { useT } from './LanguageProvider';
 
 export default function OutgoingCsvImport() {
   const { t, tf } = useT();
