@@ -13,9 +13,12 @@ import {
   Settings,
   SendHorizonal,
   Database,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import type { LucideIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 type SubItem = { href: string; label: string; exact: boolean };
 type NavGroup = { type: 'group'; key: string; label: string; icon: LucideIcon; items: SubItem[] };
@@ -82,6 +85,33 @@ export default function Sidebar() {
     },
   ];
 
+  const activeGroupKey = navItems.find(
+    (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
+  )?.key ?? null;
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(
+    () => new Set(activeGroupKey ? [activeGroupKey] : [])
+  );
+
+  // Auto-open the group when navigating into it
+  useEffect(() => {
+    if (activeGroupKey) {
+      setOpenGroups((prev) => {
+        if (prev.has(activeGroupKey)) return prev;
+        return new Set([...prev, activeGroupKey]);
+      });
+    }
+  }, [activeGroupKey]);
+
+  function toggleGroup(key: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   // For mobile: find the active group (if any)
   const activeGroup = navItems.find(
     (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
@@ -125,34 +155,42 @@ export default function Sidebar() {
 
             const Icon = item.icon;
             const active = groupIsActive(item, pathname);
+            const open = openGroups.has(item.key);
             return (
               <div key={item.key} className="space-y-0.5">
-                <div
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium ${
-                    active ? 'text-green-800' : 'text-slate-500'
+                <button
+                  onClick={() => toggleGroup(item.key)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium w-full transition-colors hover:bg-slate-100 ${
+                    active ? 'text-green-800' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
                   <Icon size={16} className="shrink-0" />
-                  {item.label}
-                </div>
-                <div className="ml-4 space-y-0.5">
-                  {item.items.map((sub) => {
-                    const subActive = matchesPath(sub.href, pathname, sub.exact);
-                    return (
-                      <Link
-                        key={sub.href}
-                        href={sub.href}
-                        className={`flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm transition-colors border-l-2 ${
-                          subActive
-                            ? 'border-green-700 bg-green-50 text-green-700 font-medium'
-                            : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                        }`}
-                      >
-                        {sub.label}
-                      </Link>
-                    );
-                  })}
-                </div>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {open
+                    ? <ChevronDown size={14} className="shrink-0 text-slate-400" />
+                    : <ChevronRight size={14} className="shrink-0 text-slate-400" />
+                  }
+                </button>
+                {open && (
+                  <div className="ml-4 space-y-0.5">
+                    {item.items.map((sub) => {
+                      const subActive = matchesPath(sub.href, pathname, sub.exact);
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className={`flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm transition-colors border-l-2 ${
+                            subActive
+                              ? 'border-green-700 bg-green-50 text-green-700 font-medium'
+                              : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -232,7 +270,6 @@ export default function Sidebar() {
             }
 
             const active = groupIsActive(item, pathname);
-            // Link group label to first sub-item
             return (
               <Link
                 key={item.key}
