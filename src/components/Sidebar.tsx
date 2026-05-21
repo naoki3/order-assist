@@ -114,7 +114,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
+      <aside className="hidden md:flex flex-col w-56 h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
         {/* Logo */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
