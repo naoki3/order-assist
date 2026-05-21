@@ -65,7 +65,7 @@ export default function FeeRateInput({ name, unitConfig, defaultPerPiece, label 
         )}
       </div>
       {amount !== '' && unit !== 'piece' && perPieceVal !== '' && (
-        <p className="text-xs text-slate-400">= {Number(perPieceVal).toFixed(4)}{currencySymbol}/{t('units.piece')}</p>
+        <p className="text-xs text-slate-400">= {Number(Number(perPieceVal).toFixed(4)).toString()}{currencySymbol}/{t('units.piece')}</p>
       )}
     </label>
   );
