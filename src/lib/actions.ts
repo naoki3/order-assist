@@ -621,7 +621,7 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: user.id })
     .select('id')
     .single();
 
