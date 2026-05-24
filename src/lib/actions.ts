@@ -924,6 +924,9 @@ export async function importIncomingCsv(
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+
   const text = await file.text();
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
@@ -935,7 +938,7 @@ export async function importIncomingCsv(
   const productMap = new Map((products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id]));
   const productNameMap = new Map((products ?? []).map((p) => [p.id, p.name]));
 
-  const rows: { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null }[] = [];
+  const rows: { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null; user_id: string }[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
@@ -956,6 +959,7 @@ export async function importIncomingCsv(
       expected_date: rawDate,
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
+      user_id: user.id,
     });
   }
 
