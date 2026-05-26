@@ -383,6 +383,7 @@ export const translations = {
 
     // Common master labels
     'master.addNew': '新規追加',
+    'master.add': '追加',
     'master.edit': '編集',
     'master.noItems': 'まだ登録されていません',
     'master.name': '名称',
@@ -813,6 +814,7 @@ export const translations = {
 
     // Common master labels
     'master.addNew': 'Add New',
+    'master.add': 'Add',
     'master.edit': 'Edit',
     'master.noItems': 'No items registered yet',
     'master.name': 'Name',

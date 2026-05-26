@@ -29,7 +29,7 @@ export default async function InventoryStatusesPage() {
   const labels = {
     empty: t('inventoryStatus.empty', lang),
     addNew: t('master.addNew', lang),
-    add: t('common.added', lang),
+    add: t('master.add', lang),
     adding: t('master.adding', lang),
     save: t('products.save', lang),
     saving: t('master.saving', lang),

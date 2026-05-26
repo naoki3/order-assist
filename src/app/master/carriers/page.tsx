@@ -21,7 +21,7 @@ export default async function CarriersPage() {
   const labels = {
     empty: t('carrier.empty', lang),
     addNew: t('master.addNew', lang),
-    add: t('common.added', lang),
+    add: t('master.add', lang),
     adding: t('master.adding', lang),
     save: t('products.save', lang),
     saving: t('master.saving', lang),
