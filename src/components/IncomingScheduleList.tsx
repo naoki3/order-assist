@@ -17,6 +17,7 @@ interface ProductOption {
   pieces_per_ball: number | null;
   balls_per_case: number | null;
   cases_per_pallet: number | null;
+  expiry_type: string | null;
 }
 
 function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig }) {
@@ -133,6 +134,7 @@ function AddProductForm({
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
   const unitConfig: UnitConfig = selectedProduct ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
+  const expiryRequired = selectedProduct != null && selectedProduct.expiry_type != null && selectedProduct.expiry_type !== 'none';
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -175,8 +177,8 @@ function AddProductForm({
           placeholder={t('incoming.lotNumberPlaceholder')}
           className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
         <label className="flex-1 flex flex-col gap-0.5">
-          <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-          <DateInput name="expiry_date" className="w-full text-sm" />
+          <span className={`text-xs ${expiryRequired ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}{expiryRequired && ' *'}</span>
+          <DateInput name="expiry_date" className="w-full text-sm" disabled={!expiryRequired} required={expiryRequired} />
         </label>
       </div>
       {error && <p className="text-red-600 text-xs">{error}</p>}
@@ -273,9 +275,10 @@ interface Props {
   items: IncomingStock[];
   emptyText: string;
   products: ProductOption[];
+  today?: string;
 }
 
-export default function IncomingScheduleList({ items, emptyText, products }: Props) {
+export default function IncomingScheduleList({ items, emptyText, products, today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const [pendingDate, setPendingDate] = useState<string | null>(null);
@@ -346,7 +349,7 @@ export default function IncomingScheduleList({ items, emptyText, products }: Pro
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} unitMap={unitMap} onAdded={handleAdded} />
+          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>

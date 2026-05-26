@@ -67,9 +67,9 @@ function Item({ item, unitConfig }: { item: OutgoingStock; unitConfig: UnitConfi
   );
 }
 
-function DateGroup({ date, items, unitMap }: { date: string; items: OutgoingStock[]; unitMap: Record<number, UnitConfig> }) {
+function DateGroup({ date, items, unitMap, today }: { date: string; items: OutgoingStock[]; unitMap: Record<number, UnitConfig>; today: string }) {
   const { t, tf } = useT();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(date === today);
   const [bulkState, bulkAction] = useActionState(confirmBulkShipment, null);
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.confirmed'));
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
@@ -121,13 +121,13 @@ function groupByDate(items: OutgoingStock[]) {
   return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
 }
 
-export default function OutgoingConfirmList({ items, emptyText, unitMap = {} }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig> }) {
+export default function OutgoingConfirmList({ items, emptyText, unitMap = {}, today = '' }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; today?: string }) {
   const groups = groupByDate(items);
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} />
+        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} today={today} />
       ))}
     </div>
   );

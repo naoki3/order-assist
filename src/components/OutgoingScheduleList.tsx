@@ -254,9 +254,10 @@ interface Props {
   emptyText: string;
   products: ProductOption[];
   lots: Lot[];
+  today?: string;
 }
 
-export default function OutgoingScheduleList({ items, emptyText, products, lots }: Props) {
+export default function OutgoingScheduleList({ items, emptyText, products, lots, today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
@@ -312,7 +313,7 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots 
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
           <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
-            products={products} lots={lots} unitMap={unitMap} onAdded={handleAdded} />
+            products={products} lots={lots} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>
