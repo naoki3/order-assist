@@ -3,7 +3,6 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import { addUserProfile, updateUserProfile, deleteUserProfile } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
-import type { UserProfile } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
