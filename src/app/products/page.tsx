@@ -1,10 +1,8 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import ProductCard from '@/components/ProductCard';
-import AddProductForm from '@/components/AddProductForm';
-import ProductCsvImport from '@/components/ProductCsvImport';
 import type { Product, Inventory } from '@/lib/db';
+import ProductListClient from '@/components/ProductListClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,18 +21,7 @@ export default async function ProductsPage() {
   return (
     <div>
       <h1 className="text-xl font-bold text-slate-800 mb-4">{t('products.title', lang)}</h1>
-
-      <div className="space-y-3 mb-6">
-        {products.length === 0 && (
-          <p className="text-slate-400 text-sm">{t('products.noProducts', lang)}</p>
-        )}
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} currentStock={stockMap[p.id] ?? 0} warehouses={warehouses} />
-        ))}
-      </div>
-
-      <AddProductForm warehouses={warehouses} />
-      <ProductCsvImport />
+      <ProductListClient products={products} stockMap={stockMap} warehouses={warehouses} />
     </div>
   );
 }

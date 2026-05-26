@@ -10,7 +10,7 @@ interface WarehouseOption {
   name: string;
 }
 
-export default function AddProductForm({ warehouses = [] }: { warehouses?: WarehouseOption[] }) {
+export default function AddProductForm({ warehouses = [], onAdded }: { warehouses?: WarehouseOption[]; onAdded?: () => void }) {
   const { t, currencySymbol } = useT();
   const [state, action] = useActionState(addProduct, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
@@ -19,10 +19,10 @@ export default function AddProductForm({ warehouses = [] }: { warehouses?: Wareh
 
   useEffect(() => {
     if (state && 'success' in state) {
-      const timer = setTimeout(() => setFormKey((k) => k + 1), 0);
+      const timer = setTimeout(() => { setFormKey((k) => k + 1); onAdded?.(); }, 0);
       return () => clearTimeout(timer);
     }
-  }, [state]);
+  }, [state, onAdded]);
 
   return (
     <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">

@@ -376,6 +376,7 @@ export const translations = {
     // Common
     'common.confirmQuestion': '削除しますか？',
     'common.cancel': 'キャンセル',
+    'common.back': '← 戻る',
     'common.itemCount': (n: number) => `${n}件`,
     'common.totalUnits': (n: number) => `合計 ${n} 個`,
     'common.added': '追加しました',
@@ -667,6 +668,7 @@ export const translations = {
     'common.searchByDate': 'Search by date',
     'common.clearSearch': 'Clear',
     'common.search': 'Search',
+    'common.back': '← Back',
 
     // Inventory
     'inventory.title': 'Inventory',
