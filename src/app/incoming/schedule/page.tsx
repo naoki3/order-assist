@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function IncomingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: productsData }, { data: inventoryData }] = await Promise.all([
+  const [{ data: pendingData }, { data: productsData }, { data: inventoryData }, { data: suppliersData }, { data: warehousesData }] = await Promise.all([
     supabase
       .from('incoming_stock')
       .select('*')
@@ -21,10 +21,14 @@ export default async function IncomingSchedulePage() {
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type').order('id'),
     supabase.from('inventory').select('product_id, current_stock'),
+    supabase.from('suppliers').select('id, name').order('name'),
+    supabase.from('warehouses').select('id, name').order('name'),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
   const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
+  const suppliers = (suppliersData ?? []) as { id: number; name: string }[];
+  const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
 
   return (
     <div className="space-y-6">
@@ -33,7 +37,7 @@ export default async function IncomingSchedulePage() {
         <p className="text-sm text-slate-500">{t('incoming.scheduleSubtitle', lang)}</p>
       </div>
 
-      <IncomingScheduleList items={pending} emptyText={t('incoming.noScheduled', lang)} products={products} today={today} />
+      <IncomingScheduleList items={pending} emptyText={t('incoming.noScheduled', lang)} products={products} suppliers={suppliers} warehouses={warehouses} today={today} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('incoming.importCsv', lang)}</h2>

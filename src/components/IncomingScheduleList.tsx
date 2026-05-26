@@ -21,7 +21,17 @@ interface ProductOption {
   expiry_type: string | null;
 }
 
-function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig }) {
+interface SupplierOption {
+  id: number;
+  name: string;
+}
+
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
+function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig; }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -59,6 +69,12 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
           )}
           {item.expiry_date && (
             <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {formatDisplayDate(item.expiry_date)}</span>
+          )}
+          {item.supplier_name && (
+            <span className="text-xs text-slate-400">{t('incoming.supplier')}: {item.supplier_name}</span>
+          )}
+          {item.warehouse_name && (
+            <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>
           )}
           {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
         </div>
@@ -119,11 +135,15 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
 function AddProductForm({
   date,
   products,
+  suppliers,
+  warehouses,
   onAdded,
   onCancel,
 }: {
   date: string;
   products: ProductOption[];
+  suppliers: SupplierOption[];
+  warehouses: WarehouseOption[];
   onAdded: (id: number) => void;
   onCancel: () => void;
 }) {
@@ -182,6 +202,18 @@ function AddProductForm({
           <DateInput name="expiry_date" className="w-full text-sm" disabled={!expiryRequired} required={expiryRequired} />
         </label>
       </div>
+      {suppliers.length > 0 && (
+        <select name="supplier_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">{t('incoming.selectSupplier')}</option>
+          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      )}
+      {warehouses.length > 0 && (
+        <select name="warehouse_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">{t('incoming.selectWarehouse')}</option>
+          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+      )}
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={isPending}
@@ -202,6 +234,8 @@ function DateGroup({
   items,
   newIds,
   products,
+  suppliers,
+  warehouses,
   unitMap,
   onAdded,
   defaultOpen = true,
@@ -210,6 +244,8 @@ function DateGroup({
   items: IncomingStock[];
   newIds: Set<number>;
   products: ProductOption[];
+  suppliers: SupplierOption[];
+  warehouses: WarehouseOption[];
   unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   defaultOpen?: boolean;
@@ -247,6 +283,8 @@ function DateGroup({
             <AddProductForm
               date={date}
               products={products}
+              suppliers={suppliers}
+              warehouses={warehouses}
               onAdded={onAdded}
               onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
             />
@@ -276,10 +314,12 @@ interface Props {
   items: IncomingStock[];
   emptyText: string;
   products: ProductOption[];
+  suppliers?: SupplierOption[];
+  warehouses?: WarehouseOption[];
   today?: string;
 }
 
-export default function IncomingScheduleList({ items, emptyText, products, today = '' }: Props) {
+export default function IncomingScheduleList({ items, emptyText, products, suppliers = [], warehouses = [], today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const [pendingDate, setPendingDate] = useState<string | null>(null);
@@ -341,6 +381,8 @@ export default function IncomingScheduleList({ items, emptyText, products, today
           items={[]}
           newIds={newIds}
           products={products}
+          suppliers={suppliers}
+          warehouses={warehouses}
           unitMap={unitMap}
           onAdded={(id) => { handleAdded(id); setPendingDate(null); }}
           defaultOpen={true}
@@ -350,7 +392,7 @@ export default function IncomingScheduleList({ items, emptyText, products, today
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
+          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} suppliers={suppliers} warehouses={warehouses} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>

@@ -21,6 +21,16 @@ interface ProductOption {
   cases_per_pallet: number | null;
 }
 
+interface DestinationOption {
+  id: number;
+  name: string;
+}
+
+interface CarrierOption {
+  id: number;
+  name: string;
+}
+
 function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
@@ -38,6 +48,8 @@ function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean
             <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
           )}
           {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
+          {item.destination_name && <span className="text-xs text-slate-400">· {t('shipping.destination')}: {item.destination_name}</span>}
+          {item.carrier_name && <span className="text-xs text-slate-400">· {t('shipping.carrier')}: {item.carrier_name}</span>}
         </div>
         {item.lot_number && <LotTag lotNumber={item.lot_number} />}
         {(isNew || errorMsg) && (
@@ -75,12 +87,16 @@ function AddProductForm({
   date,
   products,
   lots,
+  destinations,
+  carriers,
   onAdded,
   onCancel,
 }: {
   date: string;
   products: ProductOption[];
   lots: Lot[];
+  destinations: DestinationOption[];
+  carriers: CarrierOption[];
   onAdded: (id: number) => void;
   onCancel: () => void;
 }) {
@@ -164,6 +180,18 @@ function AddProductForm({
       <input type="text" name="note"
         placeholder={t('shipping.notePlaceholder')}
         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+      {destinations.length > 0 && (
+        <select name="destination_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">{t('shipping.selectDestination')}</option>
+          {destinations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      )}
+      {carriers.length > 0 && (
+        <select name="carrier_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">{t('shipping.selectCarrier')}</option>
+          {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      )}
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={isPending}
@@ -180,13 +208,15 @@ function AddProductForm({
 }
 
 function DateGroup({
-  date, items, newIds, products, lots, unitMap, onAdded, defaultOpen = true,
+  date, items, newIds, products, lots, destinations, carriers, unitMap, onAdded, defaultOpen = true,
 }: {
   date: string;
   items: OutgoingStock[];
   newIds: Set<number>;
   products: ProductOption[];
   lots: Lot[];
+  destinations: DestinationOption[];
+  carriers: CarrierOption[];
   unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   defaultOpen?: boolean;
@@ -225,6 +255,8 @@ function DateGroup({
               date={date}
               products={products}
               lots={lots}
+              destinations={destinations}
+              carriers={carriers}
               onAdded={onAdded}
               onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
             />
@@ -255,10 +287,12 @@ interface Props {
   emptyText: string;
   products: ProductOption[];
   lots: Lot[];
+  destinations?: DestinationOption[];
+  carriers?: CarrierOption[];
   today?: string;
 }
 
-export default function OutgoingScheduleList({ items, emptyText, products, lots, today = '' }: Props) {
+export default function OutgoingScheduleList({ items, emptyText, products, lots, destinations = [], carriers = [], today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
@@ -307,14 +341,14 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
 
       {pendingDate && !pendingDateInGroups && (
         <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
-          products={products} lots={lots} unitMap={unitMap} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
+          products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
       )}
 
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
           <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
-            products={products} lots={lots} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
+            products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>
