@@ -156,6 +156,8 @@ export const translations = {
     'products.outgoingFee': '出荷料',
     'products.expiryLocked': '（在庫がある間は変更不可）',
     'products.optionalParens': '（任意）',
+    'products.defaultWarehouse': 'デフォルト倉庫',
+    'products.noDefaultWarehouse': '指定なし',
 
     // Sales
     'sales.title': '売上確認',
@@ -710,6 +712,8 @@ export const translations = {
     'products.outgoingFee': 'Outgoing fee',
     'products.expiryLocked': '(Cannot change while items are in stock)',
     'products.optionalParens': '(Optional)',
+    'products.defaultWarehouse': 'Default Warehouse',
+    'products.noDefaultWarehouse': 'None',
 
     // Sales
     'sales.title': 'Sales Confirmation',

@@ -10,12 +10,14 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const [{ data: productsData }, { data: inventoriesData }] = await Promise.all([
+  const [{ data: productsData }, { data: inventoriesData }, { data: warehousesData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('inventory').select('*'),
+    supabase.from('warehouses').select('id, name').order('name'),
   ]);
   const products = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];
+  const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
 
   return (
@@ -27,11 +29,11 @@ export default async function ProductsPage() {
           <p className="text-slate-400 text-sm">{t('products.noProducts', lang)}</p>
         )}
         {products.map((p) => (
-          <ProductCard key={p.id} product={p} currentStock={stockMap[p.id] ?? 0} />
+          <ProductCard key={p.id} product={p} currentStock={stockMap[p.id] ?? 0} warehouses={warehouses} />
         ))}
       </div>
 
-      <AddProductForm />
+      <AddProductForm warehouses={warehouses} />
       <ProductCsvImport />
     </div>
   );

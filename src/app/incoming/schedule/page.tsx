@@ -19,14 +19,14 @@ export default async function IncomingSchedulePage() {
       .is('received_at', null)
       .order('expected_date', { ascending: false })
       .order('id'),
-    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type').order('id'),
+    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type, default_warehouse_id').order('id'),
     supabase.from('inventory').select('product_id, current_stock'),
     supabase.from('suppliers').select('id, name').order('name'),
     supabase.from('warehouses').select('id, name').order('name'),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
-  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
+  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null; default_warehouse_id: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
   const suppliers = (suppliersData ?? []) as { id: number; name: string }[];
   const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
 
