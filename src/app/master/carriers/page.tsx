@@ -3,7 +3,6 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import { addCarrier, updateCarrier, deleteCarrier } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
-import type { Carrier } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

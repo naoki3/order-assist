@@ -89,7 +89,10 @@ function MasterItem({
   const { errorMsg: deleteError } = useActionFeedback(deleteState, '');
 
   useEffect(() => {
-    if (updateState && 'success' in updateState) setEditing(false);
+    if (updateState && 'success' in updateState) {
+      const timer = setTimeout(() => setEditing(false), 0);
+      return () => clearTimeout(timer);
+    }
   }, [updateState]);
 
   const noteField = fields.find((f) => f.type === 'textarea');
@@ -192,8 +195,8 @@ function AddItemForm({
 
   useEffect(() => {
     if (state && 'success' in state) {
-      formRef.current?.reset();
-      onClose();
+      const timer = setTimeout(() => { formRef.current?.reset(); onClose(); }, 0);
+      return () => clearTimeout(timer);
     }
   }, [state, onClose]);
 

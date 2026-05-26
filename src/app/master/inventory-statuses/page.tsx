@@ -3,7 +3,6 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import { addInventoryStatus, updateInventoryStatus, deleteInventoryStatus } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
-import type { InventoryStatus } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

@@ -3,7 +3,6 @@ import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import { addDeliveryDestination, updateDeliveryDestination, deleteDeliveryDestination } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
-import type { DeliveryDestination } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
