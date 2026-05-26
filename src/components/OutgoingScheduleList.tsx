@@ -11,6 +11,7 @@ import QtyInput from './QtyInput';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
+import { formatDisplayDate } from '@/lib/tz';
 
 interface ProductOption {
   id: number;
@@ -149,7 +150,7 @@ function AddProductForm({
             {productLots.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.lot_number}
-                {l.expiry_date ? ` · ${t('inventory.lotExpiry')} ${l.expiry_date}` : ''}
+                {l.expiry_date ? ` · ${t('inventory.lotExpiry')} ${formatDisplayDate(l.expiry_date)}` : ''}
                 {` · ${l.quantity}${t('shipping.units')}`}
               </option>
             ))}
@@ -202,7 +203,7 @@ function DateGroup({
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
         <div className="flex items-center gap-2">
           {isOpen ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
-          <span className="font-semibold text-slate-800">{date}</span>
+          <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
           {items.length > 0 && <>

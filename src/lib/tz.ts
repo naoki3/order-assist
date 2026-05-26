@@ -11,6 +11,13 @@ export const SUPPORTED_TZ = [
 
 export const DEFAULT_TZ = 'Asia/Tokyo';
 
+// Returns YYYY/M/D from a YYYY-MM-DD string (for display only)
+export function formatDisplayDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return dateStr;
+  return `${y}/${m}/${d}`;
+}
+
 // Returns YYYY-MM-DD in the given timezone
 export function toLocalDateStr(tz: string, date: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {

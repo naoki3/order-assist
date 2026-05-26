@@ -431,6 +431,18 @@ export const translations = {
     'user.invited': '招待メールを送信しました',
     'user.noAdminKey': '管理者APIキーが設定されていません',
 
+    // Warehouse
+    'nav.warehouseMaster': '倉庫マスタ',
+    'warehouse.title': '倉庫マスタ',
+    'warehouse.empty': '倉庫がまだ登録されていません',
+
+    // Location
+    'nav.locationMaster': 'ロケーションマスタ',
+    'location.title': 'ロケーションマスタ',
+    'location.empty': 'ロケーションがまだ登録されていません',
+    'location.warehouse': '倉庫',
+    'location.noWarehouses': '先に倉庫を登録してください',
+
     // Daily Report
     'nav.dailyReport': '日次レポート',
     'dailyReport.title': '日次レポート',
@@ -891,6 +903,18 @@ export const translations = {
     'user.inviting': 'Sending...',
     'user.invited': 'Invitation sent',
     'user.noAdminKey': 'Admin API key is not configured',
+
+    // Warehouse
+    'nav.warehouseMaster': 'Warehouses',
+    'warehouse.title': 'Warehouse Master',
+    'warehouse.empty': 'No warehouses registered yet',
+
+    // Location
+    'nav.locationMaster': 'Locations',
+    'location.title': 'Location Master',
+    'location.empty': 'No locations registered yet',
+    'location.warehouse': 'Warehouse',
+    'location.noWarehouses': 'Please register a warehouse first',
 
     // Daily Report
     'nav.dailyReport': 'Daily Report',

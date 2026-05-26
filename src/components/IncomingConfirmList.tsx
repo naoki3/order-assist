@@ -9,6 +9,7 @@ import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
+import { formatDisplayDate } from '@/lib/tz';
 
 function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfig: UnitConfig; expiryType: string | null }) {
   const { t, lang } = useT();
@@ -90,7 +91,7 @@ function DateGroup({ date, items, unitMap, expiryTypeMap, today }: { date: strin
           {isOpen
             ? <ChevronDown size={15} className="text-slate-400" />
             : <ChevronRight size={15} className="text-slate-400" />}
-          <span className="font-semibold text-slate-800">{date}</span>
+          <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
           <span>{tf<string>('common.itemCount', items.length)}</span>

@@ -8,6 +8,7 @@ import { useT } from './LanguageProvider';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import { unshipOutgoing } from '@/lib/actions';
+import { formatDisplayDate } from '@/lib/tz';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string; unitConfig: UnitConfig }) {
@@ -35,7 +36,7 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
             </div>
           )}
           <p className="text-xs text-slate-400 mt-0.5">
-            {t('shipping.scheduledDate')} {item.scheduled_date}
+            {t('shipping.scheduledDate')} {formatDisplayDate(item.scheduled_date)}
           </p>
           {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
         </div>
@@ -115,7 +116,7 @@ export default function ShippedHistoryList({ items, emptyText, unitMap = {} }: {
                 {isOpen
                   ? <ChevronDown size={15} className="text-slate-400" />
                   : <ChevronRight size={15} className="text-slate-400" />}
-                <span className="font-semibold text-slate-800">{date}</span>
+                <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-1.5">
                 <span>{tf<string>('common.itemCount', dateItems.length)}</span>

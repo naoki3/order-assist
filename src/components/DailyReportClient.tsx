@@ -2,6 +2,7 @@
 
 import { Fragment } from 'react';
 import type { Lang } from '@/lib/i18n';
+import { formatDisplayDate } from '@/lib/tz';
 
 export interface DailyReportRow {
   date: string;
@@ -118,7 +119,7 @@ export default function DailyReportClient({ rows, from, to, lang }: Props) {
                     {dateRows.map((row, i) => (
                       <tr key={row.product_name} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="px-4 py-2 text-slate-600 text-xs font-mono align-top">
-                          {i === 0 ? date : ''}
+                          {i === 0 ? formatDisplayDate(date) : ''}
                         </td>
                         <td className="px-4 py-2 text-slate-800">{row.product_name}</td>
                         <td className="px-4 py-2 text-right tabular-nums">

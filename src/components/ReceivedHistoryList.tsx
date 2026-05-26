@@ -8,6 +8,7 @@ import { useT } from './LanguageProvider';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import { unreceiveIncoming } from '@/lib/actions';
+import { formatDisplayDate } from '@/lib/tz';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 function Item({ item, today, unitConfig }: { item: IncomingStock; today: string; unitConfig: UnitConfig }) {
@@ -40,7 +41,7 @@ function Item({ item, today, unitConfig }: { item: IncomingStock; today: string;
           )}
           {item.expected_date && (
             <p className="text-xs text-slate-400 mt-0.5">
-              {t('incoming.expectedDate2')} {item.expected_date}
+              {t('incoming.expectedDate2')} {formatDisplayDate(item.expected_date)}
             </p>
           )}
           {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
@@ -122,7 +123,7 @@ export default function ReceivedHistoryList({ items, emptyText, unitMap = {} }: 
                 {isOpen
                   ? <ChevronDown size={15} className="text-slate-400" />
                   : <ChevronRight size={15} className="text-slate-400" />}
-                <span className="font-semibold text-slate-800">{date}</span>
+                <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-1.5">
                 <span>{tf<string>('common.itemCount', dateItems.length)}</span>

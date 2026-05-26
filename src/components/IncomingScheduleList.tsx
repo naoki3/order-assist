@@ -10,6 +10,7 @@ import QtyInput from './QtyInput';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
+import { formatDisplayDate } from '@/lib/tz';
 
 interface ProductOption {
   id: number;
@@ -57,7 +58,7 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
             <span className="text-xs text-slate-400">#{item.lot_number}</span>
           )}
           {item.expiry_date && (
-            <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {item.expiry_date}</span>
+            <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {formatDisplayDate(item.expiry_date)}</span>
           )}
           {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
         </div>
@@ -225,7 +226,7 @@ function DateGroup({
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
         <div className="flex items-center gap-2">
           {isOpen ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
-          <span className="font-semibold text-slate-800">{date}</span>
+          <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
           {items.length > 0 && <>

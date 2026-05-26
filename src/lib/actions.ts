@@ -1404,6 +1404,94 @@ export async function deleteUserProfile(_prev: ActionResult, formData: FormData)
   return { success: 'ok' };
 }
 
+// ─── Warehouses ───────────────────────────────────────────────────────────────
+
+export async function addWarehouse(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('warehouses').insert({
+    user_id: user.id, name,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/warehouses');
+  return { success: 'ok' };
+}
+
+export async function updateWarehouse(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('warehouses').update({
+    name,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/warehouses');
+  revalidatePath('/master/locations');
+  return { success: 'ok' };
+}
+
+export async function deleteWarehouse(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('warehouses').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/warehouses');
+  revalidatePath('/master/locations');
+  return { success: 'ok' };
+}
+
+// ─── Locations ────────────────────────────────────────────────────────────────
+
+export async function addLocation(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  const warehouseId = Number(formData.get('warehouse_id'));
+  if (!name) return { error: 'Name is required' };
+  if (!warehouseId) return { error: 'Warehouse is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('locations').insert({
+    user_id: user.id, name, warehouse_id: warehouseId,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/locations');
+  return { success: 'ok' };
+}
+
+export async function updateLocation(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  const warehouseId = Number(formData.get('warehouse_id'));
+  if (!name) return { error: 'Name is required' };
+  if (!warehouseId) return { error: 'Warehouse is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('locations').update({
+    name, warehouse_id: warehouseId,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/locations');
+  return { success: 'ok' };
+}
+
+export async function deleteLocation(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('locations').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/locations');
+  return { success: 'ok' };
+}
+
 // ─── Master CSV Import ────────────────────────────────────────────────────────
 
 export interface MasterCsvImportResult {
@@ -1559,6 +1647,65 @@ export async function importUserProfilesCsv(
     imported++;
   }
   if (imported > 0) revalidatePath('/master/users');
+  return { imported, skipped };
+}
+
+export async function importWarehousesCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, address, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const { error: err } = await supabase.from('warehouses').upsert(
+      { user_id: user.id, name, address: address || null, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) { revalidatePath('/master/warehouses'); revalidatePath('/master/locations'); }
+  return { imported, skipped };
+}
+
+export async function importLocationsCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  const { data: warehouses } = await supabase.from('warehouses').select('id, name');
+  const warehouseMap = new Map((warehouses ?? []).map((w) => [w.name.toLowerCase(), w.id]));
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, warehouseName, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    if (!warehouseName) { skipped.push(`倉庫名が空: ${line}`); continue; }
+    const warehouseId = warehouseMap.get(warehouseName.toLowerCase());
+    if (!warehouseId) { skipped.push(`倉庫が見つかりません: ${warehouseName}`); continue; }
+    const { error: err } = await supabase.from('locations').upsert(
+      { user_id: user.id, name, warehouse_id: warehouseId, note: note || null },
+      { onConflict: 'user_id,warehouse_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/locations');
   return { imported, skipped };
 }
 
