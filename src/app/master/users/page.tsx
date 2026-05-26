@@ -64,10 +64,9 @@ export default async function UsersPage() {
     noAccount: t('user.noAccount', lang),
     createAccount: t('user.createAccount', lang),
     deleteAccount: t('user.deleteAccount', lang),
-    accountEmail: t('user.accountEmail', lang),
+    loginId: t('user.loginId', lang),
+    loginIdPlaceholder: t('user.loginIdPlaceholder', lang),
     accountPassword: t('user.accountPassword', lang),
-    accountCreated: t('user.accountCreated', lang),
-    accountDeleted: t('user.accountDeleted', lang),
     confirmDeleteAccount: t('user.confirmDeleteAccount', lang),
     cancel: t('common.cancel', lang),
   };
@@ -100,7 +99,7 @@ export default async function UsersPage() {
         formatExamples={['田中太郎,warehouse,W001,東京倉庫,true,taro@example.com,080-1234-5678,倉庫担当']}
       />
       <UserAccountManager
-        profiles={(data ?? []).map((p: { id: number; name: string; auth_user_id?: string | null }) => ({ id: p.id, name: p.name, auth_user_id: p.auth_user_id ?? null }))}
+        profiles={(data ?? []).map((p: { id: number; name: string; login_id?: string | null; auth_user_id?: string | null }) => ({ id: p.id, name: p.name, login_id: p.login_id ?? null, auth_user_id: p.auth_user_id ?? null }))}
         labels={accountLabels}
       />
     </div>

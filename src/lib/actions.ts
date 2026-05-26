@@ -1831,10 +1831,11 @@ export async function createSubUser(
   formData: FormData
 ): Promise<ActionResult> {
   const profileId = Number(formData.get('profile_id'));
-  const email = (formData.get('email') as string ?? '').trim();
+  const loginId = (formData.get('login_id') as string ?? '').trim().toLowerCase();
   const password = (formData.get('password') as string ?? '').trim();
 
-  if (!profileId || !email || !password) return { error: 'All fields are required' };
+  if (!profileId || !loginId || !password) return { error: 'All fields are required' };
+  if (!/^[a-z0-9_.-]+$/.test(loginId)) return { error: 'ログインIDは英数字・記号(_.-) のみ使用できます' };
   if (password.length < 8) return { error: 'Password must be at least 8 characters' };
 
   const supabase = await createClient();
@@ -1853,8 +1854,19 @@ export async function createSubUser(
 
   const adminClient = createAdminClient();
 
+  // Check login_id uniqueness across the system
+  const { data: existing } = await adminClient
+    .from('user_profiles')
+    .select('id')
+    .eq('login_id', loginId)
+    .maybeSingle();
+  if (existing) return { error: 'このログインIDはすでに使用されています' };
+
+  // Internal email: loginId@ownerId.internal (never exposed to user)
+  const internalEmail = `${loginId}@${ownerId}.internal`;
+
   const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-    email,
+    email: internalEmail,
     password,
     email_confirm: true,
   });
@@ -1874,7 +1886,7 @@ export async function createSubUser(
 
   const { error: profileError } = await adminClient
     .from('user_profiles')
-    .update({ auth_user_id: newUser.user.id })
+    .update({ auth_user_id: newUser.user.id, login_id: loginId })
     .eq('id', profileId);
 
   if (profileError) {
@@ -1909,9 +1921,43 @@ export async function deleteSubUser(
   const adminClient = createAdminClient();
 
   await adminClient.from('tenant_members').delete().eq('member_id', profile.auth_user_id);
-  await adminClient.from('user_profiles').update({ auth_user_id: null }).eq('id', profileId);
+  await adminClient.from('user_profiles').update({ auth_user_id: null, login_id: null }).eq('id', profileId);
   await adminClient.auth.admin.deleteUser(profile.auth_user_id);
 
   revalidatePath('/master/users');
+  return { success: 'ok' };
+}
+
+// ─── Role Permissions ─────────────────────────────────────────────────────────
+
+export const PERMISSION_SECTIONS = ['orders', 'incoming', 'inventory', 'shipping', 'sales', 'master', 'products'] as const;
+
+export const DEFAULT_ROLE_SECTIONS: Record<string, string[]> = {
+  admin:     ['orders', 'incoming', 'inventory', 'shipping', 'sales', 'master', 'products'],
+  office:    ['orders', 'incoming', 'inventory', 'shipping', 'sales'],
+  warehouse: ['incoming', 'inventory', 'shipping'],
+  viewer:    ['orders', 'incoming', 'inventory', 'shipping', 'sales'],
+};
+
+export async function setRolePermissions(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const role = (formData.get('role') as string ?? '').trim();
+  if (!role || role === 'admin') return { error: 'Invalid role' };
+
+  const sections = PERMISSION_SECTIONS.filter((s) => formData.get(`section_${s}`) === 'on');
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('role_permissions')
+    .upsert({ user_id: ownerId, role, sections }, { onConflict: 'user_id,role' });
+
+  if (error) return { error: `Failed to save: ${error.message}` };
+
+  revalidatePath('/settings/permissions');
   return { success: 'ok' };
 }

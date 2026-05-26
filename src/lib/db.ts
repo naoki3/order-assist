@@ -122,4 +122,6 @@ export interface UserProfile {
   warehouse_id: number | null;
   is_active: boolean;
   last_login_at: string | null;
+  login_id: string | null;
+  auth_user_id: string | null;
 }
