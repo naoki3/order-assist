@@ -47,7 +47,7 @@ function CreateAccountForm({ profileId, labels, onDone }: { profileId: number; l
         placeholder={labels.accountPassword}
         className="block w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
       />
-      {state?.error && <p className="text-xs text-red-500">{state.error}</p>}
+      {state && 'error' in state && <p className="text-xs text-red-500">{state.error}</p>}
       <div className="flex gap-2">
         <button
           type="submit"
@@ -81,7 +81,7 @@ function AccountRow({ profile, labels }: { profile: Profile; labels: Labels }) {
             <span className="text-slate-400">{labels.noAccount}</span>
           )}
         </p>
-        {deleteState?.error && <p className="text-xs text-red-500 mt-0.5">{deleteState.error}</p>}
+        {deleteState && 'error' in deleteState && <p className="text-xs text-red-500 mt-0.5">{deleteState.error}</p>}
         {showCreate && !hasAccount && (
           <CreateAccountForm profileId={profile.id} labels={labels} onDone={() => setShowCreate(false)} />
         )}
