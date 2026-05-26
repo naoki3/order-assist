@@ -102,7 +102,7 @@ function MasterItem({
       const v = item[f.key];
       if (!v) return null;
       if (f.type === 'select') {
-        return f.options?.find((o) => o.value === v)?.label ?? String(v);
+        return f.options?.find((o) => o.value === String(v))?.label ?? String(v);
       }
       return String(v);
     })

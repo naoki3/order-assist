@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { addUserProfile, updateUserProfile, deleteUserProfile } from '@/lib/actions';
+import { addUserProfile, updateUserProfile, deleteUserProfile, importUserProfilesCsv } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
+import MasterCsvImport from '@/components/MasterCsvImport';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,11 @@ export default async function UsersPage() {
         updateAction={updateUserProfile}
         deleteAction={deleteUserProfile}
         labels={labels}
+      />
+      <MasterCsvImport
+        action={importUserProfilesCsv}
+        formatHeader="name,email,phone,note"
+        formatExamples={['田中太郎,taro@example.com,080-1234-5678,倉庫担当']}
       />
     </div>
   );

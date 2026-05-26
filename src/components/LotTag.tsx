@@ -1,3 +1,5 @@
+import { formatDisplayDate } from '@/lib/tz';
+
 interface LotTagProps {
   lotNumber: string;
   expiryDate?: string | null;
@@ -32,7 +34,7 @@ export default function LotTag({ lotNumber, expiryDate, today, expiryLabel = 'æœ
       </div>
       {expiryDate && (
         <p className={`text-xs pl-0.5 ${expiryTextClass}`}>
-          {expiryLabel} {expiryDate}{expirySuffix}
+          {expiryLabel} {formatDisplayDate(expiryDate)}{expirySuffix}
         </p>
       )}
     </div>

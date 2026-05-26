@@ -430,6 +430,48 @@ export const translations = {
     'user.inviting': '招待中...',
     'user.invited': '招待メールを送信しました',
     'user.noAdminKey': '管理者APIキーが設定されていません',
+
+    // Warehouse
+    'nav.warehouseMaster': '倉庫マスタ',
+    'warehouse.title': '倉庫マスタ',
+    'warehouse.empty': '倉庫がまだ登録されていません',
+
+    // Location
+    'nav.locationMaster': 'ロケーションマスタ',
+    'location.title': 'ロケーションマスタ',
+    'location.empty': 'ロケーションがまだ登録されていません',
+    'location.warehouse': '倉庫',
+    'location.noWarehouses': '先に倉庫を登録してください',
+
+    // Daily Report
+    'nav.dailyReport': '日次レポート',
+    'dailyReport.title': '日次レポート',
+    'dailyReport.dateFrom': '開始日',
+    'dailyReport.dateTo': '終了日',
+    'dailyReport.date': '日付',
+    'dailyReport.product': '商品名',
+    'dailyReport.incoming': '入荷数',
+    'dailyReport.outgoing': '出荷数',
+    'dailyReport.printPdf': 'PDFで出力',
+    'dailyReport.downloadCsv': 'CSVダウンロード',
+    'dailyReport.noData': 'データがありません',
+    'dailyReport.apply': '適用',
+    'dailyReport.subtotal': '小計',
+    'dailyReport.total': '合計',
+
+    // Dashboard daily
+    'dashboard.todayReceived': '本日の入荷実績',
+    'dashboard.todayShipped': '本日の出荷実績',
+    'dashboard.noTodayReceived': '本日の入荷実績はありません',
+    'dashboard.noTodayShipped': '本日の出荷実績はありません',
+
+    // Master CSV import
+    'master.importCsv': 'CSVインポート',
+    'master.csvFormat': 'CSVフォーマット',
+    'master.importing': 'インポート中...',
+    'master.import': 'インポート',
+    'master.imported': (n: number) => `${n}件インポートしました`,
+    'master.skipped': (n: number) => `${n}件スキップ`,
   },
 
   en: {
@@ -861,6 +903,48 @@ export const translations = {
     'user.inviting': 'Sending...',
     'user.invited': 'Invitation sent',
     'user.noAdminKey': 'Admin API key is not configured',
+
+    // Warehouse
+    'nav.warehouseMaster': 'Warehouses',
+    'warehouse.title': 'Warehouse Master',
+    'warehouse.empty': 'No warehouses registered yet',
+
+    // Location
+    'nav.locationMaster': 'Locations',
+    'location.title': 'Location Master',
+    'location.empty': 'No locations registered yet',
+    'location.warehouse': 'Warehouse',
+    'location.noWarehouses': 'Please register a warehouse first',
+
+    // Daily Report
+    'nav.dailyReport': 'Daily Report',
+    'dailyReport.title': 'Daily Report',
+    'dailyReport.dateFrom': 'From',
+    'dailyReport.dateTo': 'To',
+    'dailyReport.date': 'Date',
+    'dailyReport.product': 'Product',
+    'dailyReport.incoming': 'Incoming',
+    'dailyReport.outgoing': 'Outgoing',
+    'dailyReport.printPdf': 'Print PDF',
+    'dailyReport.downloadCsv': 'Download CSV',
+    'dailyReport.noData': 'No data for this period',
+    'dailyReport.apply': 'Apply',
+    'dailyReport.subtotal': 'Subtotal',
+    'dailyReport.total': 'Total',
+
+    // Dashboard daily
+    'dashboard.todayReceived': "Today's Received",
+    'dashboard.todayShipped': "Today's Shipped",
+    'dashboard.noTodayReceived': 'No items received today',
+    'dashboard.noTodayShipped': 'No shipments today',
+
+    // Master CSV import
+    'master.importCsv': 'Import CSV',
+    'master.csvFormat': 'CSV Format',
+    'master.importing': 'Importing...',
+    'master.import': 'Import',
+    'master.imported': (n: number) => `Imported ${n} record${n !== 1 ? 's' : ''}`,
+    'master.skipped': (n: number) => `${n} skipped`,
   },
 } as const;
 

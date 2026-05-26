@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { addCarrier, updateCarrier, deleteCarrier } from '@/lib/actions';
+import { addCarrier, updateCarrier, deleteCarrier, importCarriersCsv } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
+import MasterCsvImport from '@/components/MasterCsvImport';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,11 @@ export default async function CarriersPage() {
         updateAction={updateCarrier}
         deleteAction={deleteCarrier}
         labels={labels}
+      />
+      <MasterCsvImport
+        action={importCarriersCsv}
+        formatHeader="name,contact_name,phone,note"
+        formatExamples={['ヤマト運輸,山田,0120-01-1234,配送頻度:毎日']}
       />
     </div>
   );

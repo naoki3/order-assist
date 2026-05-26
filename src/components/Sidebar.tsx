@@ -73,6 +73,7 @@ export default function Sidebar() {
     {
       type: 'group', key: 'sales', label: t('nav.salesGroup'), icon: TrendingUp,
       items: [
+        { href: '/report/daily', label: t('nav.dailyReport'), exact: false },
         { href: '/sales/report', label: t('nav.salesReport'), exact: false },
         { href: '/sales', label: t('nav.salesEntry'), exact: true },
       ],
@@ -85,6 +86,8 @@ export default function Sidebar() {
         { href: '/master/destinations', label: t('nav.destinationMaster'), exact: false },
         { href: '/master/carriers', label: t('nav.carrierMaster'), exact: false },
         { href: '/master/inventory-statuses', label: t('nav.inventoryStatusMaster'), exact: false },
+        { href: '/master/warehouses', label: t('nav.warehouseMaster'), exact: false },
+        { href: '/master/locations', label: t('nav.locationMaster'), exact: false },
         { href: '/master/users', label: t('nav.userMaster'), exact: false },
       ],
     },
