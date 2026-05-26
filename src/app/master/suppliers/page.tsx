@@ -23,7 +23,7 @@ export default async function SuppliersPage() {
   const labels = {
     empty: t('supplier.empty', lang),
     addNew: t('master.addNew', lang),
-    add: t('common.added', lang),
+    add: t('master.add', lang),
     adding: t('master.adding', lang),
     save: t('products.save', lang),
     saving: t('master.saving', lang),
