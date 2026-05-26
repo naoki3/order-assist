@@ -8,6 +8,7 @@ import { createSubUser, deleteSubUser } from '@/lib/actions';
 interface Profile {
   id: number;
   name: string;
+  login_id: string | null;
   auth_user_id: string | null;
 }
 
@@ -17,10 +18,9 @@ interface Labels {
   noAccount: string;
   createAccount: string;
   deleteAccount: string;
-  accountEmail: string;
+  loginId: string;
+  loginIdPlaceholder: string;
   accountPassword: string;
-  accountCreated: string;
-  accountDeleted: string;
   confirmDeleteAccount: string;
   cancel: string;
 }
@@ -33,10 +33,12 @@ function CreateAccountForm({ profileId, labels, onDone }: { profileId: number; l
     <form action={action} className="mt-2 space-y-2">
       <input type="hidden" name="profile_id" value={profileId} />
       <input
-        type="email"
-        name="email"
+        type="text"
+        name="login_id"
         required
-        placeholder={labels.accountEmail}
+        placeholder={labels.loginIdPlaceholder}
+        pattern="[a-zA-Z0-9_.\-]+"
+        autoComplete="off"
         className="block w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
       />
       <input
@@ -76,7 +78,10 @@ function AccountRow({ profile, labels }: { profile: Profile; labels: Labels }) {
         <p className="text-sm font-medium text-slate-800 truncate">{profile.name}</p>
         <p className="text-xs mt-0.5">
           {hasAccount ? (
-            <span className="text-emerald-600 flex items-center gap-1"><KeyRound size={11} />{labels.hasAccount}</span>
+            <span className="text-emerald-600 flex items-center gap-1">
+              <KeyRound size={11} />{labels.hasAccount}
+              {profile.login_id && <span className="text-slate-400 ml-1 font-mono">{profile.login_id}</span>}
+            </span>
           ) : (
             <span className="text-slate-400">{labels.noAccount}</span>
           )}

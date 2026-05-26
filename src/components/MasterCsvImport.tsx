@@ -24,7 +24,7 @@ export default function MasterCsvImport({ action, formatHeader, formatExamples }
       <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('master.importCsv')}</h2>
       <div className="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600 font-mono">
         <p className="font-sans font-semibold text-slate-500 mb-1.5">{t('master.csvFormat')}</p>
-        <p className="text-slate-400">{formatHeader}</p>
+        <p className="text-slate-400 break-all">{formatHeader}</p>
         {formatExamples.map((line, i) => <p key={i}>{line}</p>)}
       </div>
       <form action={formAction} className="space-y-3">

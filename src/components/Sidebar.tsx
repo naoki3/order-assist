@@ -33,9 +33,10 @@ function groupIsActive(group: NavGroup, pathname: string) {
   return group.items.some((item) => matchesPath(item.href, pathname, item.exact));
 }
 
-export default function Sidebar() {
+export default function Sidebar({ allowedSections }: { allowedSections?: string[] }) {
   const pathname = usePathname();
   const { t } = useT();
+  const allowed = allowedSections ?? null;
 
   const navItems: NavItem[] = [
     { type: 'link', href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, exact: false },
@@ -93,7 +94,11 @@ export default function Sidebar() {
     },
   ];
 
-  const activeGroupKey = navItems.find(
+  const visibleNavItems = allowed
+    ? navItems.filter((item) => item.type === 'link' || allowed.includes(item.key))
+    : navItems;
+
+  const activeGroupKey = visibleNavItems.find(
     (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
   )?.key ?? null;
 
@@ -115,7 +120,7 @@ export default function Sidebar() {
   }
 
   // For mobile: find the active group (if any)
-  const activeGroup = navItems.find(
+  const activeGroup = visibleNavItems.find(
     (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
   ) ?? null;
 
@@ -135,7 +140,7 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             if (item.type === 'link') {
               const active = matchesPath(item.href, pathname, item.exact);
               const Icon = item.icon;
@@ -253,7 +258,7 @@ export default function Sidebar() {
 
         {/* Mobile primary nav */}
         <nav className="flex gap-0.5 text-sm overflow-x-auto px-3 pb-2 scrollbar-none">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             if (item.type === 'link') {
               const active = matchesPath(item.href, pathname, item.exact);
               return (
