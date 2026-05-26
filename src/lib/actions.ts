@@ -80,6 +80,17 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   const todayStr = localToday.replace(/-/g, '');
   const productIds = [...new Set(items.map((i) => i.product_id))];
 
+  const { data: products } = await supabase
+    .from('products').select('id, expiry_type').in('id', productIds);
+  const expiryTypeMap = Object.fromEntries((products ?? []).map((p) => [p.id, p.expiry_type]));
+  const missingExpiry = items.filter((item) => {
+    const et = expiryTypeMap[item.product_id];
+    return et && et !== 'none' && !item.expiry_date;
+  });
+  if (missingExpiry.length > 0) {
+    return { error: `賞味期限未入力の商品があります: ${missingExpiry.map((i) => i.product_name).join(', ')}` };
+  }
+
   const { data: inventories } = await supabase
     .from('inventory').select('product_id, current_stock').in('product_id', productIds);
   const stockMap: Record<number, number> = {};
@@ -234,6 +245,11 @@ export async function receiveIncoming(
   if (fetchError || !incoming) {
     return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
   }
+
+  const { data: product } = await supabase
+    .from('products').select('expiry_type').eq('id', incoming.product_id).single();
+  const expiryRequired = !!(product?.expiry_type && product.expiry_type !== 'none');
+  if (expiryRequired && !formExpiry) return { error: '賞味期限は必須です' };
 
   const localToday = await getLocalDate();
   const todayStr = localToday.replace(/-/g, '');

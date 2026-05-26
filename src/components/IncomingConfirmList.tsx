@@ -59,7 +59,7 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
-            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} />
+            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
