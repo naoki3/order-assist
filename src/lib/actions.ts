@@ -442,6 +442,7 @@ export async function updateProduct(
   if (error) return { error: `Failed to update product: ${error.message}` };
 
   revalidatePath('/products');
+  revalidatePath('/products/[id]', 'page');
   revalidatePath('/');
   return { success: 'ok' };
 }
