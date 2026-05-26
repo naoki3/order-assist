@@ -344,6 +344,24 @@ export const translations = {
     'incoming.selectSupplier': '仕入先（任意）',
     'incoming.warehouseScheduled': '入荷予定倉庫',
     'incoming.selectWarehouse': '倉庫を選択（任意）',
+    'incoming.selectLocation': 'ロケーションを選択',
+    'incoming.bulkAll': '全件',
+    'shipping.selectLocation': 'ロケーション（任意）',
+
+    // Stock Transfer
+    'nav.inventoryTransfer': '在庫移動',
+    'transfer.title': '在庫移動',
+    'transfer.subtitle': 'ロットのロケーションを移動できます',
+    'transfer.selectProduct': '商品を選択',
+    'transfer.selectLot': 'ロットを選択',
+    'transfer.quantity': '数量',
+    'transfer.toLocation': '移動先ロケーション',
+    'transfer.note': '備考（任意）',
+    'transfer.submit': '移動する',
+    'transfer.submitting': '処理中...',
+    'transfer.noLots': '在庫のあるロットがありません',
+    'transfer.success': '移動しました',
+    'inventory.location': 'ロケーション',
 
     // History
     'history.title': '発注履歴',
@@ -849,6 +867,24 @@ export const translations = {
     'incoming.selectSupplier': 'Supplier (optional)',
     'incoming.warehouseScheduled': 'Scheduled Warehouse',
     'incoming.selectWarehouse': 'Warehouse (optional)',
+    'incoming.selectLocation': 'Select Location',
+    'incoming.bulkAll': 'all',
+    'shipping.selectLocation': 'Location (optional)',
+
+    // Stock Transfer
+    'nav.inventoryTransfer': 'Stock Transfer',
+    'transfer.title': 'Stock Transfer',
+    'transfer.subtitle': 'Move lot inventory to a different location',
+    'transfer.selectProduct': 'Select product',
+    'transfer.selectLot': 'Select lot',
+    'transfer.quantity': 'Quantity',
+    'transfer.toLocation': 'Destination location',
+    'transfer.note': 'Note (optional)',
+    'transfer.submit': 'Transfer',
+    'transfer.submitting': 'Processing...',
+    'transfer.noLots': 'No lots with available stock',
+    'transfer.success': 'Transferred',
+    'inventory.location': 'Location',
 
     // History
     'history.title': 'Order History',

@@ -61,6 +61,7 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/adjust', label: t('nav.inventoryAdjust'), exact: false },
         { href: '/inventory/correction', label: t('nav.inventoryCorrection'), exact: false },
+        { href: '/inventory/transfer', label: t('nav.inventoryTransfer'), exact: false },
       ],
     },
     {

@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function ShippingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }, { data: destinationsData }, { data: carriersData }] = await Promise.all([
+  const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }, { data: destinationsData }, { data: carriersData }, { data: locationsData }] = await Promise.all([
     supabase
       .from('outgoing_stock')
       .select('*')
@@ -24,6 +24,7 @@ export default async function ShippingSchedulePage() {
     supabase.from('inventory').select('product_id, current_stock'),
     supabase.from('delivery_destinations').select('id, name').order('name'),
     supabase.from('carriers').select('id, name').order('name'),
+    supabase.from('locations').select('id, name, warehouse_id').order('name'),
   ]);
   const pending = (pendingData ?? []) as OutgoingStock[];
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
@@ -31,6 +32,7 @@ export default async function ShippingSchedulePage() {
   const lots = (lotsData ?? []) as Lot[];
   const destinations = (destinationsData ?? []) as { id: number; name: string }[];
   const carriers = (carriersData ?? []) as { id: number; name: string }[];
+  const locations = (locationsData ?? []) as { id: number; name: string; warehouse_id: number | null }[];
 
   return (
     <div className="space-y-6">
@@ -39,7 +41,7 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} destinations={destinations} carriers={carriers} today={today} />
+      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} destinations={destinations} carriers={carriers} locations={locations} today={today} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
