@@ -5,13 +5,16 @@ import type { OutgoingStock } from '@/lib/db';
 import OutgoingConfirmList from '@/components/OutgoingConfirmList';
 import ShippedHistoryList from '@/components/ShippedHistoryList';
 import type { UnitConfig } from '@/lib/units';
+import { cookies } from 'next/headers';
+import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ShippingConfirmPage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
+  const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
   const [{ data: pendingData }, { data: shippedData }, { data: productsData }] = await Promise.all([
-    supabase.from('outgoing_stock').select('*').is('shipped_at', null).order('scheduled_date').order('id'),
+    supabase.from('outgoing_stock').select('*').is('shipped_at', null).order('scheduled_date', { ascending: false }).order('id'),
     supabase.from('outgoing_stock').select('*').not('shipped_at', 'is', null).order('shipped_at', { ascending: false }).limit(60),
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
@@ -30,7 +33,7 @@ export default async function ShippingConfirmPage() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('shipping.pending', lang)}</h2>
-        <OutgoingConfirmList items={pending} emptyText={t('shipping.noPending', lang)} unitMap={unitMap} />
+        <OutgoingConfirmList items={pending} emptyText={t('shipping.noPending', lang)} unitMap={unitMap} today={today} />
       </div>
 
       <div>

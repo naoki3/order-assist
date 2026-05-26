@@ -5,17 +5,20 @@ import IncomingConfirmList from '@/components/IncomingConfirmList';
 import ReceivedHistoryList from '@/components/ReceivedHistoryList';
 import type { IncomingStock } from '@/lib/db';
 import type { UnitConfig } from '@/lib/units';
+import { cookies } from 'next/headers';
+import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
 export default async function IncomingPage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const dict = translations[lang];
+  const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
 
   const [{ data: pendingData }, { data: receivedData }, { data: productsData }] = await Promise.all([
     supabase.from('incoming_stock').select('*')
       .is('received_at', null)
-      .order('expected_date').order('id'),
+      .order('expected_date', { ascending: false }).order('id'),
     supabase.from('incoming_stock').select('*')
       .not('received_at', 'is', null)
       .order('received_at', { ascending: false }).limit(60),
@@ -40,7 +43,7 @@ export default async function IncomingPage() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
-        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} />
+        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} />
       </div>
 
       <div>

@@ -74,9 +74,9 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
   );
 }
 
-function DateGroup({ date, items, unitMap, expiryTypeMap }: { date: string; items: IncomingStock[]; unitMap: Record<number, UnitConfig>; expiryTypeMap: Record<number, string | null> }) {
+function DateGroup({ date, items, unitMap, expiryTypeMap, today }: { date: string; items: IncomingStock[]; unitMap: Record<number, UnitConfig>; expiryTypeMap: Record<number, string | null>; today: string }) {
   const { t, tf } = useT();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(date === today);
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
@@ -128,13 +128,13 @@ function groupByDate(items: IncomingStock[]) {
   return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
 }
 
-export default function IncomingConfirmList({ items, emptyText, unitMap = {}, expiryTypeMap = {} }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; expiryTypeMap?: Record<number, string | null> }) {
+export default function IncomingConfirmList({ items, emptyText, unitMap = {}, expiryTypeMap = {}, today = '' }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; expiryTypeMap?: Record<number, string | null>; today?: string }) {
   const groups = groupByDate(items);
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} />
+        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} />
       ))}
     </div>
   );

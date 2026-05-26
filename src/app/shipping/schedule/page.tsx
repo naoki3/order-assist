@@ -4,17 +4,20 @@ import { t } from '@/lib/i18n';
 import type { OutgoingStock, Lot } from '@/lib/db';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
 import OutgoingScheduleList from '@/components/OutgoingScheduleList';
+import { cookies } from 'next/headers';
+import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ShippingSchedulePage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
+  const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
   const [{ data: pendingData }, { data: productsData }, { data: lotsData }] = await Promise.all([
     supabase
       .from('outgoing_stock')
       .select('*')
       .is('shipped_at', null)
-      .order('scheduled_date')
+      .order('scheduled_date', { ascending: false })
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
     supabase.from('lots').select('*').gt('quantity', 0).order('expiry_date', { ascending: true, nullsFirst: false }),
@@ -30,7 +33,7 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} />
+      <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} today={today} />
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
