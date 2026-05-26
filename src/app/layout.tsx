@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase';
 import { getLang, getTz, getCurrency } from '@/lib/lang';
 import Sidebar from '@/components/Sidebar';
 import { LanguageProvider } from '@/components/LanguageProvider';
-import { DEFAULT_ROLE_SECTIONS } from '@/lib/actions';
+import { DEFAULT_ROLE_SECTIONS } from '@/lib/permissions';
 
 export const metadata: Metadata = {
   title: 'Order Assist',
