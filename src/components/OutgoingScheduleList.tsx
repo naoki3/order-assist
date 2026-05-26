@@ -31,6 +31,12 @@ interface CarrierOption {
   name: string;
 }
 
+interface LocationOption {
+  id: number;
+  name: string;
+  warehouse_id: number | null;
+}
+
 function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
@@ -84,19 +90,14 @@ function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean
 }
 
 function AddProductForm({
-  date,
-  products,
-  lots,
-  destinations,
-  carriers,
-  onAdded,
-  onCancel,
+  date, products, lots, destinations, carriers, locations, onAdded, onCancel,
 }: {
   date: string;
   products: ProductOption[];
   lots: Lot[];
   destinations: DestinationOption[];
   carriers: CarrierOption[];
+  locations: LocationOption[];
   onAdded: (id: number) => void;
   onCancel: () => void;
 }) {
@@ -192,6 +193,12 @@ function AddProductForm({
           {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
+      {locations.length > 0 && (
+        <select name="location_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="">{t('shipping.selectLocation')}</option>
+          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+      )}
       {error && <p className="text-red-600 text-xs">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={isPending}
@@ -208,7 +215,7 @@ function AddProductForm({
 }
 
 function DateGroup({
-  date, items, newIds, products, lots, destinations, carriers, unitMap, onAdded, defaultOpen = true,
+  date, items, newIds, products, lots, destinations, carriers, locations, unitMap, onAdded, defaultOpen = true,
 }: {
   date: string;
   items: OutgoingStock[];
@@ -217,6 +224,7 @@ function DateGroup({
   lots: Lot[];
   destinations: DestinationOption[];
   carriers: CarrierOption[];
+  locations: LocationOption[];
   unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   defaultOpen?: boolean;
@@ -257,6 +265,7 @@ function DateGroup({
               lots={lots}
               destinations={destinations}
               carriers={carriers}
+              locations={locations}
               onAdded={onAdded}
               onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
             />
@@ -289,10 +298,11 @@ interface Props {
   lots: Lot[];
   destinations?: DestinationOption[];
   carriers?: CarrierOption[];
+  locations?: LocationOption[];
   today?: string;
 }
 
-export default function OutgoingScheduleList({ items, emptyText, products, lots, destinations = [], carriers = [], today = '' }: Props) {
+export default function OutgoingScheduleList({ items, emptyText, products, lots, destinations = [], carriers = [], locations = [], today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
@@ -341,14 +351,14 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
 
       {pendingDate && !pendingDateInGroups && (
         <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
-          products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
+          products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
       )}
 
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, items: dateItems }) => (
           <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
-            products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
+            products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>

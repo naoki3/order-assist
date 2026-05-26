@@ -75,6 +75,10 @@ export interface Lot {
   received_at: string;
   expiry_date: string | null;
   incoming_stock_id: number | null;
+  location_id: number | null;
+  location_name: string | null;
+  warehouse_id: number | null;
+  warehouse_name: string | null;
 }
 
 export interface Supplier {

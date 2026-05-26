@@ -76,12 +76,25 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
+  const locationId = Number(formData.get('location_id')) || null;
+  if (!locationId) return { error: 'ロケーションは必須です' };
+
   const { data: items, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('id, product_id, product_name, quantity, lot_number, expiry_date')
+    .select('id, product_id, product_name, quantity, lot_number, expiry_date, warehouse_id')
     .in('id', ids)
     .is('received_at', null);
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
+
+  // Resolve location/warehouse names once
+  const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
+  const locationName = loc?.name ?? null;
+  const bulkWarehouseId = loc?.warehouse_id ?? null;
+  let bulkWarehouseName: string | null = null;
+  if (bulkWarehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', bulkWarehouseId).single();
+    bulkWarehouseName = w?.name ?? null;
+  }
 
   const now = new Date();
   const localToday = await getLocalDate();
@@ -120,6 +133,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
       lot_number: lotNumber, product_id: item.product_id, product_name: item.product_name,
       quantity: item.quantity, received_at: localToday,
       expiry_date: expiryDate, incoming_stock_id: item.id, user_id: ownerId,
+      location_id: locationId, location_name: locationName,
+      warehouse_id: bulkWarehouseId, warehouse_name: bulkWarehouseName,
     });
   }
 
@@ -186,10 +201,16 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
       if (lot) await supabase.from('lots')
         .update({ quantity: Math.max(0, lot.quantity - item.quantity) }).eq('id', item.lot_id);
     } else {
-      const { data: fifoLots } = await supabase
+      let bq = supabase
         .from('lots').select('id, quantity, lot_number')
-        .eq('product_id', item.product_id).gt('quantity', 0)
-        .order('expiry_date', { ascending: true, nullsFirst: false });
+        .eq('product_id', item.product_id).gt('quantity', 0);
+      if ((item as { location_id?: number | null }).location_id) {
+        bq = bq.eq('location_id', (item as { location_id?: number | null }).location_id!);
+      }
+      const { data: fifoLots } = await bq
+        .order('expiry_date', { ascending: true, nullsFirst: false })
+        .order('location_id', { ascending: true, nullsFirst: false })
+        .order('lot_number', { ascending: true });
       let remaining = item.quantity;
       let firstLotId: number | null = null;
       let firstLotNumber: string | null = null;
@@ -244,7 +265,7 @@ export async function receiveIncoming(
 
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('product_id, product_name, quantity, lot_number')
+    .select('product_id, product_name, quantity, lot_number, warehouse_id')
     .eq('id', id)
     .single();
 
@@ -257,10 +278,23 @@ export async function receiveIncoming(
   const expiryRequired = !!(product?.expiry_type && product.expiry_type !== 'none');
   if (expiryRequired && !formExpiry) return { error: '賞味期限は必須です' };
 
+  const locationId = Number(formData.get('location_id')) || null;
+  if (!locationId) return { error: 'ロケーションは必須です' };
+
   const localToday = await getLocalDate();
   const todayStr = localToday.replace(/-/g, '');
   const lotNumber = formLot || incoming.lot_number || `${todayStr}-${id}`;
   const expiryDate: string | null = formExpiry;
+
+  // Resolve location and warehouse names
+  const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
+  const locationName = loc?.name ?? null;
+  const warehouseId = (incoming as { warehouse_id?: number | null }).warehouse_id ?? loc?.warehouse_id ?? null;
+  let warehouseName: string | null = null;
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
 
   const { error: updateError } = await supabase
     .from('incoming_stock')
@@ -291,6 +325,10 @@ export async function receiveIncoming(
     expiry_date: expiryDate,
     incoming_stock_id: id,
     user_id: ownerId,
+    location_id: locationId,
+    location_name: locationName,
+    warehouse_id: warehouseId,
+    warehouse_name: warehouseName,
   });
 
   revalidatePath('/incoming');
@@ -577,6 +615,8 @@ export async function addIncomingSchedule(
   const supplierId = Number(formData.get('supplier_id')) || null;
   const warehouseId = Number(formData.get('warehouse_id')) || null;
 
+  if (!warehouseId) return { error: '倉庫は必須です' };
+
   let supplierName: string | null = null;
   let warehouseName: string | null = null;
   if (supplierId) {
@@ -691,8 +731,10 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
 
   const destinationId = Number(formData.get('destination_id')) || null;
   const carrierId = Number(formData.get('carrier_id')) || null;
+  const locationId = Number(formData.get('location_id')) || null;
   let destinationName: string | null = null;
   let carrierName: string | null = null;
+  let locationName: string | null = null;
   if (destinationId) {
     const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
     destinationName = d?.name ?? null;
@@ -701,10 +743,14 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
     const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
     carrierName = c?.name ?? null;
   }
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('name').eq('id', locationId).single();
+    locationName = loc?.name ?? null;
+  }
 
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName, location_id: locationId, location_name: locationName })
     .select('id')
     .single();
 
@@ -904,7 +950,7 @@ export async function confirmShipment(
 
   const { data: outgoing, error: fetchError } = await supabase
     .from('outgoing_stock')
-    .select('product_id, quantity, lot_id')
+    .select('product_id, quantity, lot_id, location_id')
     .eq('id', id)
     .single();
 
@@ -945,11 +991,17 @@ export async function confirmShipment(
       await supabase.from('lots').update({ quantity: Math.max(0, lot.quantity - outgoing.quantity) }).eq('id', outgoing.lot_id);
     }
   } else {
-    // FIFO: auto-assign from lots with earliest expiry date
-    const { data: fifoLots } = await supabase
+    // FIFO: expiry_date → location_id (asc) → lot_number
+    let fifoQuery = supabase
       .from('lots').select('id, quantity, lot_number')
-      .eq('product_id', outgoing.product_id).gt('quantity', 0)
-      .order('expiry_date', { ascending: true, nullsFirst: false });
+      .eq('product_id', outgoing.product_id).gt('quantity', 0);
+    if ((outgoing as { location_id?: number | null }).location_id) {
+      fifoQuery = fifoQuery.eq('location_id', (outgoing as { location_id?: number | null }).location_id!);
+    }
+    const { data: fifoLots } = await fifoQuery
+      .order('expiry_date', { ascending: true, nullsFirst: false })
+      .order('location_id', { ascending: true, nullsFirst: false })
+      .order('lot_number', { ascending: true });
     let remaining = outgoing.quantity;
     let firstLotId: number | null = null;
     let firstLotNumber: string | null = null;
@@ -1959,5 +2011,76 @@ export async function setRolePermissions(
   if (error) return { error: `Failed to save: ${error.message}` };
 
   revalidatePath('/settings/permissions');
+  return { success: 'ok' };
+}
+
+// ─── Stock Transfer ───────────────────────────────────────────────────────────
+
+export async function transferStock(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const lotId = Number(formData.get('lot_id'));
+  const toLocationId = Number(formData.get('to_location_id')) || null;
+  const quantity = Number(formData.get('quantity'));
+  const note = String(formData.get('note') ?? '').trim() || null;
+
+  if (!lotId || !toLocationId || isNaN(quantity) || quantity < 1) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data: lot } = await supabase
+    .from('lots')
+    .select('id, lot_number, product_id, product_name, quantity, received_at, expiry_date, incoming_stock_id, location_id, location_name, warehouse_id')
+    .eq('id', lotId)
+    .single();
+  if (!lot) return { error: 'ロットが見つかりません' };
+  if (lot.quantity < quantity) return { error: `在庫が不足しています（残 ${lot.quantity} 個）` };
+
+  const { data: toLoc } = await supabase
+    .from('locations').select('name, warehouse_id').eq('id', toLocationId).single();
+  if (!toLoc) return { error: 'ロケーションが見つかりません' };
+
+  let toWarehouseName: string | null = null;
+  if (toLoc.warehouse_id) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', toLoc.warehouse_id).single();
+    toWarehouseName = w?.name ?? null;
+  }
+
+  if (quantity === lot.quantity) {
+    // Full transfer: update location in-place
+    await supabase.from('lots').update({
+      location_id: toLocationId, location_name: toLoc.name,
+      warehouse_id: toLoc.warehouse_id, warehouse_name: toWarehouseName,
+    }).eq('id', lotId);
+  } else {
+    // Partial transfer: reduce source, create new lot at destination
+    await supabase.from('lots').update({ quantity: lot.quantity - quantity }).eq('id', lotId);
+    await supabase.from('lots').insert({
+      lot_number: lot.lot_number, product_id: lot.product_id, product_name: lot.product_name,
+      quantity, received_at: lot.received_at, expiry_date: lot.expiry_date,
+      incoming_stock_id: lot.incoming_stock_id, user_id: ownerId,
+      location_id: toLocationId, location_name: toLoc.name,
+      warehouse_id: toLoc.warehouse_id, warehouse_name: toWarehouseName,
+    });
+  }
+
+  await supabase.from('stock_transfers').insert({
+    user_id: ownerId,
+    lot_id: lotId,
+    product_id: lot.product_id,
+    product_name: lot.product_name,
+    from_location_id: lot.location_id,
+    from_location_name: lot.location_name,
+    to_location_id: toLocationId,
+    to_location_name: toLoc.name,
+    quantity,
+    note,
+  });
+
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/transfer');
   return { success: 'ok' };
 }

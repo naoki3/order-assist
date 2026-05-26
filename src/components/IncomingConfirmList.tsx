@@ -11,7 +11,20 @@ import type { UnitConfig } from '@/lib/units';
 import DateInput from './DateInput';
 import { formatDisplayDate } from '@/lib/tz';
 
-function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfig: UnitConfig; expiryType: string | null }) {
+export interface LocationOption {
+  id: number;
+  name: string;
+  warehouse_id: number | null;
+}
+
+function Item({
+  item, unitConfig, expiryType, locations,
+}: {
+  item: IncomingStock;
+  unitConfig: UnitConfig;
+  expiryType: string | null;
+  locations: LocationOption[];
+}) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
@@ -19,6 +32,12 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+
+  // Filter locations by the item's warehouse
+  const itemWarehouseId = (item as { warehouse_id?: number | null }).warehouse_id ?? null;
+  const filteredLocations = itemWarehouseId
+    ? locations.filter((l) => l.warehouse_id === itemWarehouseId)
+    : locations;
 
   return (
     <div className="py-2.5 space-y-2">
@@ -29,6 +48,9 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
             <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig, lang)}</span>
           ) : (
             <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
+          )}
+          {(item as { warehouse_name?: string | null }).warehouse_name && (
+            <span className="text-xs text-slate-400 ml-2">{(item as { warehouse_name?: string | null }).warehouse_name}</span>
           )}
         </div>
         {confirming ? (
@@ -62,6 +84,11 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
             <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
+          <select name="location_id" required
+            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+            <option value="">{t('incoming.selectLocation')}</option>
+            {filteredLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
             {t('incoming.markReceived')}
@@ -75,7 +102,16 @@ function Item({ item, unitConfig, expiryType }: { item: IncomingStock; unitConfi
   );
 }
 
-function DateGroup({ date, items, unitMap, expiryTypeMap, today }: { date: string; items: IncomingStock[]; unitMap: Record<number, UnitConfig>; expiryTypeMap: Record<number, string | null>; today: string }) {
+function DateGroup({
+  date, items, unitMap, expiryTypeMap, today, locations,
+}: {
+  date: string;
+  items: IncomingStock[];
+  unitMap: Record<number, UnitConfig>;
+  expiryTypeMap: Record<number, string | null>;
+  today: string;
+  locations: LocationOption[];
+}) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
@@ -102,12 +138,23 @@ function DateGroup({ date, items, unitMap, expiryTypeMap, today }: { date: strin
       {isOpen && (
         <div className="px-4 pb-3">
           <div className="divide-y divide-slate-100">
-            {items.map(item => <Item key={item.id} item={item} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} expiryType={expiryTypeMap[item.product_id] ?? null} />)}
+            {items.map(item => (
+              <Item key={item.id} item={item}
+                unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+                expiryType={expiryTypeMap[item.product_id] ?? null}
+                locations={locations}
+              />
+            ))}
           </div>
           {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
           {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
-          <form action={bulkAction} className="pt-2">
+          <form action={bulkAction} className="pt-3 space-y-2">
             <input type="hidden" name="ids" value={JSON.stringify(items.map(i => i.id))} />
+            <select name="location_id" required
+              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">{t('incoming.selectLocation')} ({t('incoming.bulkAll')})</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
             <button type="submit"
               className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
               {tf<string>('common.bulkConfirm', items.length)}
@@ -129,13 +176,22 @@ function groupByDate(items: IncomingStock[]) {
   return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
 }
 
-export default function IncomingConfirmList({ items, emptyText, unitMap = {}, expiryTypeMap = {}, today = '' }: { items: IncomingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; expiryTypeMap?: Record<number, string | null>; today?: string }) {
+export default function IncomingConfirmList({
+  items, emptyText, unitMap = {}, expiryTypeMap = {}, today = '', locations = [],
+}: {
+  items: IncomingStock[];
+  emptyText: string;
+  unitMap?: Record<number, UnitConfig>;
+  expiryTypeMap?: Record<number, string | null>;
+  today?: string;
+  locations?: LocationOption[];
+}) {
   const groups = groupByDate(items);
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} />
+        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
       ))}
     </div>
   );

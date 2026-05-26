@@ -60,14 +60,19 @@ export default async function InventoryPage() {
                   <div className="mt-2 space-y-1">
                     {productLots.map((lot) => {
                       return (
-                        <div key={lot.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                          <LotTag
-                            lotNumber={lot.lot_number}
-                            expiryDate={lot.expiry_date}
-                            today={today}
-                            expiryLabel={p.expiry_type ?? t('inventory.lotExpiry', lang)}
-                          />
-                          <span className="text-sm font-medium text-slate-700 shrink-0 ml-3">
+                        <div key={lot.id} className="flex items-start justify-between bg-slate-50 rounded-lg px-3 py-2 gap-3">
+                          <div className="flex-1 min-w-0">
+                            <LotTag
+                              lotNumber={lot.lot_number}
+                              expiryDate={lot.expiry_date}
+                              today={today}
+                              expiryLabel={p.expiry_type ?? t('inventory.lotExpiry', lang)}
+                            />
+                            {lot.location_name && (
+                              <p className="text-xs text-slate-400 mt-0.5">{t('inventory.location', lang)}: {lot.location_name}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium text-slate-700 shrink-0">
                             {p.pieces_per_ball
                               ? `${formatQty(lot.quantity, p, lang)} (${lot.quantity}${t('units.pieceSuffix', lang)})`
                               : `${lot.quantity} ${t('inventory.units', lang)}`}
