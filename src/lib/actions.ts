@@ -1344,19 +1344,46 @@ export async function deleteInventoryStatus(_prev: ActionResult, formData: FormD
   return { success: 'ok' };
 }
 
-// ─── User Invite ──────────────────────────────────────────────────────────────
+// ─── User Profiles ────────────────────────────────────────────────────────────
 
-export async function inviteUser(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const email = (formData.get('email') as string ?? '').trim();
-  if (!email) return { error: 'Email is required' };
-  const { createAdminClient } = await import('./supabase-admin');
-  try {
-    const admin = createAdminClient();
-    const { error } = await admin.auth.admin.inviteUserByEmail(email);
-    if (error) return { error: `招待失敗: ${error.message}` };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : '招待に失敗しました' };
-  }
+export async function addUserProfile(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('user_profiles').insert({
+    user_id: user.id, name,
+    email: (formData.get('email') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/users');
+  return { success: 'ok' };
+}
+
+export async function updateUserProfile(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('user_profiles').update({
+    name,
+    email: (formData.get('email') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/users');
+  return { success: 'ok' };
+}
+
+export async function deleteUserProfile(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('user_profiles').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
   revalidatePath('/master/users');
   return { success: 'ok' };
 }

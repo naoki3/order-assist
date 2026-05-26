@@ -1,63 +1,48 @@
+import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import UserMasterClient from './UserMasterClient';
+import { addUserProfile, updateUserProfile, deleteUserProfile } from '@/lib/actions';
+import MasterList, { type MasterRecord } from '@/components/MasterList';
+import type { UserProfile } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-interface AuthUser {
-  id: string;
-  email: string | undefined;
-  created_at: string;
-}
-
 export default async function UsersPage() {
-  const lang = await getLang();
+  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const { data } = await supabase.from('user_profiles').select('*').order('name');
+  const items = (data ?? []) as unknown as MasterRecord[];
 
-  let users: AuthUser[] = [];
-  let adminError: string | null = null;
-
-  try {
-    const { createAdminClient } = await import('@/lib/supabase-admin');
-    const admin = createAdminClient();
-    const { data, error } = await admin.auth.admin.listUsers({ perPage: 200 });
-    if (error) {
-      adminError = error.message;
-    } else {
-      users = (data.users ?? []).map((u) => ({
-        id: u.id,
-        email: u.email,
-        created_at: u.created_at,
-      }));
-      users.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    }
-  } catch (e) {
-    adminError = e instanceof Error ? e.message : 'Admin API unavailable';
-  }
+  const fields = [
+    { key: 'name', label: t('master.name', lang), required: true, placeholder: t('master.namePlaceholder', lang) },
+    { key: 'email', label: t('master.email', lang), type: 'email' as const, placeholder: t('master.email', lang) },
+    { key: 'phone', label: t('master.phone', lang), type: 'tel' as const, placeholder: t('master.phone', lang) },
+    { key: 'note', label: t('master.note', lang), type: 'textarea' as const, placeholder: t('master.note', lang) },
+  ];
 
   const labels = {
-    title: t('user.title', lang),
-    email: t('user.email', lang),
-    createdAt: t('user.createdAt', lang),
     empty: t('user.empty', lang),
-    inviteTitle: t('user.inviteTitle', lang),
-    inviteEmail: t('user.inviteEmail', lang),
-    invite: t('user.invite', lang),
-    inviting: t('user.inviting', lang),
-    invited: t('user.invited', lang),
-    noAdminKey: t('user.noAdminKey', lang),
+    addNew: t('master.addNew', lang),
+    add: t('common.added', lang),
+    adding: t('master.adding', lang),
+    save: t('products.save', lang),
+    saving: t('master.saving', lang),
     cancel: t('common.cancel', lang),
+    delete: t('products.delete', lang),
+    confirmDelete: t('common.confirmQuestion', lang),
+    edit: t('master.edit', lang),
   };
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">{labels.title}</h1>
-      {adminError ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
-          {labels.noAdminKey}: {adminError}
-        </div>
-      ) : (
-        <UserMasterClient users={users} labels={labels} />
-      )}
+      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('user.title', lang)}</h1>
+      <MasterList
+        items={items}
+        fields={fields}
+        addAction={addUserProfile}
+        updateAction={updateUserProfile}
+        deleteAction={deleteUserProfile}
+        labels={labels}
+      />
     </div>
   );
 }

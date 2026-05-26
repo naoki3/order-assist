@@ -102,3 +102,11 @@ export interface InventoryStatus {
   color: string;
   note: string | null;
 }
+
+export interface UserProfile {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  note: string | null;
+}
