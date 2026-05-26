@@ -30,7 +30,7 @@ export interface Inventory {
 export interface OrderHistoryItem {
   id: number;
   created_at: string;
-  items: unknown; // JSON string or parsed array (depends on DB column type)
+  items: unknown;
 }
 
 export interface OutgoingStock {
@@ -69,13 +69,36 @@ export interface Lot {
   incoming_stock_id: number | null;
 }
 
-export interface Lot {
+export interface Supplier {
   id: number;
-  lot_number: string;
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  received_at: string;
-  expiry_date: string | null;
-  incoming_stock_id: number | null;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  note: string | null;
+}
+
+export interface DeliveryDestination {
+  id: number;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  address: string | null;
+  note: string | null;
+}
+
+export interface Carrier {
+  id: number;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  note: string | null;
+}
+
+export interface InventoryStatus {
+  id: number;
+  name: string;
+  color: string;
+  note: string | null;
 }
