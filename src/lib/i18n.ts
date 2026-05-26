@@ -352,6 +352,10 @@ export const translations = {
     'common.deleted': '削除しました',
     'common.received': '入荷確認しました',
     'common.confirmed': '出荷確認しました',
+    'common.unreceived': '入荷を取り消しました',
+    'common.unshipped': '出荷を取り消しました',
+    'common.undo': '取り消し',
+    'common.undoQuestion': '取り消しますか？',
     'common.bulkConfirm': (n: number) => `${n}件を一括確認`,
     'common.saved': '保存しました',
 
@@ -722,6 +726,10 @@ export const translations = {
     'common.deleted': 'Deleted',
     'common.received': 'Delivery confirmed',
     'common.confirmed': 'Shipment confirmed',
+    'common.unreceived': 'Receive undone',
+    'common.unshipped': 'Shipment undone',
+    'common.undo': 'Undo',
+    'common.undoQuestion': 'Undo this?',
     'common.bulkConfirm': (n: number) => `Confirm all ${n} items`,
     'common.saved': 'Saved',
 

@@ -166,6 +166,24 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
       const { data: lot } = await supabase.from('lots').select('quantity').eq('id', item.lot_id).single();
       if (lot) await supabase.from('lots')
         .update({ quantity: Math.max(0, lot.quantity - item.quantity) }).eq('id', item.lot_id);
+    } else {
+      const { data: fifoLots } = await supabase
+        .from('lots').select('id, quantity, lot_number')
+        .eq('product_id', item.product_id).gt('quantity', 0)
+        .order('expiry_date', { ascending: true, nullsFirst: false });
+      let remaining = item.quantity;
+      let firstLotId: number | null = null;
+      let firstLotNumber: string | null = null;
+      for (const lot of (fifoLots ?? [])) {
+        if (remaining <= 0) break;
+        if (firstLotId === null) { firstLotId = lot.id; firstLotNumber = lot.lot_number; }
+        const take = Math.min(lot.quantity, remaining);
+        await supabase.from('lots').update({ quantity: lot.quantity - take }).eq('id', lot.id);
+        remaining -= take;
+      }
+      if (firstLotId !== null) {
+        await supabase.from('outgoing_stock').update({ lot_id: firstLotId, lot_number: firstLotNumber }).eq('id', item.id);
+      }
     }
   }
 
@@ -632,6 +650,85 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   return { success: 'ok', newId: data.id };
 }
 
+export async function unreceiveIncoming(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+
+  const { data: incoming } = await supabase
+    .from('incoming_stock')
+    .select('product_id, quantity')
+    .eq('id', id)
+    .not('received_at', 'is', null)
+    .single();
+  if (!incoming) return { error: '入荷済みレコードが見つかりません' };
+
+  await supabase.from('lots').delete().eq('incoming_stock_id', id);
+
+  const { error } = await supabase
+    .from('incoming_stock')
+    .update({ received_at: null })
+    .eq('id', id);
+  if (error) return { error: `取り消し失敗: ${error.message}` };
+
+  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', incoming.product_id).single();
+  const localToday = await getLocalDate();
+  await supabase.from('inventory').upsert({
+    product_id: incoming.product_id,
+    current_stock: Math.max(0, (inv?.current_stock ?? 0) - incoming.quantity),
+    updated_at: localToday,
+  });
+
+  revalidatePath('/incoming');
+  revalidatePath('/inventory');
+  revalidatePath('/');
+  return { success: 'ok' };
+}
+
+export async function unshipOutgoing(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+
+  const { data: outgoing } = await supabase
+    .from('outgoing_stock')
+    .select('product_id, quantity, lot_id')
+    .eq('id', id)
+    .not('shipped_at', 'is', null)
+    .single();
+  if (!outgoing) return { error: '出荷済みレコードが見つかりません' };
+
+  const { error } = await supabase
+    .from('outgoing_stock')
+    .update({ shipped_at: null })
+    .eq('id', id);
+  if (error) return { error: `取り消し失敗: ${error.message}` };
+
+  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', outgoing.product_id).single();
+  const localToday = await getLocalDate();
+  await supabase.from('inventory').upsert({
+    product_id: outgoing.product_id,
+    current_stock: (inv?.current_stock ?? 0) + outgoing.quantity,
+    updated_at: localToday,
+  });
+
+  if (outgoing.lot_id) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
+    if (lot) {
+      await supabase.from('lots').update({ quantity: lot.quantity + outgoing.quantity }).eq('id', outgoing.lot_id);
+    }
+  }
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
 export async function deleteIncomingSchedule(
   _prev: ActionResult,
   formData: FormData
@@ -764,6 +861,25 @@ export async function confirmShipment(
     const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
     if (lot) {
       await supabase.from('lots').update({ quantity: Math.max(0, lot.quantity - outgoing.quantity) }).eq('id', outgoing.lot_id);
+    }
+  } else {
+    // FIFO: auto-assign from lots with earliest expiry date
+    const { data: fifoLots } = await supabase
+      .from('lots').select('id, quantity, lot_number')
+      .eq('product_id', outgoing.product_id).gt('quantity', 0)
+      .order('expiry_date', { ascending: true, nullsFirst: false });
+    let remaining = outgoing.quantity;
+    let firstLotId: number | null = null;
+    let firstLotNumber: string | null = null;
+    for (const lot of (fifoLots ?? [])) {
+      if (remaining <= 0) break;
+      if (firstLotId === null) { firstLotId = lot.id; firstLotNumber = lot.lot_number; }
+      const take = Math.min(lot.quantity, remaining);
+      await supabase.from('lots').update({ quantity: lot.quantity - take }).eq('id', lot.id);
+      remaining -= take;
+    }
+    if (firstLotId !== null) {
+      await supabase.from('outgoing_stock').update({ lot_id: firstLotId, lot_number: firstLotNumber }).eq('id', id);
     }
   }
 

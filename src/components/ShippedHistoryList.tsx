@@ -1,15 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { OutgoingStock } from '@/lib/db';
 import LotTag from './LotTag';
 import { useT } from './LanguageProvider';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import { unshipOutgoing } from '@/lib/actions';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [state, action] = useActionState(unshipOutgoing, null);
+  const { errorMsg } = useActionFeedback(state, '');
+
   return (
     <div className="py-2.5">
       <div className="flex items-center justify-between gap-3">
@@ -31,8 +37,31 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
           <p className="text-xs text-slate-400 mt-0.5">
             {t('shipping.scheduledDate')} {item.scheduled_date}
           </p>
+          {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
         </div>
-        <span className="text-xs text-blue-600 font-medium shrink-0">{t('shipping.confirmed')}</span>
+        {confirming ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-slate-500">{t('common.undoQuestion')}</span>
+            <button type="button" onClick={() => setConfirming(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+            <form action={action}>
+              <input type="hidden" name="id" value={item.id} />
+              <button type="submit" className="text-xs text-orange-600 hover:text-orange-700 font-medium px-2 py-1 rounded">
+                {t('common.undo')}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button type="button" onClick={() => setConfirming(true)}
+              className="text-xs text-slate-400 hover:text-orange-600 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors">
+              {t('common.undo')}
+            </button>
+            <span className="text-xs text-blue-600 font-medium">{t('shipping.confirmed')}</span>
+          </div>
+        )}
       </div>
     </div>
   );
