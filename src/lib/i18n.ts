@@ -213,6 +213,10 @@ export const translations = {
     'shipping.historySubtitle': '日付を選択して出荷記録を検索できます',
     'shipping.historyEmpty': '該当する出荷履歴がありません',
     'shipping.recentShippedLabel': '直近の出荷済み',
+    'shipping.destination': '納品先',
+    'shipping.selectDestination': '納品先（任意）',
+    'shipping.carrier': '配送',
+    'shipping.selectCarrier': '配送業者（任意）',
 
     // Common (extra)
     'common.searchByDate': '日付で検索',
@@ -333,6 +337,10 @@ export const translations = {
     'incoming.editButton': '編集',
     'incoming.saveButton': '保存',
     'incoming.saving': '保存中...',
+    'incoming.supplier': '仕入先',
+    'incoming.selectSupplier': '仕入先（任意）',
+    'incoming.warehouseScheduled': '入荷予定倉庫',
+    'incoming.selectWarehouse': '倉庫を選択（任意）',
 
     // History
     'history.title': '発注履歴',
@@ -430,6 +438,16 @@ export const translations = {
     'user.inviting': '招待中...',
     'user.invited': '招待メールを送信しました',
     'user.noAdminKey': '管理者APIキーが設定されていません',
+    'user.role': 'ロール',
+    'user.workerCode': '作業者コード',
+    'user.warehouseAssigned': '所属倉庫',
+    'user.isActive': '有効',
+    'user.roleAdmin': '管理者',
+    'user.roleOffice': '事務担当',
+    'user.roleWarehouse': '倉庫担当',
+    'user.roleViewer': '閲覧者',
+    'user.activeYes': '有効',
+    'user.activeNo': '無効',
 
     // Warehouse
     'nav.warehouseMaster': '倉庫マスタ',
@@ -603,6 +621,10 @@ export const translations = {
     'shipping.historySubtitle': 'Select a date to search shipment history',
     'shipping.historyEmpty': 'No shipment history found',
     'shipping.recentShippedLabel': 'Recently Shipped',
+    'shipping.destination': 'Destination',
+    'shipping.selectDestination': 'Destination (optional)',
+    'shipping.carrier': 'Carrier',
+    'shipping.selectCarrier': 'Carrier (optional)',
 
     // Common (extra)
     'common.searchByDate': 'Search by date',
@@ -806,6 +828,10 @@ export const translations = {
     'incoming.editButton': 'Edit',
     'incoming.saveButton': 'Save',
     'incoming.saving': 'Saving...',
+    'incoming.supplier': 'Supplier',
+    'incoming.selectSupplier': 'Supplier (optional)',
+    'incoming.warehouseScheduled': 'Scheduled Warehouse',
+    'incoming.selectWarehouse': 'Warehouse (optional)',
 
     // History
     'history.title': 'Order History',
@@ -903,6 +929,16 @@ export const translations = {
     'user.inviting': 'Sending...',
     'user.invited': 'Invitation sent',
     'user.noAdminKey': 'Admin API key is not configured',
+    'user.role': 'Role',
+    'user.workerCode': 'Worker Code',
+    'user.warehouseAssigned': 'Assigned Warehouse',
+    'user.isActive': 'Active',
+    'user.roleAdmin': 'Admin',
+    'user.roleOffice': 'Office',
+    'user.roleWarehouse': 'Warehouse',
+    'user.roleViewer': 'Viewer',
+    'user.activeYes': 'Active',
+    'user.activeNo': 'Inactive',
 
     // Warehouse
     'nav.warehouseMaster': 'Warehouses',

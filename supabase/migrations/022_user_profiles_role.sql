@@ -1,0 +1,7 @@
+-- Extend user_profiles with WMS role/worker fields
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'viewer',
+  ADD COLUMN IF NOT EXISTS worker_code TEXT,
+  ADD COLUMN IF NOT EXISTS warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;

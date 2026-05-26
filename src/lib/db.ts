@@ -44,6 +44,10 @@ export interface OutgoingStock {
   lot_id: number | null;
   lot_number: string | null;
   expiry_date: string | null;
+  destination_id: number | null;
+  destination_name: string | null;
+  carrier_id: number | null;
+  carrier_name: string | null;
 }
 
 export interface IncomingStock {
@@ -56,6 +60,10 @@ export interface IncomingStock {
   received_at: string | null;
   expiry_date: string | null;
   lot_number: string | null;
+  supplier_id: number | null;
+  supplier_name: string | null;
+  warehouse_id: number | null;
+  warehouse_name: string | null;
 }
 
 export interface Lot {
@@ -109,4 +117,9 @@ export interface UserProfile {
   email: string | null;
   phone: string | null;
   note: string | null;
+  role: string;
+  worker_code: string | null;
+  warehouse_id: number | null;
+  is_active: boolean;
+  last_login_at: string | null;
 }

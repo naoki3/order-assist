@@ -568,6 +568,19 @@ export async function addIncomingSchedule(
   if (!product) return { error: 'Product not found' };
 
   const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+  const supplierId = Number(formData.get('supplier_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
+
+  let supplierName: string | null = null;
+  let warehouseName: string | null = null;
+  if (supplierId) {
+    const { data: s } = await supabase.from('suppliers').select('name').eq('id', supplierId).single();
+    supplierName = s?.name ?? null;
+  }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
 
   const { error } = await supabase.from('incoming_stock').insert({
     product_id: productId,
@@ -576,6 +589,10 @@ export async function addIncomingSchedule(
     expected_date: expectedDate,
     lot_number: lotNumber,
     user_id: user.id,
+    supplier_id: supplierId,
+    supplier_name: supplierName,
+    warehouse_id: warehouseId,
+    warehouse_name: warehouseName,
   });
 
   if (error) return { error: `Failed to add schedule: ${error.message}` };
@@ -594,6 +611,8 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   const expectedDate = String(formData.get('expected_date') ?? '').trim();
   const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
   const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+  const supplierId = Number(formData.get('supplier_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
 
   if (!productId || isNaN(quantity) || quantity < 1 || !expectedDate) {
     return { error: '入力値が不正です' };
@@ -607,9 +626,20 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
     .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: '商品が見つかりません' };
 
+  let supplierName: string | null = null;
+  let warehouseName: string | null = null;
+  if (supplierId) {
+    const { data: s } = await supabase.from('suppliers').select('name').eq('id', supplierId).single();
+    supplierName = s?.name ?? null;
+  }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
+
   const { data, error } = await supabase
     .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: user.id })
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: user.id, supplier_id: supplierId, supplier_name: supplierName, warehouse_id: warehouseId, warehouse_name: warehouseName })
     .select('id')
     .single();
 
@@ -653,9 +683,22 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
     }
   }
 
+  const destinationId = Number(formData.get('destination_id')) || null;
+  const carrierId = Number(formData.get('carrier_id')) || null;
+  let destinationName: string | null = null;
+  let carrierName: string | null = null;
+  if (destinationId) {
+    const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
+    destinationName = d?.name ?? null;
+  }
+  if (carrierId) {
+    const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
+    carrierName = c?.name ?? null;
+  }
+
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: user.id })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: user.id, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName })
     .select('id')
     .single();
 
@@ -793,6 +836,19 @@ export async function addOutgoingSchedule(
 
   if (!product) return { error: 'Product not found' };
 
+  const destinationId = Number(formData.get('destination_id')) || null;
+  const carrierId = Number(formData.get('carrier_id')) || null;
+  let destinationName: string | null = null;
+  let carrierName: string | null = null;
+  if (destinationId) {
+    const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
+    destinationName = d?.name ?? null;
+  }
+  if (carrierId) {
+    const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
+    carrierName = c?.name ?? null;
+  }
+
   const { error } = await supabase.from('outgoing_stock').insert({
     product_id: productId,
     product_name: product.name,
@@ -800,6 +856,10 @@ export async function addOutgoingSchedule(
     scheduled_date: scheduledDate,
     note,
     user_id: user.id,
+    destination_id: destinationId,
+    destination_name: destinationName,
+    carrier_id: carrierId,
+    carrier_name: carrierName,
   });
 
   if (error) return { error: `Failed to add schedule: ${error.message}` };
@@ -1368,11 +1428,16 @@ export async function addUserProfile(_prev: ActionResult, formData: FormData): P
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
   const { error } = await supabase.from('user_profiles').insert({
     user_id: user.id, name,
     email: (formData.get('email') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     note: (formData.get('note') as string ?? '').trim() || null,
+    role: (formData.get('role') as string ?? 'viewer').trim() || 'viewer',
+    worker_code: (formData.get('worker_code') as string ?? '').trim() || null,
+    warehouse_id: warehouseId,
+    is_active: formData.get('is_active') !== 'false',
   });
   if (error) return { error: `Failed to add: ${error.message}` };
   revalidatePath('/master/users');
@@ -1384,11 +1449,16 @@ export async function updateUserProfile(_prev: ActionResult, formData: FormData)
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
   const { error } = await supabase.from('user_profiles').update({
     name,
     email: (formData.get('email') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     note: (formData.get('note') as string ?? '').trim() || null,
+    role: (formData.get('role') as string ?? 'viewer').trim() || 'viewer',
+    worker_code: (formData.get('worker_code') as string ?? '').trim() || null,
+    warehouse_id: warehouseId,
+    is_active: formData.get('is_active') !== 'false',
   }).eq('id', id);
   if (error) return { error: `Failed to update: ${error.message}` };
   revalidatePath('/master/users');
