@@ -364,6 +364,9 @@ export async function addProduct(
   const storage_fee_per_piece = storageFeeRaw && String(storageFeeRaw).trim() !== '' ? Number(storageFeeRaw) : null;
   const outgoingFeeRaw = formData.get('outgoing_fee_per_piece');
   const outgoing_fee_per_piece = outgoingFeeRaw && String(outgoingFeeRaw).trim() !== '' ? Number(outgoingFeeRaw) : null;
+  const defaultWarehouseIdRaw = formData.get('default_warehouse_id');
+  const default_warehouse_id = defaultWarehouseIdRaw && String(defaultWarehouseIdRaw).trim() !== '' ? Number(defaultWarehouseIdRaw) : null;
+  const default_warehouse_name = (formData.get('default_warehouse_name') as string | null) || null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -374,7 +377,7 @@ export async function addProduct(
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, user_id: ownerId })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, default_warehouse_id, default_warehouse_name, user_id: ownerId })
     .select('id')
     .single();
 
@@ -423,6 +426,9 @@ export async function updateProduct(
   const storage_fee_per_piece = storageFeeRaw2 && String(storageFeeRaw2).trim() !== '' ? Number(storageFeeRaw2) : null;
   const outgoingFeeRaw2 = formData.get('outgoing_fee_per_piece');
   const outgoing_fee_per_piece = outgoingFeeRaw2 && String(outgoingFeeRaw2).trim() !== '' ? Number(outgoingFeeRaw2) : null;
+  const defaultWarehouseIdRaw2 = formData.get('default_warehouse_id');
+  const default_warehouse_id = defaultWarehouseIdRaw2 && String(defaultWarehouseIdRaw2).trim() !== '' ? Number(defaultWarehouseIdRaw2) : null;
+  const default_warehouse_name = (formData.get('default_warehouse_name') as string | null) || null;
 
   if (!name || leadTime < 1 || safetyStock < 1) return { error: 'Invalid input values' };
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
@@ -430,7 +436,7 @@ export async function updateProduct(
   const supabase = await createClient();
   const { error } = await supabase
     .from('products')
-    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece })
+    .update({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, default_warehouse_id, default_warehouse_name })
     .eq('id', id);
 
   if (error) return { error: `Failed to update product: ${error.message}` };

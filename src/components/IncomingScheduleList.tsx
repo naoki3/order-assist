@@ -19,6 +19,7 @@ interface ProductOption {
   balls_per_case: number | null;
   cases_per_pallet: number | null;
   expiry_type: string | null;
+  default_warehouse_id: number | null;
 }
 
 interface SupplierOption {
@@ -151,11 +152,18 @@ function AddProductForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
   const unitConfig: UnitConfig = selectedProduct ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
   const expiryRequired = selectedProduct != null && selectedProduct.expiry_type != null && selectedProduct.expiry_type !== 'none';
+
+  function handleProductChange(id: string) {
+    setSelectedProductId(id);
+    const p = products.find((p) => p.id === Number(id));
+    setSelectedWarehouseId(p?.default_warehouse_id ? String(p.default_warehouse_id) : '');
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -169,6 +177,7 @@ function AddProductForm({
         onAdded(result.newId);
         formRef.current?.reset();
         setSelectedProductId('');
+        setSelectedWarehouseId('');
         onCancel();
       }
     });
@@ -180,7 +189,7 @@ function AddProductForm({
       <div className="flex gap-2">
         <select name="product_id" required
           value={selectedProductId}
-          onChange={(e) => setSelectedProductId(e.target.value)}
+          onChange={(e) => handleProductChange(e.target.value)}
           className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('incoming.selectProduct')}</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -209,7 +218,7 @@ function AddProductForm({
         </select>
       )}
       {warehouses.length > 0 && (
-        <select name="warehouse_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <select name="warehouse_id" value={selectedWarehouseId} onChange={(e) => setSelectedWarehouseId(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('incoming.selectWarehouse')}</option>
           {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>

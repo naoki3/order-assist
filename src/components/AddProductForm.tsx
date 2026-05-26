@@ -1,15 +1,21 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { addProduct } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
-export default function AddProductForm() {
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
+export default function AddProductForm({ warehouses = [] }: { warehouses?: WarehouseOption[] }) {
   const { t, currencySymbol } = useT();
   const [state, action] = useActionState(addProduct, null);
   const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
   const [formKey, setFormKey] = useState(0);
+  const warehouseNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (state && 'success' in state) {
@@ -129,6 +135,24 @@ export default function AddProductForm() {
             </label>
           </div>
         </div>
+        {warehouses.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 mt-1">
+            <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.defaultWarehouse')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+            <input type="hidden" name="default_warehouse_name" ref={warehouseNameRef} />
+            <select
+              name="default_warehouse_id"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              onChange={(e) => {
+                if (warehouseNameRef.current) {
+                  warehouseNameRef.current.value = e.target.selectedOptions[0]?.text ?? '';
+                }
+              }}
+            >
+              <option value="">{t('products.noDefaultWarehouse')}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
         {errorMsg && (
           <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{errorMsg}</p>
         )}
