@@ -1164,6 +1164,203 @@ export async function importProductsCsv(
   return { imported, skipped };
 }
 
+// ─── Suppliers ───────────────────────────────────────────────────────────────
+
+export async function addSupplier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('suppliers').insert({
+    user_id: user.id, name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    email: (formData.get('email') as string ?? '').trim() || null,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/suppliers');
+  return { success: 'ok' };
+}
+
+export async function updateSupplier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('suppliers').update({
+    name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    email: (formData.get('email') as string ?? '').trim() || null,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/suppliers');
+  return { success: 'ok' };
+}
+
+export async function deleteSupplier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('suppliers').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/suppliers');
+  return { success: 'ok' };
+}
+
+// ─── Delivery Destinations ────────────────────────────────────────────────────
+
+export async function addDeliveryDestination(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('delivery_destinations').insert({
+    user_id: user.id, name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/destinations');
+  return { success: 'ok' };
+}
+
+export async function updateDeliveryDestination(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('delivery_destinations').update({
+    name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    address: (formData.get('address') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/destinations');
+  return { success: 'ok' };
+}
+
+export async function deleteDeliveryDestination(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('delivery_destinations').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/destinations');
+  return { success: 'ok' };
+}
+
+// ─── Carriers ─────────────────────────────────────────────────────────────────
+
+export async function addCarrier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('carriers').insert({
+    user_id: user.id, name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/carriers');
+  return { success: 'ok' };
+}
+
+export async function updateCarrier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('carriers').update({
+    name,
+    contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
+    phone: (formData.get('phone') as string ?? '').trim() || null,
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/carriers');
+  return { success: 'ok' };
+}
+
+export async function deleteCarrier(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('carriers').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/carriers');
+  return { success: 'ok' };
+}
+
+// ─── Inventory Statuses ───────────────────────────────────────────────────────
+
+export async function addInventoryStatus(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const { error } = await supabase.from('inventory_statuses').insert({
+    user_id: user.id, name,
+    color: (formData.get('color') as string ?? 'slate').trim() || 'slate',
+    note: (formData.get('note') as string ?? '').trim() || null,
+  });
+  if (error) return { error: `Failed to add: ${error.message}` };
+  revalidatePath('/master/inventory-statuses');
+  return { success: 'ok' };
+}
+
+export async function updateInventoryStatus(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const name = (formData.get('name') as string ?? '').trim();
+  if (!name) return { error: 'Name is required' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('inventory_statuses').update({
+    name,
+    color: (formData.get('color') as string ?? 'slate').trim() || 'slate',
+    note: (formData.get('note') as string ?? '').trim() || null,
+  }).eq('id', id);
+  if (error) return { error: `Failed to update: ${error.message}` };
+  revalidatePath('/master/inventory-statuses');
+  return { success: 'ok' };
+}
+
+export async function deleteInventoryStatus(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const { error } = await supabase.from('inventory_statuses').delete().eq('id', id);
+  if (error) return { error: `Failed to delete: ${error.message}` };
+  revalidatePath('/master/inventory-statuses');
+  return { success: 'ok' };
+}
+
+// ─── User Invite ──────────────────────────────────────────────────────────────
+
+export async function inviteUser(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const email = (formData.get('email') as string ?? '').trim();
+  if (!email) return { error: 'Email is required' };
+  const { createAdminClient } = await import('./supabase-admin');
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.inviteUserByEmail(email);
+    if (error) return { error: `招待失敗: ${error.message}` };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : '招待に失敗しました' };
+  }
+  revalidatePath('/master/users');
+  return { success: 'ok' };
+}
+
 // ─── Sales Targets ────────────────────────────────────────────────────────────
 
 export async function setMonthlyTarget(

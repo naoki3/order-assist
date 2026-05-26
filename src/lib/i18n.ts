@@ -373,6 +373,62 @@ export const translations = {
     'login.signIn': 'サインイン',
     'login.noAccount': 'アカウントをお持ちでない方は',
     'login.signup': '新規登録',
+
+    // Master nav
+    'nav.supplierMaster': '仕入れ先マスタ',
+    'nav.destinationMaster': '納品先マスタ',
+    'nav.carrierMaster': '配送マスタ',
+    'nav.inventoryStatusMaster': '在庫状態マスタ',
+    'nav.userMaster': 'ユーザーマスタ',
+
+    // Common master labels
+    'master.addNew': '新規追加',
+    'master.edit': '編集',
+    'master.noItems': 'まだ登録されていません',
+    'master.name': '名称',
+    'master.contactName': '担当者名',
+    'master.phone': '電話番号',
+    'master.email': 'メール',
+    'master.address': '住所',
+    'master.note': '備考',
+    'master.color': '色',
+    'master.saving': '保存中...',
+    'master.adding': '追加中...',
+    'master.namePlaceholder': '名称を入力',
+
+    // Supplier
+    'supplier.title': '仕入れ先マスタ',
+    'supplier.empty': '仕入れ先がまだ登録されていません',
+
+    // Destination
+    'destination.title': '納品先マスタ',
+    'destination.empty': '納品先がまだ登録されていません',
+
+    // Carrier
+    'carrier.title': '配送マスタ',
+    'carrier.empty': '配送業者がまだ登録されていません',
+
+    // Inventory status
+    'inventoryStatus.title': '在庫状態マスタ',
+    'inventoryStatus.empty': '在庫状態がまだ登録されていません',
+    'inventoryStatus.colorSlate': 'グレー',
+    'inventoryStatus.colorRed': '赤',
+    'inventoryStatus.colorAmber': 'オレンジ',
+    'inventoryStatus.colorGreen': '緑',
+    'inventoryStatus.colorBlue': '青',
+    'inventoryStatus.colorPurple': '紫',
+
+    // User master
+    'user.title': 'ユーザーマスタ',
+    'user.empty': 'ユーザーがいません',
+    'user.email': 'メールアドレス',
+    'user.createdAt': '登録日',
+    'user.inviteTitle': 'ユーザーを招待',
+    'user.inviteEmail': '招待するメールアドレス',
+    'user.invite': '招待する',
+    'user.inviting': '招待中...',
+    'user.invited': '招待メールを送信しました',
+    'user.noAdminKey': '管理者APIキーが設定されていません',
   },
 
   en: {
@@ -747,6 +803,62 @@ export const translations = {
     'login.signIn': 'Sign in',
     'login.noAccount': "Don't have an account?",
     'login.signup': 'Sign up',
+
+    // Master nav
+    'nav.supplierMaster': 'Suppliers',
+    'nav.destinationMaster': 'Destinations',
+    'nav.carrierMaster': 'Carriers',
+    'nav.inventoryStatusMaster': 'Inventory Statuses',
+    'nav.userMaster': 'Users',
+
+    // Common master labels
+    'master.addNew': 'Add New',
+    'master.edit': 'Edit',
+    'master.noItems': 'No items registered yet',
+    'master.name': 'Name',
+    'master.contactName': 'Contact',
+    'master.phone': 'Phone',
+    'master.email': 'Email',
+    'master.address': 'Address',
+    'master.note': 'Notes',
+    'master.color': 'Color',
+    'master.saving': 'Saving...',
+    'master.adding': 'Adding...',
+    'master.namePlaceholder': 'Enter name',
+
+    // Supplier
+    'supplier.title': 'Supplier Master',
+    'supplier.empty': 'No suppliers registered yet',
+
+    // Destination
+    'destination.title': 'Delivery Destination Master',
+    'destination.empty': 'No delivery destinations registered yet',
+
+    // Carrier
+    'carrier.title': 'Carrier Master',
+    'carrier.empty': 'No carriers registered yet',
+
+    // Inventory status
+    'inventoryStatus.title': 'Inventory Status Master',
+    'inventoryStatus.empty': 'No inventory statuses registered yet',
+    'inventoryStatus.colorSlate': 'Gray',
+    'inventoryStatus.colorRed': 'Red',
+    'inventoryStatus.colorAmber': 'Orange',
+    'inventoryStatus.colorGreen': 'Green',
+    'inventoryStatus.colorBlue': 'Blue',
+    'inventoryStatus.colorPurple': 'Purple',
+
+    // User master
+    'user.title': 'User Master',
+    'user.empty': 'No users found',
+    'user.email': 'Email Address',
+    'user.createdAt': 'Registered',
+    'user.inviteTitle': 'Invite User',
+    'user.inviteEmail': 'Email to invite',
+    'user.invite': 'Send Invitation',
+    'user.inviting': 'Sending...',
+    'user.invited': 'Invitation sent',
+    'user.noAdminKey': 'Admin API key is not configured',
   },
 } as const;
 

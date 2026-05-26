@@ -81,6 +81,11 @@ export default function Sidebar() {
       type: 'group', key: 'master', label: t('nav.masterGroup'), icon: Database,
       items: [
         { href: '/products', label: t('nav.productMaster'), exact: false },
+        { href: '/master/suppliers', label: t('nav.supplierMaster'), exact: false },
+        { href: '/master/destinations', label: t('nav.destinationMaster'), exact: false },
+        { href: '/master/carriers', label: t('nav.carrierMaster'), exact: false },
+        { href: '/master/inventory-statuses', label: t('nav.inventoryStatusMaster'), exact: false },
+        { href: '/master/users', label: t('nav.userMaster'), exact: false },
       ],
     },
   ];
