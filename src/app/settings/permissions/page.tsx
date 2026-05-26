@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { PERMISSION_SECTIONS, DEFAULT_ROLE_SECTIONS, setRolePermissions } from '@/lib/actions';
+import { PERMISSION_SECTIONS, DEFAULT_ROLE_SECTIONS } from '@/lib/permissions';
+import { setRolePermissions } from '@/lib/actions';
 import RolePermissionsEditor from '@/components/RolePermissionsEditor';
 
 export const dynamic = 'force-dynamic';

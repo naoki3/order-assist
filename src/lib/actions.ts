@@ -1982,15 +1982,6 @@ export async function deleteSubUser(
 
 // ─── Role Permissions ─────────────────────────────────────────────────────────
 
-export const PERMISSION_SECTIONS = ['orders', 'incoming', 'inventory', 'shipping', 'sales', 'master', 'products'] as const;
-
-export const DEFAULT_ROLE_SECTIONS: Record<string, string[]> = {
-  admin:     ['orders', 'incoming', 'inventory', 'shipping', 'sales', 'master', 'products'],
-  office:    ['orders', 'incoming', 'inventory', 'shipping', 'sales'],
-  warehouse: ['incoming', 'inventory', 'shipping'],
-  viewer:    ['orders', 'incoming', 'inventory', 'shipping', 'sales'],
-};
-
 export async function setRolePermissions(
   _prev: ActionResult,
   formData: FormData
@@ -1998,7 +1989,8 @@ export async function setRolePermissions(
   const role = (formData.get('role') as string ?? '').trim();
   if (!role || role === 'admin') return { error: 'Invalid role' };
 
-  const sections = PERMISSION_SECTIONS.filter((s) => formData.get(`section_${s}`) === 'on');
+  const allSections = ['orders', 'incoming', 'inventory', 'shipping', 'sales', 'master', 'products'];
+  const sections = allSections.filter((s) => formData.get(`section_${s}`) === 'on');
 
   const supabase = await createClient();
   const ownerId = await getOwnerId(supabase);
