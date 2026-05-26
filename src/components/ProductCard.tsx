@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useRef } from 'react';
 import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
 import type { Product } from '@/lib/db';
 import { useT } from './LanguageProvider';
@@ -8,16 +8,23 @@ import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
 import FeeRateInput from './FeeRateInput';
 
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
 interface Props {
   product: Product;
   currentStock: number;
+  warehouses?: WarehouseOption[];
 }
 
-export default function ProductCard({ product, currentStock }: Props) {
+export default function ProductCard({ product, currentStock, warehouses = [] }: Props) {
   const { t, lang } = useT();
   const [updateState, updateAction] = useActionState(updateProduct, null);
   const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
+  const warehouseNameRef = useRef<HTMLInputElement>(null);
 
   const { successMsg: updateSuccess, errorMsg: updateError } = useActionFeedback(updateState, t('common.updated'));
   const { successMsg: stockSuccess, errorMsg: stockError } = useActionFeedback(stockState, t('common.updated'));
@@ -145,6 +152,25 @@ export default function ProductCard({ product, currentStock }: Props) {
             </label>
           </div>
         </div>
+        {warehouses.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 mt-1">
+            <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.defaultWarehouse')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+            <input type="hidden" name="default_warehouse_name" ref={warehouseNameRef} defaultValue={product.default_warehouse_name ?? ''} />
+            <select
+              name="default_warehouse_id"
+              defaultValue={product.default_warehouse_id ?? ''}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              onChange={(e) => {
+                if (warehouseNameRef.current) {
+                  warehouseNameRef.current.value = e.target.selectedOptions[0]?.text ?? '';
+                }
+              }}
+            >
+              <option value="">{t('products.noDefaultWarehouse')}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
         {updateError && (
           <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateError}</p>
         )}

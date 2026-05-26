@@ -12,6 +12,8 @@ export interface Product {
   incoming_fee_per_piece: number | null;
   storage_fee_per_piece: number | null;
   outgoing_fee_per_piece: number | null;
+  default_warehouse_id: number | null;
+  default_warehouse_name: string | null;
 }
 
 export interface Sale {
