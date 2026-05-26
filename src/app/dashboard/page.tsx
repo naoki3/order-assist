@@ -67,14 +67,38 @@ async function getTodayIncoming(tz: string): Promise<IncomingStock[]> {
   return (data ?? []) as IncomingStock[];
 }
 
+async function getTodayReceived(tz: string): Promise<{ product_name: string; quantity: number }[]> {
+  const today = toLocalDateStr(tz);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('incoming_stock')
+    .select('product_name, quantity')
+    .gte('received_at', today + 'T00:00:00')
+    .lte('received_at', today + 'T23:59:59');
+  return (data ?? []) as { product_name: string; quantity: number }[];
+}
+
+async function getTodayShipped(tz: string): Promise<{ product_name: string; quantity: number }[]> {
+  const today = toLocalDateStr(tz);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('outgoing_stock')
+    .select('product_name, quantity')
+    .gte('shipped_at', today + 'T00:00:00')
+    .lte('shipped_at', today + 'T23:59:59');
+  return (data ?? []) as { product_name: string; quantity: number }[];
+}
+
 export default async function DashboardPage() {
   const [lang, tz] = await Promise.all([getLang(), getTz()]);
   const dates = buildLastNDates(tz, 7);
 
-  const [recommendations, salesData, todayIncoming] = await Promise.all([
+  const [recommendations, salesData, todayIncoming, todayReceived, todayShipped] = await Promise.all([
     getRecommendations(new Date(), lang),
     getSalesTrend(tz),
     getTodayIncoming(tz),
+    getTodayReceived(tz),
+    getTodayShipped(tz),
   ]);
   const dict = translations[lang];
 
@@ -274,6 +298,44 @@ export default async function DashboardPage() {
                 <div key={item.id} className="flex items-center justify-between text-sm">
                   <span className="text-slate-700 font-medium">{item.product_name}</span>
                   <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Today's received (actual) */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayReceived', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayReceived.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayReceived', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayReceived.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-green-700 font-semibold">+{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Today's shipped (actual) */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayShipped', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayShipped.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayShipped', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayShipped.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-blue-700 font-semibold">-{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
                 </div>
               ))}
             </div>

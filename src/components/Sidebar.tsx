@@ -73,6 +73,7 @@ export default function Sidebar() {
     {
       type: 'group', key: 'sales', label: t('nav.salesGroup'), icon: TrendingUp,
       items: [
+        { href: '/report/daily', label: t('nav.dailyReport'), exact: false },
         { href: '/sales/report', label: t('nav.salesReport'), exact: false },
         { href: '/sales', label: t('nav.salesEntry'), exact: true },
       ],

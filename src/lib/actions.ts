@@ -1404,6 +1404,164 @@ export async function deleteUserProfile(_prev: ActionResult, formData: FormData)
   return { success: 'ok' };
 }
 
+// ─── Master CSV Import ────────────────────────────────────────────────────────
+
+export interface MasterCsvImportResult {
+  imported: number;
+  skipped: string[];
+  error?: string;
+}
+
+function parseMasterCsvLines(csv: string): { dataLines: string[]; error?: string } {
+  const lines = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter((l) => l.trim());
+  if (lines.length === 0) return { dataLines: [], error: 'No data provided' };
+  const firstField = lines[0].split(',')[0].trim().replace(/^"|"$/g, '').toLowerCase();
+  const dataLines = firstField === 'name' || firstField === '名称' || firstField === '名前' ? lines.slice(1) : lines;
+  return { dataLines };
+}
+
+function parseCsvRow(line: string): string[] {
+  return line.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+}
+
+export async function importSuppliersCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, contact_name, phone, email, address, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const { error: err } = await supabase.from('suppliers').upsert(
+      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, email: email || null, address: address || null, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/suppliers');
+  return { imported, skipped };
+}
+
+export async function importDestinationsCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, contact_name, phone, address, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const { error: err } = await supabase.from('delivery_destinations').upsert(
+      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, address: address || null, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/destinations');
+  return { imported, skipped };
+}
+
+export async function importCarriersCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, contact_name, phone, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const { error: err } = await supabase.from('carriers').upsert(
+      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/carriers');
+  return { imported, skipped };
+}
+
+const VALID_COLORS = ['slate', 'green', 'amber', 'red', 'blue', 'purple'];
+
+export async function importInventoryStatusesCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, color, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const resolvedColor = color && VALID_COLORS.includes(color.toLowerCase()) ? color.toLowerCase() : 'slate';
+    const { error: err } = await supabase.from('inventory_statuses').upsert(
+      { user_id: user.id, name, color: resolvedColor, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/inventory-statuses');
+  return { imported, skipped };
+}
+
+export async function importUserProfilesCsv(
+  _prev: MasterCsvImportResult | null,
+  formData: FormData
+): Promise<MasterCsvImportResult> {
+  const csv = String(formData.get('csv') ?? '').trim();
+  if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const { dataLines, error } = parseMasterCsvLines(csv);
+  if (error) return { imported: 0, skipped: [], error };
+  let imported = 0;
+  const skipped: string[] = [];
+  for (const line of dataLines) {
+    const [name, email, phone, note] = parseCsvRow(line);
+    if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const { error: err } = await supabase.from('user_profiles').upsert(
+      { user_id: user.id, name, email: email || null, phone: phone || null, note: note || null },
+      { onConflict: 'user_id,name' }
+    );
+    if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
+    imported++;
+  }
+  if (imported > 0) revalidatePath('/master/users');
+  return { imported, skipped };
+}
+
 // ─── Sales Targets ────────────────────────────────────────────────────────────
 
 export async function setMonthlyTarget(

@@ -26,17 +26,18 @@ export default async function InventoryPage() {
     lotsMap[lot.product_id].push(lot);
   }
 
+  const visibleProducts = products.filter((p) => (stockMap[p.id] ?? 0) > 0);
   const today = toLocalDateStr(tz);
 
   return (
     <div>
       <h1 className="text-xl font-bold text-slate-800 mb-4">{t('inventory.title', lang)}</h1>
 
-      {products.length === 0 ? (
+      {visibleProducts.length === 0 ? (
         <p className="text-slate-400 text-sm">{t('inventory.noProducts', lang)}</p>
       ) : (
         <div className="space-y-3">
-          {products.map((p) => {
+          {visibleProducts.map((p) => {
             const stock = stockMap[p.id] ?? 0;
             const productLots = lotsMap[p.id] ?? [];
             return (

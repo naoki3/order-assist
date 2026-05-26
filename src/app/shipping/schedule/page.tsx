@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function ShippingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: productsData }, { data: lotsData }] = await Promise.all([
+  const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }] = await Promise.all([
     supabase
       .from('outgoing_stock')
       .select('*')
@@ -21,9 +21,11 @@ export default async function ShippingSchedulePage() {
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
     supabase.from('lots').select('*').gt('quantity', 0).order('expiry_date', { ascending: true, nullsFirst: false }),
+    supabase.from('inventory').select('product_id, current_stock'),
   ]);
   const pending = (pendingData ?? []) as OutgoingStock[];
-  const products = (productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[];
+  const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
+  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
   const lots = (lotsData ?? []) as Lot[];
 
   return (

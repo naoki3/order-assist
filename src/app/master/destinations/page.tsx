@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { addDeliveryDestination, updateDeliveryDestination, deleteDeliveryDestination } from '@/lib/actions';
+import { addDeliveryDestination, updateDeliveryDestination, deleteDeliveryDestination, importDestinationsCsv } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
+import MasterCsvImport from '@/components/MasterCsvImport';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,11 @@ export default async function DestinationsPage() {
         updateAction={updateDeliveryDestination}
         deleteAction={deleteDeliveryDestination}
         labels={labels}
+      />
+      <MasterCsvImport
+        action={importDestinationsCsv}
+        formatHeader="name,contact_name,phone,address,note"
+        formatExamples={['B店,鈴木,06-1234-5678,大阪府〇〇,備考']}
       />
     </div>
   );

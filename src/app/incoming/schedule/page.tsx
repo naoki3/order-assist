@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function IncomingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: productsData }] = await Promise.all([
+  const [{ data: pendingData }, { data: productsData }, { data: inventoryData }] = await Promise.all([
     supabase
       .from('incoming_stock')
       .select('*')
@@ -20,9 +20,11 @@ export default async function IncomingSchedulePage() {
       .order('expected_date', { ascending: false })
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type').order('id'),
+    supabase.from('inventory').select('product_id, current_stock'),
   ]);
   const pending = (pendingData ?? []) as IncomingStock[];
-  const products = (productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null }[];
+  const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
+  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
 
   return (
     <div className="space-y-6">

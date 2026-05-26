@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { addInventoryStatus, updateInventoryStatus, deleteInventoryStatus } from '@/lib/actions';
+import { addInventoryStatus, updateInventoryStatus, deleteInventoryStatus, importInventoryStatusesCsv } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
+import MasterCsvImport from '@/components/MasterCsvImport';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,16 @@ export default async function InventoryStatusesPage() {
         updateAction={updateInventoryStatus}
         deleteAction={deleteInventoryStatus}
         labels={labels}
+      />
+      <MasterCsvImport
+        action={importInventoryStatusesCsv}
+        formatHeader="name,color,note"
+        formatExamples={[
+          '良品,green,',
+          '不良品,red,要確認',
+          '検査中,amber,',
+          '（color: slate/green/amber/red/blue/purple）',
+        ]}
       />
     </div>
   );
