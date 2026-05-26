@@ -448,6 +448,16 @@ export const translations = {
     'user.roleViewer': '閲覧者',
     'user.activeYes': '有効',
     'user.activeNo': '無効',
+    'user.loginAccount': 'ログインアカウント',
+    'user.hasAccount': 'アカウントあり',
+    'user.noAccount': 'アカウントなし',
+    'user.createAccount': 'アカウント作成',
+    'user.deleteAccount': 'アカウント削除',
+    'user.accountEmail': 'メールアドレス',
+    'user.accountPassword': 'パスワード（8文字以上）',
+    'user.accountCreated': 'アカウントを作成しました',
+    'user.accountDeleted': 'アカウントを削除しました',
+    'user.confirmDeleteAccount': 'このユーザーのログインアカウントを削除しますか？',
 
     // Warehouse
     'nav.warehouseMaster': '倉庫マスタ',
@@ -939,6 +949,16 @@ export const translations = {
     'user.roleViewer': 'Viewer',
     'user.activeYes': 'Active',
     'user.activeNo': 'Inactive',
+    'user.loginAccount': 'Login Account',
+    'user.hasAccount': 'Account exists',
+    'user.noAccount': 'No account',
+    'user.createAccount': 'Create Account',
+    'user.deleteAccount': 'Delete Account',
+    'user.accountEmail': 'Email address',
+    'user.accountPassword': 'Password (min 8 chars)',
+    'user.accountCreated': 'Account created',
+    'user.accountDeleted': 'Account deleted',
+    'user.confirmDeleteAccount': 'Delete the login account for this user?',
 
     // Warehouse
     'nav.warehouseMaster': 'Warehouses',

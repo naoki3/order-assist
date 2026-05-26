@@ -4,13 +4,14 @@ import { t } from '@/lib/i18n';
 import { addUserProfile, updateUserProfile, deleteUserProfile, importUserProfilesCsv } from '@/lib/actions';
 import MasterList, { type MasterRecord } from '@/components/MasterList';
 import MasterCsvImport from '@/components/MasterCsvImport';
+import UserAccountManager from '@/components/UserAccountManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UsersPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data }, { data: warehousesData }] = await Promise.all([
-    supabase.from('user_profiles').select('*').order('name'),
+    supabase.from('user_profiles').select('id, name, role, worker_code, warehouse_id, is_active, email, phone, note, auth_user_id').order('name'),
     supabase.from('warehouses').select('id, name').order('name'),
   ]);
   const items = (data ?? []) as unknown as MasterRecord[];
@@ -57,6 +58,20 @@ export default async function UsersPage() {
     edit: t('master.edit', lang),
   };
 
+  const accountLabels = {
+    loginAccount: t('user.loginAccount', lang),
+    hasAccount: t('user.hasAccount', lang),
+    noAccount: t('user.noAccount', lang),
+    createAccount: t('user.createAccount', lang),
+    deleteAccount: t('user.deleteAccount', lang),
+    accountEmail: t('user.accountEmail', lang),
+    accountPassword: t('user.accountPassword', lang),
+    accountCreated: t('user.accountCreated', lang),
+    accountDeleted: t('user.accountDeleted', lang),
+    confirmDeleteAccount: t('user.confirmDeleteAccount', lang),
+    cancel: t('common.cancel', lang),
+  };
+
   // Build a warehouse name lookup for display
   const warehouseNameMap = Object.fromEntries(warehouses.map((w) => [String(w.id), w.name]));
 
@@ -83,6 +98,10 @@ export default async function UsersPage() {
         action={importUserProfilesCsv}
         formatHeader="name,role,worker_code,warehouse_name,is_active,email,phone,note"
         formatExamples={['田中太郎,warehouse,W001,東京倉庫,true,taro@example.com,080-1234-5678,倉庫担当']}
+      />
+      <UserAccountManager
+        profiles={(data ?? []).map((p: { id: number; name: string; auth_user_id?: string | null }) => ({ id: p.id, name: p.name, auth_user_id: p.auth_user_id ?? null }))}
+        labels={accountLabels}
       />
     </div>
   );

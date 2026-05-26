@@ -3,12 +3,20 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { createClient } from './supabase';
+import { createAdminClient } from './supabase-admin';
 import { toLocalDateStr, DEFAULT_TZ } from './tz';
 
 async function getLocalDate(): Promise<string> {
   const store = await cookies();
   const tz = store.get('tz')?.value ?? DEFAULT_TZ;
   return toLocalDateStr(tz);
+}
+
+// Returns the effective tenant owner UID for the current session.
+// Sub-users get their admin's UID; owners get their own UID; null if unauthenticated.
+async function getOwnerId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const { data } = await supabase.rpc('get_owner_id');
+  return (data as string | null) ?? null;
 }
 
 export type ActionResult = { error: string } | { success: string } | null;
@@ -28,12 +36,12 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
   if (nonZero.length === 0) return { error: 'All order quantities are 0' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: orderData, error } = await supabase
     .from('order_history')
-    .insert({ created_at: new Date().toISOString(), items: JSON.stringify(nonZero), user_id: user.id })
+    .insert({ created_at: new Date().toISOString(), items: JSON.stringify(nonZero), user_id: ownerId })
     .select('id')
     .single();
 
@@ -65,8 +73,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   if (ids.length === 0) return { success: 'ok' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: items, error: fetchError } = await supabase
     .from('incoming_stock')
@@ -111,7 +119,7 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     await supabase.from('lots').insert({
       lot_number: lotNumber, product_id: item.product_id, product_name: item.product_name,
       quantity: item.quantity, received_at: localToday,
-      expiry_date: expiryDate, incoming_stock_id: item.id, user_id: user.id,
+      expiry_date: expiryDate, incoming_stock_id: item.id, user_id: ownerId,
     });
   }
 
@@ -210,8 +218,7 @@ export async function updateIncomingSchedule(formData: FormData): Promise<Action
   const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  if (!await getOwnerId(supabase)) return { error: 'Not authenticated' };
 
   const { error } = await supabase
     .from('incoming_stock')
@@ -232,9 +239,8 @@ export async function receiveIncoming(
   const formLot = String(formData.get('lot_number') ?? '').trim();
   const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
@@ -284,7 +290,7 @@ export async function receiveIncoming(
     received_at: localToday,
     expiry_date: expiryDate,
     incoming_stock_id: id,
-    user_id: user.id,
+    user_id: ownerId,
   });
 
   revalidatePath('/incoming');
@@ -325,12 +331,12 @@ export async function addProduct(
   if (price !== null && (isNaN(price) || price < 0)) return { error: 'Invalid price value' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, user_id: user.id })
+    .insert({ name, lead_time_days: leadTime, safety_stock_days: safetyStock, price, shelf_life_days, expiry_type, pieces_per_ball, balls_per_case, cases_per_pallet, incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece, user_id: ownerId })
     .select('id')
     .single();
 
@@ -460,14 +466,14 @@ export async function upsertProductSales(
   if (dates.length === 0) return { error: 'No dates provided' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const rows = dates.map((date, i) => ({
     product_id: productId,
     date,
     quantity: quantities[i] ?? 0,
-    user_id: user.id,
+    user_id: ownerId,
   }));
 
   if (rows.some((r) => isNaN(r.quantity) || r.quantity < 0)) {
@@ -501,8 +507,8 @@ export async function importSalesCsv(
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
 
   const text = await file.text();
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
@@ -528,7 +534,7 @@ export async function importSalesCsv(
     if (!rawDate || !rawName || isNaN(quantity) || quantity < 0) { skipped.push(line.trim()); continue; }
     const productId = productMap.get(rawName.toLowerCase());
     if (!productId) { skipped.push(`Unknown product: ${rawName}`); continue; }
-    rows.push({ product_id: productId, date: rawDate, quantity, user_id: user.id });
+    rows.push({ product_id: productId, date: rawDate, quantity, user_id: ownerId });
   }
 
   if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
@@ -556,8 +562,8 @@ export async function addIncomingSchedule(
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
     .from('products')
@@ -588,7 +594,7 @@ export async function addIncomingSchedule(
     quantity,
     expected_date: expectedDate,
     lot_number: lotNumber,
-    user_id: user.id,
+    user_id: ownerId,
     supplier_id: supplierId,
     supplier_name: supplierName,
     warehouse_id: warehouseId,
@@ -619,8 +625,8 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
     .from('products').select('name').eq('id', productId).single();
@@ -639,7 +645,7 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: user.id, supplier_id: supplierId, supplier_name: supplierName, warehouse_id: warehouseId, warehouse_name: warehouseName })
+    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: ownerId, supplier_id: supplierId, supplier_name: supplierName, warehouse_id: warehouseId, warehouse_name: warehouseName })
     .select('id')
     .single();
 
@@ -665,8 +671,8 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
     .from('products').select('name').eq('id', productId).single();
@@ -698,7 +704,7 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
 
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: user.id, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName })
     .select('id')
     .single();
 
@@ -825,8 +831,8 @@ export async function addOutgoingSchedule(
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
     .from('products')
@@ -855,7 +861,7 @@ export async function addOutgoingSchedule(
     quantity,
     scheduled_date: scheduledDate,
     note,
-    user_id: user.id,
+    user_id: ownerId,
     destination_id: destinationId,
     destination_name: destinationName,
     carrier_id: carrierId,
@@ -1048,8 +1054,8 @@ export async function importOutgoingCsv(
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
 
   const text = await file.text();
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
@@ -1088,7 +1094,7 @@ export async function importOutgoingCsv(
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
       note: rawNote?.trim() || null,
-      user_id: user.id,
+      user_id: ownerId,
     });
   }
 
@@ -1116,8 +1122,8 @@ export async function importIncomingCsv(
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
 
   const text = await file.text();
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
@@ -1151,7 +1157,7 @@ export async function importIncomingCsv(
       expected_date: rawDate,
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
-      user_id: user.id,
+      user_id: ownerId,
     });
   }
 
@@ -1182,8 +1188,8 @@ export async function importProductsCsv(
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
 
   const lines = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length === 0) return { imported: 0, skipped: [], error: 'No data provided' };
@@ -1214,7 +1220,7 @@ export async function importProductsCsv(
 
     const { data: product, error } = await supabase
       .from('products')
-      .insert({ name: rawName, lead_time_days: leadTime, safety_stock_days: safetyStock, price, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: user.id })
+      .insert({ name: rawName, lead_time_days: leadTime, safety_stock_days: safetyStock, price, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: ownerId })
       .select('id')
       .single();
 
@@ -1246,10 +1252,10 @@ export async function addSupplier(_prev: ActionResult, formData: FormData): Prom
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('suppliers').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     email: (formData.get('email') as string ?? '').trim() || null,
@@ -1294,10 +1300,10 @@ export async function addDeliveryDestination(_prev: ActionResult, formData: Form
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('delivery_destinations').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     address: (formData.get('address') as string ?? '').trim() || null,
@@ -1340,10 +1346,10 @@ export async function addCarrier(_prev: ActionResult, formData: FormData): Promi
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('carriers').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     contact_name: (formData.get('contact_name') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     note: (formData.get('note') as string ?? '').trim() || null,
@@ -1384,10 +1390,10 @@ export async function addInventoryStatus(_prev: ActionResult, formData: FormData
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('inventory_statuses').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     color: (formData.get('color') as string ?? 'slate').trim() || 'slate',
     note: (formData.get('note') as string ?? '').trim() || null,
   });
@@ -1426,11 +1432,11 @@ export async function addUserProfile(_prev: ActionResult, formData: FormData): P
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const warehouseId = Number(formData.get('warehouse_id')) || null;
   const { error } = await supabase.from('user_profiles').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     email: (formData.get('email') as string ?? '').trim() || null,
     phone: (formData.get('phone') as string ?? '').trim() || null,
     note: (formData.get('note') as string ?? '').trim() || null,
@@ -1480,10 +1486,10 @@ export async function addWarehouse(_prev: ActionResult, formData: FormData): Pro
   const name = (formData.get('name') as string ?? '').trim();
   if (!name) return { error: 'Name is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('warehouses').insert({
-    user_id: user.id, name,
+    user_id: ownerId, name,
     address: (formData.get('address') as string ?? '').trim() || null,
     note: (formData.get('note') as string ?? '').trim() || null,
   });
@@ -1526,10 +1532,10 @@ export async function addLocation(_prev: ActionResult, formData: FormData): Prom
   if (!name) return { error: 'Name is required' };
   if (!warehouseId) return { error: 'Warehouse is required' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
   const { error } = await supabase.from('locations').insert({
-    user_id: user.id, name, warehouse_id: warehouseId,
+    user_id: ownerId, name, warehouse_id: warehouseId,
     note: (formData.get('note') as string ?? '').trim() || null,
   });
   if (error) return { error: `Failed to add: ${error.message}` };
@@ -1589,8 +1595,8 @@ export async function importSuppliersCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   let imported = 0;
@@ -1599,7 +1605,7 @@ export async function importSuppliersCsv(
     const [name, contact_name, phone, email, address, note] = parseCsvRow(line);
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
     const { error: err } = await supabase.from('suppliers').upsert(
-      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, email: email || null, address: address || null, note: note || null },
+      { user_id: ownerId, name, contact_name: contact_name || null, phone: phone || null, email: email || null, address: address || null, note: note || null },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1616,8 +1622,8 @@ export async function importDestinationsCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   let imported = 0;
@@ -1626,7 +1632,7 @@ export async function importDestinationsCsv(
     const [name, contact_name, phone, address, note] = parseCsvRow(line);
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
     const { error: err } = await supabase.from('delivery_destinations').upsert(
-      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, address: address || null, note: note || null },
+      { user_id: ownerId, name, contact_name: contact_name || null, phone: phone || null, address: address || null, note: note || null },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1643,8 +1649,8 @@ export async function importCarriersCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   let imported = 0;
@@ -1653,7 +1659,7 @@ export async function importCarriersCsv(
     const [name, contact_name, phone, note] = parseCsvRow(line);
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
     const { error: err } = await supabase.from('carriers').upsert(
-      { user_id: user.id, name, contact_name: contact_name || null, phone: phone || null, note: note || null },
+      { user_id: ownerId, name, contact_name: contact_name || null, phone: phone || null, note: note || null },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1672,8 +1678,8 @@ export async function importInventoryStatusesCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   let imported = 0;
@@ -1683,7 +1689,7 @@ export async function importInventoryStatusesCsv(
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
     const resolvedColor = color && VALID_COLORS.includes(color.toLowerCase()) ? color.toLowerCase() : 'slate';
     const { error: err } = await supabase.from('inventory_statuses').upsert(
-      { user_id: user.id, name, color: resolvedColor, note: note || null },
+      { user_id: ownerId, name, color: resolvedColor, note: note || null },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1700,17 +1706,31 @@ export async function importUserProfilesCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
+  const { data: warehouses } = await supabase.from('warehouses').select('id, name');
+  const warehouseMap = new Map((warehouses ?? []).map((w) => [w.name.toLowerCase(), w.id]));
   let imported = 0;
   const skipped: string[] = [];
+  const VALID_ROLES = ['admin', 'office', 'warehouse', 'viewer'];
   for (const line of dataLines) {
-    const [name, email, phone, note] = parseCsvRow(line);
+    const [name, role, worker_code, warehouse_name, is_active, email, phone, note] = parseCsvRow(line);
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
+    const resolvedRole = role && VALID_ROLES.includes(role.toLowerCase()) ? role.toLowerCase() : 'viewer';
+    const warehouseId = warehouse_name ? (warehouseMap.get(warehouse_name.toLowerCase()) ?? null) : null;
     const { error: err } = await supabase.from('user_profiles').upsert(
-      { user_id: user.id, name, email: email || null, phone: phone || null, note: note || null },
+      {
+        user_id: ownerId, name,
+        role: resolvedRole,
+        worker_code: worker_code || null,
+        warehouse_id: warehouseId,
+        is_active: is_active !== 'false',
+        email: email || null,
+        phone: phone || null,
+        note: note || null,
+      },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1727,8 +1747,8 @@ export async function importWarehousesCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   let imported = 0;
@@ -1737,7 +1757,7 @@ export async function importWarehousesCsv(
     const [name, address, note] = parseCsvRow(line);
     if (!name) { skipped.push(`名称が空: ${line}`); continue; }
     const { error: err } = await supabase.from('warehouses').upsert(
-      { user_id: user.id, name, address: address || null, note: note || null },
+      { user_id: ownerId, name, address: address || null, note: note || null },
       { onConflict: 'user_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1754,8 +1774,8 @@ export async function importLocationsCsv(
   const csv = String(formData.get('csv') ?? '').trim();
   if (!csv) return { imported: 0, skipped: [], error: 'No data provided' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { imported: 0, skipped: [], error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
   const { dataLines, error } = parseMasterCsvLines(csv);
   if (error) return { imported: 0, skipped: [], error };
   const { data: warehouses } = await supabase.from('warehouses').select('id, name');
@@ -1769,7 +1789,7 @@ export async function importLocationsCsv(
     const warehouseId = warehouseMap.get(warehouseName.toLowerCase());
     if (!warehouseId) { skipped.push(`倉庫が見つかりません: ${warehouseName}`); continue; }
     const { error: err } = await supabase.from('locations').upsert(
-      { user_id: user.id, name, warehouse_id: warehouseId, note: note || null },
+      { user_id: ownerId, name, warehouse_id: warehouseId, note: note || null },
       { onConflict: 'user_id,warehouse_id,name' }
     );
     if (err) { skipped.push(`登録失敗: ${name} (${err.message})`); continue; }
@@ -1791,15 +1811,107 @@ export async function setMonthlyTarget(
   if (!month || isNaN(amount) || amount < 0) return { error: 'Invalid values' };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
 
   const { error } = await supabase
     .from('sales_targets')
-    .upsert({ user_id: user.id, month, target_amount: amount }, { onConflict: 'user_id,month' });
+    .upsert({ user_id: ownerId, month, target_amount: amount }, { onConflict: 'user_id,month' });
 
   if (error) return { error: `Failed to save target: ${error.message}` };
 
   revalidatePath('/sales/report');
+  return { success: 'ok' };
+}
+
+// ─── Sub-user Account Management ─────────────────────────────────────────────
+
+export async function createSubUser(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const profileId = Number(formData.get('profile_id'));
+  const email = (formData.get('email') as string ?? '').trim();
+  const password = (formData.get('password') as string ?? '').trim();
+
+  if (!profileId || !email || !password) return { error: 'All fields are required' };
+  if (password.length < 8) return { error: 'Password must be at least 8 characters' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('id, auth_user_id, user_id')
+    .eq('id', profileId)
+    .single();
+
+  if (!profile) return { error: 'User profile not found' };
+  if (profile.user_id !== ownerId) return { error: 'Access denied' };
+  if (profile.auth_user_id) return { error: 'This profile already has a login account' };
+
+  const adminClient = createAdminClient();
+
+  const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (createError || !newUser.user) {
+    return { error: `Failed to create account: ${createError?.message ?? 'unknown error'}` };
+  }
+
+  const { error: memberError } = await adminClient
+    .from('tenant_members')
+    .insert({ owner_id: ownerId, member_id: newUser.user.id });
+
+  if (memberError) {
+    await adminClient.auth.admin.deleteUser(newUser.user.id);
+    return { error: `Failed to link account: ${memberError.message}` };
+  }
+
+  const { error: profileError } = await adminClient
+    .from('user_profiles')
+    .update({ auth_user_id: newUser.user.id })
+    .eq('id', profileId);
+
+  if (profileError) {
+    return { error: `Account created but profile link failed: ${profileError.message}` };
+  }
+
+  revalidatePath('/master/users');
+  return { success: 'ok' };
+}
+
+export async function deleteSubUser(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const profileId = Number(formData.get('profile_id'));
+  if (!profileId) return { error: 'Profile ID is required' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('id, auth_user_id, user_id')
+    .eq('id', profileId)
+    .single();
+
+  if (!profile) return { error: 'User profile not found' };
+  if (profile.user_id !== ownerId) return { error: 'Access denied' };
+  if (!profile.auth_user_id) return { error: 'This profile has no login account' };
+
+  const adminClient = createAdminClient();
+
+  await adminClient.from('tenant_members').delete().eq('member_id', profile.auth_user_id);
+  await adminClient.from('user_profiles').update({ auth_user_id: null }).eq('id', profileId);
+  await adminClient.auth.admin.deleteUser(profile.auth_user_id);
+
+  revalidatePath('/master/users');
   return { success: 'ok' };
 }
