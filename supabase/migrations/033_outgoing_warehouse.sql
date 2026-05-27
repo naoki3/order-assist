@@ -1,0 +1,3 @@
+ALTER TABLE outgoing_stock
+  ADD COLUMN IF NOT EXISTS warehouse_id INTEGER REFERENCES warehouses(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS warehouse_name TEXT;

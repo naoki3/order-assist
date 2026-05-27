@@ -744,9 +744,11 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   const destinationId = Number(formData.get('destination_id')) || null;
   const carrierId = Number(formData.get('carrier_id')) || null;
   const locationId = Number(formData.get('location_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
   let destinationName: string | null = null;
   let carrierName: string | null = null;
   let locationName: string | null = null;
+  let warehouseName: string | null = null;
   if (destinationId) {
     const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
     destinationName = d?.name ?? null;
@@ -759,10 +761,14 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
     const { data: loc } = await supabase.from('locations').select('name').eq('id', locationId).single();
     locationName = loc?.name ?? null;
   }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
 
   const { data, error } = await supabase
     .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName, location_id: locationId, location_name: locationName })
+    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName, location_id: locationId, location_name: locationName, warehouse_id: warehouseId, warehouse_name: warehouseName })
     .select('id')
     .single();
 

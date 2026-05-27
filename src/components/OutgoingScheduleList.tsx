@@ -19,6 +19,7 @@ interface ProductOption {
   pieces_per_ball: number | null;
   balls_per_case: number | null;
   cases_per_pallet: number | null;
+  default_warehouse_id: number | null;
 }
 
 interface DestinationOption {
@@ -54,6 +55,8 @@ function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean
             <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
           )}
           {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
+          {item.warehouse_name && <span className="text-xs text-slate-400">· {t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>}
+          {item.location_name && <span className="text-xs text-slate-400">· {t('inventory.location')}: {item.location_name}</span>}
           {item.destination_name && <span className="text-xs text-slate-400">· {t('shipping.destination')}: {item.destination_name}</span>}
           {item.carrier_name && <span className="text-xs text-slate-400">· {t('shipping.carrier')}: {item.carrier_name}</span>}
         </div>
@@ -106,6 +109,7 @@ function AddProductForm({
   const [error, setError] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedLotId, setSelectedLotId] = useState('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
@@ -120,6 +124,23 @@ function AddProductForm({
       return a.expiry_date.localeCompare(b.expiry_date);
     });
 
+  // Derive available warehouses from lots for selected product
+  const productWarehouses = (() => {
+    const seen = new Set<number>();
+    const result: { id: number; name: string }[] = [];
+    for (const l of productLots) {
+      if (l.warehouse_id && l.warehouse_name && !seen.has(l.warehouse_id)) {
+        seen.add(l.warehouse_id);
+        result.push({ id: l.warehouse_id, name: l.warehouse_name });
+      }
+    }
+    return result;
+  })();
+
+  const filteredLocations = selectedWarehouseId
+    ? locations.filter((l) => l.warehouse_id === selectedWarehouseId)
+    : [];
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -133,6 +154,7 @@ function AddProductForm({
         formRef.current?.reset();
         setSelectedProductId('');
         setSelectedLotId('');
+        setSelectedWarehouseId(null);
         onCancel();
       }
     });
@@ -144,7 +166,13 @@ function AddProductForm({
       <div className="flex gap-2">
         <select name="product_id" required
           value={selectedProductId}
-          onChange={(e) => { setSelectedProductId(e.target.value); setSelectedLotId(''); }}
+          onChange={(e) => {
+            const pid = Number(e.target.value);
+            setSelectedProductId(e.target.value);
+            setSelectedLotId('');
+            const prod = products.find((p) => p.id === pid);
+            setSelectedWarehouseId(prod?.default_warehouse_id ?? null);
+          }}
           className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('shipping.selectProduct')}</option>
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -181,6 +209,25 @@ function AddProductForm({
       <input type="text" name="note"
         placeholder={t('shipping.notePlaceholder')}
         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+      {productWarehouses.length > 0 && (
+        <>
+          <select
+            name="warehouse_id"
+            value={selectedWarehouseId ?? ''}
+            onChange={(e) => setSelectedWarehouseId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">{t('transfer.toWarehouse')}</option>
+            {productWarehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+          {selectedWarehouseId && filteredLocations.length > 0 && (
+            <select name="location_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">{t('shipping.selectLocation')}</option>
+              {filteredLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          )}
+        </>
+      )}
       {destinations.length > 0 && (
         <select name="destination_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('shipping.selectDestination')}</option>
@@ -191,12 +238,6 @@ function AddProductForm({
         <select name="carrier_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('shipping.selectCarrier')}</option>
           {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      )}
-      {locations.length > 0 && (
-        <select name="location_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-          <option value="">{t('shipping.selectLocation')}</option>
-          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       )}
       {error && <p className="text-red-600 text-xs">{error}</p>}
