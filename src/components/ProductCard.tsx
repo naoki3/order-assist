@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
+import { updateProduct, deleteProduct } from '@/lib/actions';
 import type { Product } from '@/lib/db';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
@@ -22,13 +22,11 @@ interface Props {
 export default function ProductCard({ product, currentStock, warehouses = [] }: Props) {
   const { t, lang } = useT();
   const [updateState, updateAction] = useActionState(updateProduct, null);
-  const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
   const [warehouseId, setWarehouseId] = useState(String(product.default_warehouse_id ?? ''));
   const selectedWarehouse = warehouses.find((w) => w.id === Number(warehouseId));
 
   const { successMsg: updateSuccess, errorMsg: updateError } = useActionFeedback(updateState, t('common.updated'));
-  const { successMsg: stockSuccess, errorMsg: stockError } = useActionFeedback(stockState, t('common.updated'));
   const { errorMsg: deleteError } = useActionFeedback(deleteState, t('common.deleted'));
 
   const expiryLocked = currentStock > 0;
@@ -178,28 +176,12 @@ export default function ProductCard({ product, currentStock, warehouses = [] }: 
 
       {/* Stock update + Delete */}
       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-        <form action={stockAction} className="flex items-center gap-2 flex-1">
-          <input type="hidden" name="product_id" value={product.id} />
+        <div className="flex items-center gap-2 flex-1">
           <span className="text-sm text-slate-500">{t('products.currentStock')}</span>
-          <input
-            type="number"
-            name="current_stock"
-            defaultValue={currentStock}
-            min={0}
-            className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
-          />
-          {product.pieces_per_ball ? (
-            <span className="text-sm text-slate-500">{formatQty(currentStock, product, lang)}</span>
-          ) : (
-            <span className="text-sm text-slate-500">{t('products.units')}</span>
-          )}
-          <button
-            type="submit"
-            className="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"
-          >
-            {t('products.update')}
-          </button>
-        </form>
+          <span className="text-sm text-slate-800 font-medium">
+            {product.pieces_per_ball ? formatQty(currentStock, product, lang) : `${currentStock} ${t('products.units')}`}
+          </span>
+        </div>
 
         <form action={deleteAction}>
           <input type="hidden" name="id" value={product.id} />
@@ -212,12 +194,6 @@ export default function ProductCard({ product, currentStock, warehouses = [] }: 
         </form>
       </div>
 
-      {stockError && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">{stockError}</p>
-      )}
-      {stockSuccess && (
-        <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2 mt-2">{stockSuccess}</p>
-      )}
       {deleteError && (
         <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">{deleteError}</p>
       )}
