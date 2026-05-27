@@ -9,6 +9,16 @@ import InventoryDetailClient from '@/components/InventoryDetailClient';
 
 export const dynamic = 'force-dynamic';
 
+export interface LotOutgoingRecord {
+  id: number;
+  lot_id: number;
+  shipped_at: string;
+  quantity: number;
+  destination_name: string | null;
+  carrier_name: string | null;
+  note: string | null;
+}
+
 export default async function InventoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const productId = Number(id);
@@ -45,6 +55,24 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
     warehouse_name: l.warehouse_id ? (warehouseNameMap[l.warehouse_id] ?? null) : null,
   }));
 
+  // Fetch outgoing history for lots that have been shipped
+  const lotIds = lots.map((l) => l.id);
+  const outgoingByLot: Record<number, LotOutgoingRecord[]> = {};
+  if (lotIds.length > 0) {
+    const { data: outgoingData } = await supabase
+      .from('outgoing_stock')
+      .select('id, lot_id, shipped_at, quantity, destination_name, carrier_name, note')
+      .in('lot_id', lotIds)
+      .not('shipped_at', 'is', null)
+      .order('shipped_at', { ascending: false });
+    for (const row of outgoingData ?? []) {
+      if (!row.lot_id) continue;
+      const arr = outgoingByLot[row.lot_id] ?? [];
+      arr.push(row as LotOutgoingRecord);
+      outgoingByLot[row.lot_id] = arr;
+    }
+  }
+
   return (
     <div>
       <div className="mb-4">
@@ -61,6 +89,7 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
         warehouses={warehouses}
         statuses={statuses}
         today={today}
+        outgoingByLot={outgoingByLot}
       />
     </div>
   );

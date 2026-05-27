@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import type { Recommendation } from '@/lib/calculator';
 import type { IncomingStock } from '@/lib/db';
 import DashboardCharts from '@/components/DashboardCharts';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,7 +216,7 @@ export default async function DashboardPage() {
         <div className={`rounded-xl border p-4 ${expiryAlerts.expiredCount > 0 ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-slate-600">{t('dashboard.expiryAlert', lang)}</p>
-            <a href="/inventory/expiry" className="text-xs text-green-700 hover:underline font-medium">詳細 →</a>
+            <Link href="/inventory/expiry" className="text-xs text-green-700 hover:underline font-medium">詳細 →</Link>
           </div>
           <div className="flex gap-4">
             {expiryAlerts.expiredCount > 0 && (
