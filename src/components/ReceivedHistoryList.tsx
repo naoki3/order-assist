@@ -39,11 +39,20 @@ function Item({ item, today, unitConfig }: { item: IncomingStock; today: string;
               />
             </div>
           )}
-          {item.expected_date && (
-            <p className="text-xs text-slate-400 mt-0.5">
-              {t('incoming.expectedDate2')} {formatDisplayDate(item.expected_date)}
-            </p>
-          )}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+            {item.expected_date && (
+              <span className="text-xs text-slate-400">{t('incoming.expectedDate2')} {formatDisplayDate(item.expected_date)}</span>
+            )}
+            {item.supplier_name && (
+              <span className="text-xs text-slate-400">{t('incoming.supplier')}: {item.supplier_name}</span>
+            )}
+            {item.warehouse_name && (
+              <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>
+            )}
+            {item.location_name && (
+              <span className="text-xs text-slate-400">{t('incoming.location')}: {item.location_name}</span>
+            )}
+          </div>
           {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
         </div>
         {confirming ? (
