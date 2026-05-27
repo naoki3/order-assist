@@ -13,15 +13,31 @@ interface Props {
 }
 
 export default function InventoryListClient({ products, stockMap }: Props) {
-  const { t, lang } = useT();
+  const { t, lang, currencySymbol } = useT();
   const [query, setQuery] = useState('');
 
   const filtered = query.trim()
     ? products.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
     : products;
 
+  const totalValue = products.reduce((sum, p) => {
+    if (p.price == null) return sum;
+    return sum + (stockMap[p.id] ?? 0) * p.price;
+  }, 0);
+  const hasPrices = products.some((p) => p.price != null);
+
   return (
     <div>
+      {hasPrices && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-green-700 font-medium">{t('inventory.valuationTotal')}</p>
+            <p className="text-xs text-green-500 mt-0.5">{t('inventory.valuationNoPriceHint')}</p>
+          </div>
+          <p className="text-xl font-bold text-green-700">{currencySymbol}{Math.round(totalValue).toLocaleString()}</p>
+        </div>
+      )}
+
       <div className="relative mb-4">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -39,6 +55,7 @@ export default function InventoryListClient({ products, stockMap }: Props) {
         ) : (
           filtered.map((p) => {
             const stock = stockMap[p.id] ?? 0;
+            const value = p.price != null ? stock * p.price : null;
             return (
               <Link
                 key={p.id}
@@ -46,7 +63,12 @@ export default function InventoryListClient({ products, stockMap }: Props) {
                 className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
               >
                 <p className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{p.name}</p>
-                <div className="flex items-center gap-3 ml-4 shrink-0">
+                <div className="flex items-center gap-4 ml-4 shrink-0">
+                  {value != null && (
+                    <span className="text-xs text-slate-400 tabular-nums">
+                      {currencySymbol}{Math.round(value).toLocaleString()}
+                    </span>
+                  )}
                   <span className="text-sm text-slate-600">
                     {p.pieces_per_ball ? formatQty(stock, p, lang) : `${stock.toLocaleString()} ${t('inventory.units')}`}
                   </span>
