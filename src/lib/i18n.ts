@@ -193,7 +193,7 @@ export const translations = {
     'shipping.addButton': '追加する',
     'shipping.delete': '削除',
     'shipping.confirm': '出荷確認',
-    'shipping.confirmed': '出荷済み',
+    'shipping.confirmed': '出荷確認済み',
     'shipping.selectProduct': '商品を選択',
     'shipping.quantityPlaceholder': '数量',
     'shipping.notePlaceholder': '備考（任意）',
@@ -435,6 +435,16 @@ export const translations = {
     'shipping.returned': '返品済',
     'shipping.returnedQty': (n: number) => `${n}個返品済`,
     'shipping.returnMaxError': (n: number) => `返品数量は${n}個以下にしてください`,
+
+    // Shipping tabs / allocation
+    'shipping.tabAllocation': '引当確認',
+    'shipping.tabShipConfirm': '出荷確定',
+    'shipping.tabConfirmed': '出荷確認済み',
+    'shipping.noAllocations': '引き当て済みの出荷がありません',
+    'shipping.sortByLocation': 'ロケーション順',
+    'shipping.sortByExpiry': '賞味期限順',
+    'shipping.sortByLot': 'ロット番号順',
+    'shipping.sortLabel': '並び順',
 
     // Purchase Order PDF
     'history.printOrder': '発注書を印刷',
@@ -1047,6 +1057,16 @@ export const translations = {
     'shipping.returned': 'Returned',
     'shipping.returnedQty': (n: number) => `${n} returned`,
     'shipping.returnMaxError': (n: number) => `Return qty must be ≤ ${n}`,
+
+    // Shipping tabs / allocation
+    'shipping.tabAllocation': 'Allocation Review',
+    'shipping.tabShipConfirm': 'Confirm Shipment',
+    'shipping.tabConfirmed': 'Confirmed',
+    'shipping.noAllocations': 'No allocated shipments',
+    'shipping.sortByLocation': 'By Location',
+    'shipping.sortByExpiry': 'By Expiry',
+    'shipping.sortByLot': 'By Lot',
+    'shipping.sortLabel': 'Sort',
 
     // Purchase Order PDF
     'history.printOrder': 'Print Purchase Order',
