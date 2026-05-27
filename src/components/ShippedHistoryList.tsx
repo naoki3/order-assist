@@ -159,7 +159,7 @@ function buildDeliveryGroups(items: OutgoingStock[]): DeliveryGroup[] {
   return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export default function ShippedHistoryList({ items, emptyText, unitMap = {} }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig> }) {
+export default function ShippedHistoryList({ items, emptyText, unitMap = {}, showDeliveryNote = true }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; showDeliveryNote?: boolean }) {
   const { t, tf } = useT();
   const { localDate } = useT();
   const [today] = useState(() => localDate());
@@ -181,13 +181,15 @@ export default function ShippedHistoryList({ items, emptyText, unitMap = {} }: {
 
   return (
     <div>
-      {/* Print button — screen only */}
-      <div className="flex justify-end mb-2 print:hidden">
-        <button type="button" onClick={() => window.print()}
-          className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-          {t('shipping.printDeliveryNote')}
-        </button>
-      </div>
+      {/* Print button — screen only, delivery note pages only */}
+      {showDeliveryNote && (
+        <div className="flex justify-end mb-2 print:hidden">
+          <button type="button" onClick={() => window.print()}
+            className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+            {t('shipping.printDeliveryNote')}
+          </button>
+        </div>
+      )}
 
       {/* Regular shipped list — hidden when printing */}
       <div className="print:hidden space-y-2">
@@ -225,8 +227,8 @@ export default function ShippedHistoryList({ items, emptyText, unitMap = {} }: {
         })}
       </div>
 
-      {/* Delivery note — print only */}
-      <div className="hidden print:block text-sm">
+      {/* Delivery note — print only, history page only */}
+      <div className={showDeliveryNote ? "hidden print:block text-sm" : "hidden"}>
         <h1 className="text-xl font-bold text-slate-800 mb-6">{t('shipping.deliveryNote')}</h1>
         {deliveryGroups.map((group, gi) => (
           <div key={gi} className="mb-8">
