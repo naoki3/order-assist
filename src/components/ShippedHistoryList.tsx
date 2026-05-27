@@ -35,9 +35,18 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
               <LotTag lotNumber={item.lot_number} expiryDate={null} today={today} />
             </div>
           )}
-          <p className="text-xs text-slate-400 mt-0.5">
-            {t('shipping.scheduledDate')} {formatDisplayDate(item.scheduled_date)}
-          </p>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+            <span className="text-xs text-slate-400">{t('shipping.scheduledDate')} {formatDisplayDate(item.scheduled_date)}</span>
+            {item.destination_name && (
+              <span className="text-xs text-slate-400">{t('shipping.destination')}: {item.destination_name}</span>
+            )}
+            {item.carrier_name && (
+              <span className="text-xs text-slate-400">{t('shipping.carrier')}: {item.carrier_name}</span>
+            )}
+            {item.location_name && (
+              <span className="text-xs text-slate-400">{t('incoming.location')}: {item.location_name}</span>
+            )}
+          </div>
           {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
         </div>
         {confirming ? (

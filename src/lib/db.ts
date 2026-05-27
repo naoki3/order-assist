@@ -50,6 +50,8 @@ export interface OutgoingStock {
   destination_name: string | null;
   carrier_id: number | null;
   carrier_name: string | null;
+  location_id: number | null;
+  location_name: string | null;
 }
 
 export interface IncomingStock {
