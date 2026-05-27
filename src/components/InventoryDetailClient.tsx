@@ -119,9 +119,7 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
             {lot.received_at && <span>{t('inventory.lastReceived')}: {formatDisplayDate(lot.received_at)}</span>}
           </div>
           {lot.status_name && lot.status_color && (
-            <div className="mt-1">
-              <StatusBadge name={lot.status_name} color={lot.status_color} />
-            </div>
+            <span className="text-xs text-slate-400">{t('inventory.correctionStatus')}: <StatusBadge name={lot.status_name} color={lot.status_color} /></span>
           )}
         </div>
         <span className="text-sm font-semibold text-slate-700 shrink-0">{qtyStr}</span>
@@ -185,9 +183,14 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
           )}
           {corrError && <p className="text-red-600 text-xs">{corrError}</p>}
           {corrSuccess && <p className="text-green-600 text-xs">{corrSuccess}</p>}
-          <button type="submit" className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
-            {t('inventory.correctionSave')}
-          </button>
+          <div className="flex gap-2">
+            <button type="submit" className="flex-1 py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
+              {t('inventory.correctionSave')}
+            </button>
+            <button type="button" onClick={() => setMode('none')} className="px-3 py-1.5 text-slate-500 text-xs rounded-lg hover:bg-slate-100 transition-colors">
+              {t('common.cancel')}
+            </button>
+          </div>
         </form>
       )}
 
@@ -230,10 +233,15 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
           </div>
           {transError && <p className="text-red-600 text-xs">{transError}</p>}
           {transSuccess && <p className="text-green-600 text-xs">{transSuccess}</p>}
-          <button type="submit" disabled={!selectedWarehouseId || filteredLocations.length === 0}
-            className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
-            {t('transfer.submit')}
-          </button>
+          <div className="flex gap-2">
+            <button type="submit" disabled={!selectedWarehouseId || filteredLocations.length === 0}
+              className="flex-1 py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+              {t('transfer.submit')}
+            </button>
+            <button type="button" onClick={() => setMode('none')} className="px-3 py-1.5 text-slate-500 text-xs rounded-lg hover:bg-slate-100 transition-colors">
+              {t('common.cancel')}
+            </button>
+          </div>
         </form>
       )}
       {mode === 'adjust' && (
@@ -246,9 +254,14 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
           </div>
           {adjError && <p className="text-red-600 text-xs">{adjError}</p>}
           {adjSuccess && <p className="text-green-600 text-xs">{adjSuccess}</p>}
-          <button type="submit" className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
-            {t('inventory.adjustButton')}
-          </button>
+          <div className="flex gap-2">
+            <button type="submit" className="flex-1 py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
+              {t('inventory.adjustButton')}
+            </button>
+            <button type="button" onClick={() => setMode('none')} className="px-3 py-1.5 text-slate-500 text-xs rounded-lg hover:bg-slate-100 transition-colors">
+              {t('common.cancel')}
+            </button>
+          </div>
         </form>
       )}
     </div>
