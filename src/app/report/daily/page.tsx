@@ -154,7 +154,7 @@ export default async function DailyReportPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('dailyReport.title', lang)}</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-4 print:hidden">{t('dailyReport.title', lang)}</h1>
       <DailyReportClient rows={rows} lotSnapshots={lotSnapshots} from={from} to={to} lang={lang} />
     </div>
   );

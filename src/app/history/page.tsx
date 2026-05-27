@@ -2,9 +2,8 @@ import { createClient } from '@/lib/supabase';
 import { getLang, getTz } from '@/lib/lang';
 import { t } from '@/lib/i18n';
 import type { OrderHistoryItem } from '@/lib/db';
-import type { OrderItem } from '@/lib/actions';
-import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
+import OrderHistoryList from '@/components/OrderHistoryList';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,55 +27,10 @@ export default async function HistoryPage() {
     }).format(new Date(iso));
   }
 
-  function parseItems(raw: unknown): OrderItem[] {
-    try {
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('history.title', lang)}</h1>
-
-      {orders.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          <p>{t('history.noHistory', lang)}</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {orders.map((order) => {
-            const items = parseItems(order.items);
-            const expectedDates = [...new Set(items.map(i => i.expectedDate).filter(Boolean))];
-            return (
-              <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4">
-                <div className="flex items-baseline justify-between mb-2">
-                  <p className="text-xs text-slate-400">{t('history.orderedAt', lang)}{formatDate(order.created_at)}</p>
-                  {expectedDates.length > 0 && (
-                    <p className="text-xs font-medium text-slate-600">{t('history.expectedDate', lang)}{expectedDates.join(', ')}</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  {items.length > 0 ? items.map((item, i) => {
-                    const uc = item.productId != null ? (unitMap[item.productId] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }) : { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
-                    const qtyStr = uc.pieces_per_ball ? formatQty(item.quantity, uc, lang) : `${item.quantity} ${t('history.units', lang)}`;
-                    return (
-                    <div key={item.productId ?? i} className="flex justify-between text-sm">
-                      <span className="text-slate-700">{item.productName}</span>
-                      <span className="font-semibold text-slate-800">{qtyStr}</span>
-                    </div>
-                    );
-                  }) : (
-                    <p className="text-xs text-slate-400">{t('history.noDetails', lang)}</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <h1 className="text-xl font-bold text-slate-800 mb-4 print:hidden">{t('history.title', lang)}</h1>
+      <OrderHistoryList orders={orders} unitMap={unitMap} formatDate={formatDate} />
     </div>
   );
 }

@@ -2055,6 +2055,104 @@ export async function setRolePermissions(
 
 // ─── Stock Transfer ───────────────────────────────────────────────────────────
 
+// ─── Cycle Count ─────────────────────────────────────────────────────────────
+
+export interface CycleCountEntry {
+  lot_id: number;
+  actual_qty: number;
+}
+
+export async function saveCycleCount(entries: CycleCountEntry[]): Promise<ActionResult> {
+  const changes = entries.filter((e) => e.actual_qty >= 0);
+  if (changes.length === 0) return { success: 'ok' };
+
+  const supabase = await createClient();
+  if (!await getOwnerId(supabase)) return { error: 'Not authenticated' };
+
+  const localToday = await getLocalDate();
+
+  // Group lot_ids by product_id so we can recalculate inventory per product
+  const lotIds = changes.map((e) => e.lot_id);
+  const { data: lots } = await supabase.from('lots').select('id, product_id, quantity').in('id', lotIds);
+  if (!lots) return { error: 'ロット情報の取得に失敗しました' };
+
+  const lotMap = Object.fromEntries(lots.map((l) => [l.id, l]));
+
+  // Apply updates
+  for (const entry of changes) {
+    const lot = lotMap[entry.lot_id];
+    if (!lot || lot.quantity === entry.actual_qty) continue;
+    await supabase.from('lots').update({ quantity: entry.actual_qty }).eq('id', entry.lot_id);
+  }
+
+  // Recalculate inventory for each affected product
+  const productIds = [...new Set(lots.map((l) => l.product_id))];
+  for (const pid of productIds) {
+    const { data: allLots } = await supabase.from('lots').select('quantity').eq('product_id', pid);
+    const total = (allLots ?? []).reduce((s, l) => s + l.quantity, 0);
+    await supabase.from('inventory').upsert({ product_id: pid, current_stock: total, updated_at: localToday });
+  }
+
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/cycle-count');
+  return { success: 'ok' };
+}
+
+// ─── Returns ─────────────────────────────────────────────────────────────────
+
+export async function returnOutgoing(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const returnQty = Number(formData.get('return_qty'));
+
+  if (!id || isNaN(returnQty) || returnQty < 1) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  if (!await getOwnerId(supabase)) return { error: 'Not authenticated' };
+
+  const { data: outgoing } = await supabase
+    .from('outgoing_stock')
+    .select('product_id, quantity, lot_id, returned_qty')
+    .eq('id', id)
+    .not('shipped_at', 'is', null)
+    .single();
+  if (!outgoing) return { error: '出荷済みレコードが見つかりません' };
+
+  const alreadyReturned = outgoing.returned_qty ?? 0;
+  const maxReturn = outgoing.quantity - alreadyReturned;
+  if (returnQty > maxReturn) {
+    return { error: `返品数量は${maxReturn}個以下にしてください` };
+  }
+
+  const { error } = await supabase
+    .from('outgoing_stock')
+    .update({ returned_qty: alreadyReturned + returnQty })
+    .eq('id', id);
+  if (error) return { error: `更新失敗: ${error.message}` };
+
+  const localToday = await getLocalDate();
+
+  if (outgoing.lot_id) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
+    if (lot) {
+      await supabase.from('lots').update({ quantity: lot.quantity + returnQty }).eq('id', outgoing.lot_id);
+    }
+  }
+
+  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', outgoing.product_id).single();
+  await supabase.from('inventory').upsert({
+    product_id: outgoing.product_id,
+    current_stock: (inv?.current_stock ?? 0) + returnQty,
+    updated_at: localToday,
+  });
+
+  revalidatePath('/shipping/history');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
 export async function transferStock(
   _prev: ActionResult,
   formData: FormData

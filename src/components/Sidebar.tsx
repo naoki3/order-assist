@@ -60,6 +60,7 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
       items: [
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/expiry', label: t('nav.inventoryExpiry'), exact: false },
+        { href: '/inventory/cycle-count', label: t('nav.inventoryCycleCount'), exact: false },
       ],
     },
     {
@@ -126,7 +127,7 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
+      <aside className="hidden md:flex print:hidden flex-col w-56 h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
         {/* Logo */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -228,7 +229,7 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex md:hidden flex-col bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+      <header className="flex md:hidden print:hidden flex-col bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-green-700 rounded-md flex items-center justify-center">

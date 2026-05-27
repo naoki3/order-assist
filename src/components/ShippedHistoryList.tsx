@@ -7,19 +7,27 @@ import LotTag from './LotTag';
 import { useT } from './LanguageProvider';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
-import { unshipOutgoing } from '@/lib/actions';
+import { unshipOutgoing, returnOutgoing } from '@/lib/actions';
 import { formatDisplayDate } from '@/lib/tz';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
+type ItemMode = 'none' | 'undo' | 'return';
+
 function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string; unitConfig: UnitConfig }) {
-  const { t, lang } = useT();
-  const [confirming, setConfirming] = useState(false);
-  const [state, action] = useActionState(unshipOutgoing, null);
-  const { errorMsg } = useActionFeedback(state, '');
+  const { t, tf, lang } = useT();
+  const [mode, setMode] = useState<ItemMode>('none');
+  const [returnQtyStr, setReturnQtyStr] = useState('');
+  const [undoState, undoAction] = useActionState(unshipOutgoing, null);
+  const [returnState, returnAction] = useActionState(returnOutgoing, null);
+  const { errorMsg: undoError } = useActionFeedback(undoState, '');
+  const { errorMsg: returnError } = useActionFeedback(returnState, '');
+
+  const alreadyReturned = item.returned_qty ?? 0;
+  const maxReturn = item.quantity - alreadyReturned;
 
   return (
     <div className="py-2.5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-sm font-bold text-slate-800">{item.product_name}</span>
@@ -27,6 +35,11 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
               <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)} ({item.quantity}{t('units.pieceSuffix')})</span>
             ) : (
               <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+            )}
+            {alreadyReturned > 0 && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                {tf<string>('shipping.returnedQty', alreadyReturned)}
+              </span>
             )}
             {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
           </div>
@@ -47,16 +60,44 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
               <span className="text-xs text-slate-400">{t('incoming.location')}: {item.location_name}</span>
             )}
           </div>
-          {errorMsg && <p className="text-red-600 text-xs mt-0.5">{errorMsg}</p>}
+          {undoError && <p className="text-red-600 text-xs mt-0.5">{undoError}</p>}
+          {returnError && <p className="text-red-600 text-xs mt-0.5">{returnError}</p>}
+
+          {mode === 'return' && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <input
+                type="number"
+                min={1}
+                max={maxReturn}
+                value={returnQtyStr}
+                onChange={(e) => setReturnQtyStr(e.target.value)}
+                placeholder={String(maxReturn)}
+                className="w-20 border border-slate-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <form action={returnAction} className="flex items-center gap-1.5">
+                <input type="hidden" name="id" value={item.id} />
+                <input type="hidden" name="return_qty" value={returnQtyStr || maxReturn} />
+                <button type="submit"
+                  className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-2.5 py-1 rounded-lg font-medium transition-colors">
+                  {t('shipping.returnSubmit')}
+                </button>
+              </form>
+              <button type="button" onClick={() => setMode('none')}
+                className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+                {t('common.cancel')}
+              </button>
+            </div>
+          )}
         </div>
-        {confirming ? (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+
+        {mode === 'undo' ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
             <span className="text-xs text-slate-500">{t('common.undoQuestion')}</span>
-            <button type="button" onClick={() => setConfirming(false)}
+            <button type="button" onClick={() => setMode('none')}
               className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
               {t('common.cancel')}
             </button>
-            <form action={action}>
+            <form action={undoAction}>
               <input type="hidden" name="id" value={item.id} />
               <button type="submit" className="text-xs text-orange-600 hover:text-orange-700 font-medium px-2 py-1 rounded">
                 {t('common.undo')}
@@ -64,11 +105,19 @@ function Item({ item, today, unitConfig }: { item: OutgoingStock; today: string;
             </form>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button type="button" onClick={() => setConfirming(true)}
-              className="text-xs text-slate-400 hover:text-orange-600 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors">
-              {t('common.undo')}
-            </button>
+          <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
+            {maxReturn > 0 && mode !== 'return' && (
+              <button type="button" onClick={() => { setMode('return'); setReturnQtyStr(String(maxReturn)); }}
+                className="text-xs text-slate-400 hover:text-amber-600 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
+                {t('shipping.return')}
+              </button>
+            )}
+            {mode !== 'return' && (
+              <button type="button" onClick={() => setMode('undo')}
+                className="text-xs text-slate-400 hover:text-orange-600 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors">
+                {t('common.undo')}
+              </button>
+            )}
             <span className="text-xs text-blue-600 font-medium">{t('shipping.confirmed')}</span>
           </div>
         )}

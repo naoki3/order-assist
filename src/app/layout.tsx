@@ -54,7 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-full bg-slate-50">
         <LanguageProvider initialLang={lang} initialTz={tz} initialCurrency={currency}>
           {user && <Sidebar allowedSections={allowedSections} />}
-          <div className={user ? 'md:ml-56' : ''}>
+          <div className={user ? 'md:ml-56 print:ml-0' : ''}>
             <main className="w-full px-4 md:px-8 py-6">
               {children}
             </main>
