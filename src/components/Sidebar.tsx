@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
 import {
@@ -131,10 +132,10 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
         {/* Logo */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-green-700 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">OA</span>
-            </div>
-            <p className="font-bold text-sm text-slate-800 leading-tight">Order Assist</p>
+            <Image src="/logo.png" alt="OrderAssist" width={32} height={32} className="shrink-0" />
+            <p className="text-sm font-extrabold leading-tight bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
+              OrderAssist
+            </p>
           </div>
         </div>
 
@@ -232,10 +233,10 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
       <header className="flex md:hidden print:hidden flex-col bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-green-700 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold">OA</span>
-            </div>
-            <span className="font-bold text-sm text-slate-800">Order Assist</span>
+            <Image src="/logo.png" alt="OrderAssist" width={24} height={24} className="shrink-0" />
+            <span className="text-sm font-extrabold bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
+              OrderAssist
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Link
