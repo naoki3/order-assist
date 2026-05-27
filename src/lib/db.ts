@@ -26,6 +26,7 @@ export interface Sale {
 export interface Inventory {
   product_id: number;
   current_stock: number;
+  allocated_qty: number;
   updated_at: string;
 }
 
@@ -55,6 +56,7 @@ export interface OutgoingStock {
   warehouse_id: number | null;
   warehouse_name: string | null;
   returned_qty: number;
+  allocated_at: string | null;
 }
 
 export interface IncomingStock {

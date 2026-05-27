@@ -854,6 +854,74 @@ export async function confirmShipment(
   return { success: 'ok' };
 }
 
+export async function allocateOutgoing(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const localToday = await getLocalDate();
+
+  const { data, error } = await supabase.rpc('fn_allocate_outgoing', {
+    p_outgoing_id:  id,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
+export async function allocateBulkOutgoing(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  let ids: number[];
+  try { ids = JSON.parse(String(formData.get('ids') ?? '[]')); } catch { return { error: 'Invalid input' }; }
+  if (ids.length === 0) return { success: 'ok' };
+
+  const supabase = await createClient();
+  const localToday = await getLocalDate();
+
+  const { data, error } = await supabase.rpc('fn_allocate_bulk_outgoing', {
+    p_outgoing_ids: ids,
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
+export async function deallocateOutgoing(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const id = Number(formData.get('id'));
+  const supabase = await createClient();
+  const localToday = await getLocalDate();
+
+  const { data, error } = await supabase.rpc('fn_deallocate_outgoing', {
+    p_outgoing_id:  id,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
 export async function updateLotQuantity(
   _prev: ActionResult,
   formData: FormData
