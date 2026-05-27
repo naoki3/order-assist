@@ -60,6 +60,7 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
       items: [
         { href: '/inventory', label: t('nav.inventory'), exact: true },
         { href: '/inventory/expiry', label: t('nav.inventoryExpiry'), exact: false },
+        { href: '/inventory/cycle-count', label: t('nav.inventoryCycleCount'), exact: false },
       ],
     },
     {

@@ -408,6 +408,36 @@ export const translations = {
     'dashboard.expiryWarning': '7日以内',
     'dashboard.noExpiryAlert': '期限切れ間近のロットはありません',
 
+    // Cycle Count
+    'nav.inventoryCycleCount': '棚卸し',
+    'cycleCount.title': '棚卸し',
+    'cycleCount.subtitle': 'ロットごとの実在庫数を入力して在庫を更新します',
+    'cycleCount.systemQty': 'システム数量',
+    'cycleCount.actualQty': '実数量',
+    'cycleCount.diff': '差異',
+    'cycleCount.save': '棚卸しを保存',
+    'cycleCount.saving': '保存中...',
+    'cycleCount.noLots': '在庫ロットがありません',
+    'cycleCount.saved': '棚卸しを保存しました',
+    'cycleCount.noChanges': '変更なし',
+
+    // Returns
+    'shipping.return': '返品',
+    'shipping.returnQty': '返品数量',
+    'shipping.returnNote': '返品備考（任意）',
+    'shipping.returnSubmit': '返品を記録',
+    'shipping.returnSubmitting': '処理中...',
+    'shipping.returned': '返品済',
+    'shipping.returnedQty': (n: number) => `${n}個返品済`,
+    'shipping.returnMaxError': (n: number) => `返品数量は${n}個以下にしてください`,
+
+    // Purchase Order PDF
+    'history.printOrder': '発注書を印刷',
+    'history.purchaseOrder': '発注書',
+    'history.poProduct': '商品名',
+    'history.poQty': '数量',
+    'history.poExpected': '入荷予定日',
+
     // History
     'history.title': '発注履歴',
     'history.noHistory': '発注履歴がありません',
@@ -984,6 +1014,36 @@ export const translations = {
     'dashboard.expiryExpired': 'Expired',
     'dashboard.expiryWarning': 'Within 7 days',
     'dashboard.noExpiryAlert': 'No lots nearing expiry',
+
+    // Cycle Count
+    'nav.inventoryCycleCount': 'Cycle Count',
+    'cycleCount.title': 'Cycle Count',
+    'cycleCount.subtitle': 'Enter actual stock counts per lot to update inventory',
+    'cycleCount.systemQty': 'System Qty',
+    'cycleCount.actualQty': 'Actual Qty',
+    'cycleCount.diff': 'Diff',
+    'cycleCount.save': 'Save Count',
+    'cycleCount.saving': 'Saving...',
+    'cycleCount.noLots': 'No lots in stock',
+    'cycleCount.saved': 'Cycle count saved',
+    'cycleCount.noChanges': 'No changes',
+
+    // Returns
+    'shipping.return': 'Return',
+    'shipping.returnQty': 'Return Qty',
+    'shipping.returnNote': 'Return note (optional)',
+    'shipping.returnSubmit': 'Record Return',
+    'shipping.returnSubmitting': 'Processing...',
+    'shipping.returned': 'Returned',
+    'shipping.returnedQty': (n: number) => `${n} returned`,
+    'shipping.returnMaxError': (n: number) => `Return qty must be ≤ ${n}`,
+
+    // Purchase Order PDF
+    'history.printOrder': 'Print Purchase Order',
+    'history.purchaseOrder': 'Purchase Order',
+    'history.poProduct': 'Product',
+    'history.poQty': 'Qty',
+    'history.poExpected': 'Expected Date',
 
     // History
     'history.title': 'Order History',

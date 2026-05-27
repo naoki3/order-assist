@@ -54,6 +54,7 @@ export interface OutgoingStock {
   location_name: string | null;
   warehouse_id: number | null;
   warehouse_name: string | null;
+  returned_qty: number;
 }
 
 export interface IncomingStock {
