@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { IncomingStock } from '@/lib/db';
+import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
 import { receiveIncoming, deleteIncomingSchedule, receiveBulkIncoming } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
@@ -17,8 +17,15 @@ export interface LocationOption {
   warehouse_id: number | null;
 }
 
-function Item({ item, unitConfig, expiryType, locations }: {
-  item: IncomingStock;
+function ReceiptLineItem({
+  line,
+  receipt,
+  unitConfig,
+  expiryType,
+  locations,
+}: {
+  line: ReceiptLine;
+  receipt: ReceiptWithLines;
   unitConfig: UnitConfig;
   expiryType: string | null;
   locations: LocationOption[];
@@ -30,8 +37,8 @@ function Item({ item, unitConfig, expiryType, locations }: {
   const [locationId, setLocationId] = useState('');
   const selectedLocation = locations.find((l) => l.id === Number(locationId));
 
-  const filteredLocations = item.warehouse_id
-    ? locations.filter((l) => l.warehouse_id === item.warehouse_id)
+  const filteredLocations = receipt.warehouse_id
+    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
     : [];
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
@@ -41,11 +48,17 @@ function Item({ item, unitConfig, expiryType, locations }: {
     <div className="py-2.5 space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig, lang)}</span>
+            <span className="text-xs text-slate-500 ml-2">{formatQty(line.expected_qty, unitConfig, lang)}</span>
           ) : (
-            <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
+            <span className="text-xs text-slate-500 ml-2">{line.expected_qty} {t('incoming.units')}</span>
+          )}
+          {line.lot_number && (
+            <span className="text-xs text-slate-400 ml-2">#{line.lot_number}</span>
+          )}
+          {line.expiry_date && (
+            <span className="text-xs text-slate-400 ml-2">{t('incoming.expiryDate')}: {formatDisplayDate(line.expiry_date)}</span>
           )}
         </div>
         {confirming ? (
@@ -56,7 +69,7 @@ function Item({ item, unitConfig, expiryType, locations }: {
               {t('common.cancel')}
             </button>
             <form action={delAction}>
-              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="id" value={receipt.id} />
               <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
                 {t('incoming.delete')}
               </button>
@@ -71,15 +84,15 @@ function Item({ item, unitConfig, expiryType, locations }: {
       </div>
       {!confirming && (
         <form action={receiveAction} className="flex flex-wrap gap-2">
-          <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="id" value={line.id} />
           <input type="hidden" name="location_id" value={locationId} />
           <input type="hidden" name="location_name" value={selectedLocation?.name ?? ''} />
-          <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
+          <input type="text" name="lot_number" defaultValue={line.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
-            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
+            <DateInput name="expiry_date" defaultValue={line.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
           {filteredLocations.length > 0 && (
             <label className="flex-1 min-w-32 flex flex-col gap-0.5">
@@ -109,9 +122,76 @@ function Item({ item, unitConfig, expiryType, locations }: {
   );
 }
 
-function DateGroup({ date, items, unitMap, expiryTypeMap, today, locations }: {
+function ReceiptCard({
+  receipt,
+  unitMap,
+  expiryTypeMap,
+  locations,
+}: {
+  receipt: ReceiptWithLines;
+  unitMap: Record<number, UnitConfig>;
+  expiryTypeMap: Record<number, string | null>;
+  locations: LocationOption[];
+}) {
+  const { t } = useT();
+  const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
+  const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
+
+  return (
+    <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100">
+        <span className="font-mono text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded">
+          {receipt.receipt_no}
+        </span>
+        {receipt.supplier_name && (
+          <span className="text-xs text-slate-600">{receipt.supplier_name}</span>
+        )}
+        {receipt.warehouse_name && (
+          <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {receipt.warehouse_name}</span>
+        )}
+      </div>
+      {/* Card body - lines */}
+      <div className="px-3 divide-y divide-slate-100">
+        {receipt.receipt_lines.map((line) => (
+          <ReceiptLineItem
+            key={line.id}
+            line={line}
+            receipt={receipt}
+            unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+            expiryType={expiryTypeMap[line.product_id] ?? null}
+            locations={locations}
+          />
+        ))}
+      </div>
+      {/* Bulk receive footer */}
+      {receipt.receipt_lines.length > 1 && (
+        <div className="px-3 pb-3 pt-1">
+          {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
+          {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
+          <form action={bulkAction}>
+            <input type="hidden" name="ids" value={JSON.stringify(receipt.receipt_lines.map((l) => l.id))} />
+            <button type="submit"
+              className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+              {t('common.bulkConfirm') ?? `一括入荷 (${receipt.receipt_lines.length}件)`}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DateGroup({
+  date,
+  receipts,
+  unitMap,
+  expiryTypeMap,
+  today,
+  locations,
+}: {
   date: string;
-  items: IncomingStock[];
+  receipts: ReceiptWithLines[];
   unitMap: Record<number, UnitConfig>;
   expiryTypeMap: Record<number, string | null>;
   today: string;
@@ -119,9 +199,7 @@ function DateGroup({ date, items, unitMap, expiryTypeMap, today, locations }: {
 }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
-  const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
-  const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  const totalLines = receipts.reduce((s, r) => s + r.receipt_lines.length, 0);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -135,65 +213,56 @@ function DateGroup({ date, items, unitMap, expiryTypeMap, today, locations }: {
           <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
-          <span>{tf<string>('common.itemCount', items.length)}</span>
+          <span>{tf<string>('common.itemCount', receipts.length)}</span>
           <span>·</span>
-          <span>{tf<string>('common.totalUnits', totalQty)}</span>
+          <span>{tf<string>('common.totalUnits', totalLines)}</span>
         </div>
       </button>
       {isOpen && (
-        <div className="px-4 pb-3">
-          <div className="divide-y divide-slate-100">
-            {items.map(item => (
-              <Item
-                key={item.id}
-                item={item}
-                unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
-                expiryType={expiryTypeMap[item.product_id] ?? null}
-                locations={locations}
-              />
-            ))}
-          </div>
-          {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
-          {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
-          <form action={bulkAction} className="pt-2">
-            <input type="hidden" name="ids" value={JSON.stringify(items.map(i => i.id))} />
-            <button type="submit"
-              className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              {tf<string>('common.bulkConfirm', items.length)}
-            </button>
-          </form>
+        <div className="px-4 pb-3 pt-1">
+          {receipts.map((receipt) => (
+            <ReceiptCard
+              key={receipt.id}
+              receipt={receipt}
+              unitMap={unitMap}
+              expiryTypeMap={expiryTypeMap}
+              locations={locations}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function groupByDate(items: IncomingStock[]) {
-  const map = new Map<string, IncomingStock[]>();
-  for (const item of items) {
-    const arr = map.get(item.expected_date) ?? [];
-    arr.push(item);
-    map.set(item.expected_date, arr);
+function groupByDate(receipts: ReceiptWithLines[]) {
+  const map = new Map<string, ReceiptWithLines[]>();
+  for (const r of receipts) {
+    const arr = map.get(r.expected_date) ?? [];
+    arr.push(r);
+    map.set(r.expected_date, arr);
   }
-  return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
+  return Array.from(map.entries())
+    .map(([date, rs]) => ({ date, receipts: rs }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export default function IncomingConfirmList({
-  items, emptyText, unitMap = {}, expiryTypeMap = {}, today = '', locations = [],
+  receipts, emptyText, unitMap = {}, expiryTypeMap = {}, today = '', locations = [],
 }: {
-  items: IncomingStock[];
+  receipts: ReceiptWithLines[];
   emptyText: string;
   unitMap?: Record<number, UnitConfig>;
   expiryTypeMap?: Record<number, string | null>;
   today?: string;
   locations?: LocationOption[];
 }) {
-  const groups = groupByDate(items);
-  if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
+  const groups = groupByDate(receipts);
+  if (receipts.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
-      {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
+      {groups.map(({ date, receipts: dateReceipts }) => (
+        <DateGroup key={date} date={date} receipts={dateReceipts} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
       ))}
     </div>
   );
