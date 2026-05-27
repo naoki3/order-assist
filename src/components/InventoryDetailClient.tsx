@@ -3,7 +3,7 @@
 import { useState, useActionState, useEffect } from 'react';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
-import { updateLotProperties, transferStock, updateStock } from '@/lib/actions';
+import { updateLotProperties, transferStock, updateLotQuantity } from '@/lib/actions';
 import type { Lot, Product } from '@/lib/db';
 import { formatQty } from '@/lib/units';
 import LotTag from './LotTag';
@@ -65,7 +65,7 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
   today: string;
 }) {
   const { t, lang } = useT();
-  const [mode, setMode] = useState<'none' | 'correction' | 'transfer'>('none');
+  const [mode, setMode] = useState<'none' | 'correction' | 'transfer' | 'adjust'>('none');
 
   const [corrState, corrAction] = useActionState(updateLotProperties, null);
   const { successMsg: corrSuccess, errorMsg: corrError } = useActionFeedback(corrState, t('common.saved'));
@@ -84,6 +84,15 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
       setTimeout(() => { setTransKey((k) => k + 1); setMode('none'); }, 500);
     }
   }, [transState]);
+
+  const [adjState, adjAction] = useActionState(updateLotQuantity, null);
+  const { successMsg: adjSuccess, errorMsg: adjError } = useActionFeedback(adjState, t('common.saved'));
+  const [adjKey, setAdjKey] = useState(0);
+  useEffect(() => {
+    if (adjState && 'success' in adjState) {
+      setTimeout(() => { setAdjKey((k) => k + 1); setMode('none'); }, 500);
+    }
+  }, [adjState]);
 
   // Warehouse select state for transfer
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
@@ -135,6 +144,13 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
             {t('transfer.title')}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setMode(mode === 'adjust' ? 'none' : 'adjust')}
+          className={`text-xs px-2 py-1 rounded-lg border transition-colors ${mode === 'adjust' ? 'bg-slate-200 border-slate-300' : 'border-slate-200 hover:bg-slate-100'}`}
+        >
+          {t('inventory.adjustTitle')}
+        </button>
       </div>
 
       {mode === 'correction' && (
@@ -220,34 +236,21 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
           </button>
         </form>
       )}
-    </div>
-  );
-}
-
-function StockAdjustSection({ product, currentStock }: { product: Product; currentStock: number }) {
-  const { t } = useT();
-  const [state, action] = useActionState(updateStock, null);
-  const { successMsg, errorMsg } = useActionFeedback(state, t('common.saved'));
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="border-t border-slate-100 pt-3 mt-3">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className="text-xs text-slate-500 hover:text-slate-700 underline">
-        {t('inventory.adjustTitle')}
-      </button>
-      {open && (
-        <form action={action} className="flex gap-2 mt-2">
-          <input type="hidden" name="product_id" value={product.id} />
-          <input type="number" name="current_stock" required min={0} defaultValue={currentStock}
-            className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          <button type="submit" className="px-3 py-1.5 bg-slate-700 text-white text-xs rounded-lg hover:bg-slate-800 transition-colors font-medium">
+      {mode === 'adjust' && (
+        <form key={adjKey} action={adjAction} className="space-y-2 pt-1">
+          <input type="hidden" name="lot_id" value={lot.id} />
+          <div>
+            <label className="text-xs text-slate-500 mb-0.5 block">{t('inventory.lotQty')}</label>
+            <input type="number" name="quantity" required min={0} defaultValue={lot.quantity}
+              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          {adjError && <p className="text-red-600 text-xs">{adjError}</p>}
+          {adjSuccess && <p className="text-green-600 text-xs">{adjSuccess}</p>}
+          <button type="submit" className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
             {t('inventory.adjustButton')}
           </button>
         </form>
       )}
-      {errorMsg && <p className="text-red-600 text-xs mt-1">{errorMsg}</p>}
-      {successMsg && <p className="text-green-600 text-xs mt-1">{successMsg}</p>}
     </div>
   );
 }
@@ -275,8 +278,6 @@ export default function InventoryDetailClient({ product, lots, currentStock, loc
           ))}
         </div>
       )}
-
-      <StockAdjustSection product={product} currentStock={currentStock} />
     </div>
   );
 }
