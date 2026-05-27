@@ -93,7 +93,7 @@ export default function LotAllocationList({
   unitMap?: Record<number, UnitConfig>;
   lotsMap?: Record<number, Lot[]>;
 }) {
-  const { t, tf } = useT();
+  const { tf } = useT();
   const [bulkState, bulkAction] = useActionState(allocateBulkOutgoing, null);
   const { errorMsg: bulkError } = useActionFeedback(bulkState, '');
 
