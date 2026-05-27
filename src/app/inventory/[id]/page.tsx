@@ -17,14 +17,15 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
   const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
   const today = toLocalDateStr(tz);
 
-  const [{ data: productData }, { data: inventoryData }, { data: lotsData }, { data: locationsData }, { data: warehousesData }] = await Promise.all([
+  const [{ data: productData }, { data: inventoryData }, { data: lotsData }, { data: locationsData }, { data: warehousesData }, { data: statusesData }] = await Promise.all([
     supabase.from('products').select('*').eq('id', productId).maybeSingle(),
     supabase.from('inventory').select('*').eq('product_id', productId).maybeSingle(),
     supabase.from('lots').select('*').eq('product_id', productId)
       .order('expiry_date', { ascending: true, nullsFirst: false })
       .order('received_at', { ascending: false }),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
-    supabase.from('warehouses').select('id, name'),
+    supabase.from('warehouses').select('id, name').order('name'),
+    supabase.from('inventory_statuses').select('id, name, color').order('name'),
   ]);
 
   if (!productData) notFound();
@@ -33,6 +34,7 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
   const currentStock = (inventoryData as Inventory | null)?.current_stock ?? 0;
   const lots = (lotsData ?? []) as Lot[];
   const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
+  const statuses = (statusesData ?? []) as { id: number; name: string; color: string }[];
   const warehouseNameMap = Object.fromEntries(warehouses.map((w) => [w.id, w.name]));
 
   type LocationRow = { id: number; name: string; warehouse_id: number | null };
@@ -56,6 +58,8 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
         lots={lots}
         currentStock={currentStock}
         locations={locations}
+        warehouses={warehouses}
+        statuses={statuses}
         today={today}
       />
     </div>

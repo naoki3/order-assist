@@ -1076,6 +1076,10 @@ export async function updateLotProperties(
   const lotId = Number(formData.get('lot_id'));
   const lotNumber = String(formData.get('lot_number') ?? '').trim();
   const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+  const statusIdRaw = formData.get('status_id');
+  const status_id = statusIdRaw && String(statusIdRaw).trim() !== '' ? Number(statusIdRaw) : null;
+  const status_name = (formData.get('status_name') as string | null) || null;
+  const status_color = (formData.get('status_color') as string | null) || null;
 
   if (!lotId || !lotNumber) return { error: 'ロット番号は必須です' };
 
@@ -1091,7 +1095,7 @@ export async function updateLotProperties(
 
   const { error } = await supabase
     .from('lots')
-    .update({ lot_number: lotNumber, expiry_date: expiryDate })
+    .update({ lot_number: lotNumber, expiry_date: expiryDate, status_id, status_name, status_color })
     .eq('id', lotId);
 
   if (error) return { error: `更新失敗: ${error.message}` };

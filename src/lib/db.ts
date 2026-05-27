@@ -83,6 +83,9 @@ export interface Lot {
   location_name: string | null;
   warehouse_id: number | null;
   warehouse_name: string | null;
+  status_id: number | null;
+  status_name: string | null;
+  status_color: string | null;
 }
 
 export interface Supplier {
