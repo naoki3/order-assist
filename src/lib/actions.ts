@@ -49,17 +49,29 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
     return { error: `Failed to place order: ${error?.message ?? 'unknown error'}` };
   }
 
-  const incomingRows = nonZero.map((item) => ({
-    order_history_id: orderData.id,
-    product_id: item.productId,
-    product_name: item.productName,
-    quantity: item.quantity,
-    expected_date: item.expectedDate,
-  }));
-
-  const { error: insertError } = await supabase.from('incoming_stock').insert(incomingRows);
-  if (insertError) {
-    return { error: `Order placed but failed to register incoming stock: ${insertError.message}` };
+  const localToday = await getLocalDate();
+  for (const item of nonZero) {
+    const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
+      receipt_no:      receiptNo,
+      source_system:   'order',
+      order_history_id: orderData.id,
+      expected_date:   item.expectedDate,
+      user_id:         ownerId,
+    }).select('id').single();
+    if (rErr || !receipt) {
+      return { error: `Order placed but failed to create receipt: ${rErr?.message ?? 'unknown'}` };
+    }
+    const { error: lErr } = await supabase.from('receipt_lines').insert({
+      receipt_id:   receipt.id,
+      product_id:   item.productId,
+      product_name: item.productName,
+      expected_qty: item.quantity,
+      user_id:      ownerId,
+    });
+    if (lErr) {
+      return { error: `Order placed but failed to register receipt line: ${lErr.message}` };
+    }
   }
 
   revalidatePath('/history');
@@ -80,10 +92,10 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   if (!locationId) return { error: 'ロケーションは必須です' };
 
   const { data: items, error: fetchError } = await supabase
-    .from('incoming_stock')
-    .select('id, product_id, product_name, quantity, lot_number, expiry_date, warehouse_id')
+    .from('receipt_lines')
+    .select('id, product_id, product_name, expected_qty, lot_number, expiry_date')
     .in('id', ids)
-    .is('received_at', null);
+    .eq('status', 'pending');
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
 
   // 賞味期限チェック
@@ -115,17 +127,17 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
 
   for (const item of items) {
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
-    const { data, error } = await supabase.rpc('fn_receive_incoming', {
-      p_incoming_id:    item.id,
-      p_lot_number:     lotNumber,
-      p_expiry_date:    item.expiry_date ?? null,
-      p_location_id:    locationId,
-      p_location_name:  locationName,
-      p_warehouse_id:   bulkWarehouseId,
-      p_warehouse_name: bulkWarehouseName,
-      p_local_today:    localToday,
-      p_owner_id:       ownerId,
-      p_operation_id:   crypto.randomUUID(),
+    const { data, error } = await supabase.rpc('fn_receive_receipt_line', {
+      p_receipt_line_id: item.id,
+      p_lot_number:      lotNumber,
+      p_expiry_date:     item.expiry_date ?? null,
+      p_location_id:     locationId,
+      p_location_name:   locationName,
+      p_warehouse_id:    bulkWarehouseId,
+      p_warehouse_name:  bulkWarehouseName,
+      p_local_today:     localToday,
+      p_owner_id:        ownerId,
+      p_operation_id:    crypto.randomUUID(),
     });
     if (error) { errors.push(error.message); continue; }
     const result = data as { ok?: boolean; error?: string } | null;
@@ -150,7 +162,7 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   const localToday = await getLocalDate();
 
   const { data, error } = await supabase.rpc('fn_confirm_bulk_shipment', {
-    p_outgoing_ids: ids,
+    p_shipment_ids: ids,
     p_local_today:  localToday,
   });
   if (error) return { error: error.message };
@@ -172,10 +184,10 @@ export async function updateIncomingSchedule(formData: FormData): Promise<Action
   if (!await getOwnerId(supabase)) return { error: 'Not authenticated' };
 
   const { error } = await supabase
-    .from('incoming_stock')
+    .from('receipt_lines')
     .update({ lot_number: lotNumber, expiry_date: expiryDate })
     .eq('id', id)
-    .is('received_at', null);
+    .eq('status', 'pending');
 
   if (error) return { error: `Failed to update: ${error.message}` };
   revalidatePath('/incoming');
@@ -198,42 +210,43 @@ export async function receiveIncoming(
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  const { data: incoming, error: fetchError } = await supabase
-    .from('incoming_stock')
-    .select('product_id, lot_number, warehouse_id')
+  const { data: line, error: fetchError } = await supabase
+    .from('receipt_lines')
+    .select('product_id, lot_number, receipts(warehouse_id)')
     .eq('id', id)
     .single();
-  if (fetchError || !incoming) return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
+  if (fetchError || !line) return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
 
   const { data: product } = await supabase
-    .from('products').select('expiry_type').eq('id', incoming.product_id).single();
+    .from('products').select('expiry_type').eq('id', line.product_id).single();
   if (product?.expiry_type && product.expiry_type !== 'none' && !formExpiry) {
     return { error: '賞味期限は必須です' };
   }
 
   const localToday = await getLocalDate();
-  const lotNumber = formLot || incoming.lot_number || `${localToday.replace(/-/g, '')}-${id}`;
+  const lotNumber = formLot || line.lot_number || `${localToday.replace(/-/g, '')}-${id}`;
 
   const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
   const locationName = loc?.name ?? null;
-  const warehouseId = (incoming as { warehouse_id?: number | null }).warehouse_id ?? loc?.warehouse_id ?? null;
+  const receipt = Array.isArray(line.receipts) ? line.receipts[0] : line.receipts;
+  const warehouseId = (receipt as { warehouse_id?: number | null } | null)?.warehouse_id ?? loc?.warehouse_id ?? null;
   let warehouseName: string | null = null;
   if (warehouseId) {
     const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
     warehouseName = w?.name ?? null;
   }
 
-  const { data, error } = await supabase.rpc('fn_receive_incoming', {
-    p_incoming_id:    id,
-    p_lot_number:     lotNumber,
-    p_expiry_date:    formExpiry ?? null,
-    p_location_id:    locationId,
-    p_location_name:  locationName,
-    p_warehouse_id:   warehouseId,
-    p_warehouse_name: warehouseName,
-    p_local_today:    localToday,
-    p_owner_id:       ownerId,
-    p_operation_id:   crypto.randomUUID(),
+  const { data, error } = await supabase.rpc('fn_receive_receipt_line', {
+    p_receipt_line_id: id,
+    p_lot_number:      lotNumber,
+    p_expiry_date:     formExpiry ?? null,
+    p_location_id:     locationId,
+    p_location_name:   locationName,
+    p_warehouse_id:    warehouseId,
+    p_warehouse_name:  warehouseName,
+    p_local_today:     localToday,
+    p_owner_id:        ownerId,
+    p_operation_id:    crypto.randomUUID(),
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -382,10 +395,11 @@ export async function updateStock(
   const supabase = await createClient();
 
   const { data: pending } = await supabase
-    .from('outgoing_stock')
+    .from('shipment_lines')
     .select('quantity')
     .eq('product_id', productId)
-    .is('shipped_at', null);
+    .eq('shipped_qty', 0)
+    .neq('status', 'cancelled');
 
   const reserved = (pending ?? []).reduce((s, r) => s + r.quantity, 0);
   if (stock < reserved) {
@@ -521,11 +535,7 @@ export async function addIncomingSchedule(
   if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
-    .from('products')
-    .select('name')
-    .eq('id', productId)
-    .single();
-
+    .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: 'Product not found' };
 
   const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
@@ -545,20 +555,29 @@ export async function addIncomingSchedule(
     warehouseName = w?.name ?? null;
   }
 
-  const { error } = await supabase.from('incoming_stock').insert({
-    product_id: productId,
-    product_name: product.name,
-    quantity,
-    expected_date: expectedDate,
-    lot_number: lotNumber,
-    user_id: ownerId,
-    supplier_id: supplierId,
-    supplier_name: supplierName,
-    warehouse_id: warehouseId,
-    warehouse_name: warehouseName,
-  });
+  const localToday = await getLocalDate();
+  const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
-  if (error) return { error: `Failed to add schedule: ${error.message}` };
+  const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
+    receipt_no:    receiptNo,
+    expected_date: expectedDate,
+    supplier_id:   supplierId,
+    supplier_name: supplierName,
+    warehouse_id:  warehouseId,
+    warehouse_name: warehouseName,
+    user_id:       ownerId,
+  }).select('id').single();
+  if (rErr || !receipt) return { error: `Failed to create receipt: ${rErr?.message ?? 'unknown'}` };
+
+  const { error: lErr } = await supabase.from('receipt_lines').insert({
+    receipt_id:   receipt.id,
+    product_id:   productId,
+    product_name: product.name,
+    expected_qty: quantity,
+    lot_number:   lotNumber,
+    user_id:      ownerId,
+  });
+  if (lErr) return { error: `Failed to add line: ${lErr.message}` };
 
   revalidatePath('/incoming');
   revalidatePath('/incoming/schedule');
@@ -600,18 +619,35 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
     warehouseName = w?.name ?? null;
   }
 
-  const { data, error } = await supabase
-    .from('incoming_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, expected_date: expectedDate, lot_number: lotNumber, expiry_date: expiryDate, user_id: ownerId, supplier_id: supplierId, supplier_name: supplierName, warehouse_id: warehouseId, warehouse_name: warehouseName })
-    .select('id')
-    .single();
+  const localToday = await getLocalDate();
+  const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
-  if (error || !data) return { error: `追加失敗: ${error?.message}` };
+  const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
+    receipt_no:    receiptNo,
+    expected_date: expectedDate,
+    supplier_id:   supplierId,
+    supplier_name: supplierName,
+    warehouse_id:  warehouseId,
+    warehouse_name: warehouseName,
+    user_id:       ownerId,
+  }).select('id').single();
+  if (rErr || !receipt) return { error: `追加失敗: ${rErr?.message}` };
+
+  const { data: line, error: lErr } = await supabase.from('receipt_lines').insert({
+    receipt_id:   receipt.id,
+    product_id:   productId,
+    product_name: product.name,
+    expected_qty: quantity,
+    lot_number:   lotNumber,
+    expiry_date:  expiryDate,
+    user_id:      ownerId,
+  }).select('id').single();
+  if (lErr || !line) return { error: `追加失敗: ${lErr?.message}` };
 
   revalidatePath('/incoming');
   revalidatePath('/incoming/schedule');
   revalidatePath('/dashboard');
-  return { success: 'ok', newId: data.id };
+  return { success: 'ok', newId: line.id };
 }
 
 export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult> {
@@ -638,7 +674,7 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   if (lotId) {
     const { data: lot } = await supabase.from('lots').select('quantity').eq('id', lotId).single();
     const { data: reserved } = await supabase
-      .from('outgoing_stock').select('quantity').eq('lot_id', lotId).is('shipped_at', null);
+      .from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled');
     const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
     const available = (lot?.quantity ?? 0) - reservedQty;
     if (quantity > available) {
@@ -671,17 +707,41 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
     warehouseName = w?.name ?? null;
   }
 
-  const { data, error } = await supabase
-    .from('outgoing_stock')
-    .insert({ product_id: productId, product_name: product.name, quantity, scheduled_date: scheduledDate, note, lot_id: lotId, lot_number: lotNumber, user_id: ownerId, destination_id: destinationId, destination_name: destinationName, carrier_id: carrierId, carrier_name: carrierName, location_id: locationId, location_name: locationName, warehouse_id: warehouseId, warehouse_name: warehouseName })
-    .select('id')
-    .single();
+  const localToday = await getLocalDate();
+  const shipmentNo = `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
-  if (error || !data) return { error: `追加失敗: ${error?.message}` };
+  const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
+    shipment_no:      shipmentNo,
+    scheduled_date:   scheduledDate,
+    destination_id:   destinationId,
+    destination_name: destinationName,
+    carrier_id:       carrierId,
+    carrier_name:     carrierName,
+    warehouse_id:     warehouseId,
+    warehouse_name:   warehouseName,
+    note,
+    user_id:          ownerId,
+  }).select('id').single();
+  if (sErr || !shipment) return { error: `追加失敗: ${sErr?.message}` };
+
+  const { data: line, error: lErr } = await supabase.from('shipment_lines').insert({
+    shipment_id:    shipment.id,
+    product_id:     productId,
+    product_name:   product.name,
+    quantity,
+    lot_id:         lotId,
+    lot_number:     lotNumber,
+    location_id:    locationId,
+    location_name:  locationName,
+    warehouse_id:   warehouseId,
+    warehouse_name: warehouseName,
+    user_id:        ownerId,
+  }).select('id').single();
+  if (lErr || !line) return { error: `追加失敗: ${lErr?.message}` };
 
   revalidatePath('/shipping/schedule');
   revalidatePath('/shipping/confirm');
-  return { success: 'ok', newId: data.id };
+  return { success: 'ok', newId: line.id };
 }
 
 export async function unreceiveIncoming(
@@ -692,10 +752,10 @@ export async function unreceiveIncoming(
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_unreceive_incoming', {
-    p_incoming_id:  id,
-    p_operation_id: crypto.randomUUID(),
-    p_local_today:  localToday,
+  const { data, error } = await supabase.rpc('fn_unreceive_receipt_line', {
+    p_receipt_line_id: id,
+    p_operation_id:    crypto.randomUUID(),
+    p_local_today:     localToday,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -715,8 +775,8 @@ export async function unshipOutgoing(
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_unship_outgoing', {
-    p_outgoing_id:  id,
+  const { data, error } = await supabase.rpc('fn_unship_shipment', {
+    p_shipment_id:  id,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
   });
@@ -737,11 +797,12 @@ export async function deleteIncomingSchedule(
   const id = Number(formData.get('id'));
   const supabase = await createClient();
 
+  // Delete the receipt (cascades to receipt_lines)
   const { error } = await supabase
-    .from('incoming_stock')
+    .from('receipts')
     .delete()
     .eq('id', id)
-    .is('received_at', null);
+    .eq('status', 'expected');
 
   if (error) return { error: `Failed to delete: ${error.message}` };
 
@@ -771,11 +832,7 @@ export async function addOutgoingSchedule(
   if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: product } = await supabase
-    .from('products')
-    .select('name')
-    .eq('id', productId)
-    .single();
-
+    .from('products').select('name').eq('id', productId).single();
   if (!product) return { error: 'Product not found' };
 
   const destinationId = Number(formData.get('destination_id')) || null;
@@ -791,20 +848,29 @@ export async function addOutgoingSchedule(
     carrierName = c?.name ?? null;
   }
 
-  const { error } = await supabase.from('outgoing_stock').insert({
-    product_id: productId,
+  const localToday = await getLocalDate();
+  const shipmentNo = `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+
+  const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
+    shipment_no:      shipmentNo,
+    scheduled_date:   scheduledDate,
+    destination_id:   destinationId,
+    destination_name: destinationName,
+    carrier_id:       carrierId,
+    carrier_name:     carrierName,
+    note,
+    user_id:          ownerId,
+  }).select('id').single();
+  if (sErr || !shipment) return { error: `Failed to add schedule: ${sErr?.message ?? 'unknown'}` };
+
+  const { error: lErr } = await supabase.from('shipment_lines').insert({
+    shipment_id:  shipment.id,
+    product_id:   productId,
     product_name: product.name,
     quantity,
-    scheduled_date: scheduledDate,
-    note,
-    user_id: ownerId,
-    destination_id: destinationId,
-    destination_name: destinationName,
-    carrier_id: carrierId,
-    carrier_name: carrierName,
+    user_id:      ownerId,
   });
-
-  if (error) return { error: `Failed to add schedule: ${error.message}` };
+  if (lErr) return { error: `Failed to add line: ${lErr.message}` };
 
   revalidatePath('/shipping/schedule');
   revalidatePath('/shipping/confirm');
@@ -818,11 +884,13 @@ export async function deleteOutgoingSchedule(
   const id = Number(formData.get('id'));
   const supabase = await createClient();
 
+  // id here is the shipment_line.id (= shipment.id for 1:1 migrated data)
+  // Delete the parent shipment (cascades to shipment_lines)
   const { error } = await supabase
-    .from('outgoing_stock')
+    .from('shipments')
     .delete()
     .eq('id', id)
-    .is('shipped_at', null);
+    .in('status', ['requested', 'allocated']);
 
   if (error) return { error: `Failed to delete: ${error.message}` };
 
@@ -835,12 +903,13 @@ export async function confirmShipment(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  // id is the shipment.id (= shipment_line.shipment_id for 1:1 migrated data)
   const id = Number(formData.get('id'));
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
   const { data, error } = await supabase.rpc('fn_confirm_shipment', {
-    p_outgoing_id:  id,
+    p_shipment_id:  id,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
   });
@@ -862,8 +931,8 @@ export async function allocateOutgoing(
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_allocate_outgoing', {
-    p_outgoing_id:  id,
+  const { data, error } = await supabase.rpc('fn_allocate_shipment_line', {
+    p_line_id:      id,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
   });
@@ -887,9 +956,9 @@ export async function allocateBulkOutgoing(
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_allocate_bulk_outgoing', {
-    p_outgoing_ids: ids,
-    p_local_today:  localToday,
+  const { data, error } = await supabase.rpc('fn_allocate_bulk_shipment_lines', {
+    p_line_ids:    ids,
+    p_local_today: localToday,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -908,8 +977,8 @@ export async function deallocateOutgoing(
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_deallocate_outgoing', {
-    p_outgoing_id:  id,
+  const { data, error } = await supabase.rpc('fn_deallocate_shipment_line', {
+    p_line_id:      id,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
   });
@@ -963,10 +1032,11 @@ export async function updateLotProperties(
   const supabase = await createClient();
 
   const { count } = await supabase
-    .from('outgoing_stock')
+    .from('shipment_lines')
     .select('id', { count: 'exact', head: true })
     .eq('lot_id', lotId)
-    .is('shipped_at', null);
+    .eq('shipped_qty', 0)
+    .neq('status', 'cancelled');
 
   if (count && count > 0) return { error: `出荷予定に引き当てられているため変更できません（${count}件）` };
 
@@ -1018,7 +1088,8 @@ export async function importOutgoingCsv(
     (products ?? []).map((p) => [p.id, p.name])
   );
 
-  const rows: { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null; user_id: string }[] = [];
+  type OutgoingRow = { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null };
+  const rows: OutgoingRow[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
@@ -1040,18 +1111,32 @@ export async function importOutgoingCsv(
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
       note: rawNote?.trim() || null,
-      user_id: ownerId,
     });
   }
 
   if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
 
-  const { error } = await supabase.from('outgoing_stock').insert(rows);
-  if (error) return { imported: 0, skipped, error: `Failed to import: ${error.message}` };
+  const localToday = await getLocalDate();
+  let imported = 0;
+  for (const row of rows) {
+    const shipmentNo = `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
+      shipment_no: shipmentNo, scheduled_date: row.scheduled_date,
+      note: row.note, user_id: ownerId,
+    }).select('id').single();
+    if (sErr || !shipment) { skipped.push(`伝票作成失敗: ${row.product_name}`); continue; }
+    const { error: lErr } = await supabase.from('shipment_lines').insert({
+      shipment_id: shipment.id, product_id: row.product_id, product_name: row.product_name,
+      quantity: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
+      user_id: ownerId,
+    });
+    if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
+    imported++;
+  }
 
   revalidatePath('/shipping/schedule');
   revalidatePath('/shipping/confirm');
-  return { imported: rows.length, skipped };
+  return { imported, skipped };
 }
 
 export interface IncomingCsvImportResult {
@@ -1082,7 +1167,8 @@ export async function importIncomingCsv(
   const productMap = new Map((products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id]));
   const productNameMap = new Map((products ?? []).map((p) => [p.id, p.name]));
 
-  const rows: { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null; user_id: string }[] = [];
+  type IncomingRow = { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null };
+  const rows: IncomingRow[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
@@ -1103,19 +1189,32 @@ export async function importIncomingCsv(
       expected_date: rawDate,
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
-      user_id: ownerId,
     });
   }
 
   if (rows.length === 0) return { imported: 0, skipped, error: 'インポートできる行がありません' };
 
-  const { error } = await supabase.from('incoming_stock').insert(rows);
-  if (error) return { imported: 0, skipped, error: `インポート失敗: ${error.message}` };
+  const localToday = await getLocalDate();
+  let imported = 0;
+  for (const row of rows) {
+    const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
+      receipt_no: receiptNo, expected_date: row.expected_date, user_id: ownerId,
+    }).select('id').single();
+    if (rErr || !receipt) { skipped.push(`伝票作成失敗: ${row.product_name}`); continue; }
+    const { error: lErr } = await supabase.from('receipt_lines').insert({
+      receipt_id: receipt.id, product_id: row.product_id, product_name: row.product_name,
+      expected_qty: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
+      user_id: ownerId,
+    });
+    if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
+    imported++;
+  }
 
   revalidatePath('/incoming/schedule');
   revalidatePath('/incoming');
   revalidatePath('/dashboard');
-  return { imported: rows.length, skipped };
+  return { imported, skipped };
 }
 
 // ─── Product CSV Import ───────────────────────────────────────────────────────
@@ -1948,8 +2047,8 @@ export async function returnOutgoing(
 
   const localToday = await getLocalDate();
 
-  const { data, error } = await supabase.rpc('fn_return_outgoing', {
-    p_outgoing_id:  id,
+  const { data, error } = await supabase.rpc('fn_return_shipment_line', {
+    p_line_id:      id,
     p_return_qty:   returnQty,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
@@ -1980,7 +2079,7 @@ export async function transferStock(
 
   const { data: lot } = await supabase
     .from('lots')
-    .select('id, lot_number, product_id, product_name, quantity, received_at, expiry_date, incoming_stock_id, location_id, location_name, warehouse_id')
+    .select('id, lot_number, product_id, product_name, quantity, received_at, expiry_date, receipt_line_id, location_id, location_name, warehouse_id')
     .eq('id', lotId)
     .single();
   if (!lot) return { error: 'ロットが見つかりません' };
@@ -2008,7 +2107,7 @@ export async function transferStock(
     await supabase.from('lots').insert({
       lot_number: lot.lot_number, product_id: lot.product_id, product_name: lot.product_name,
       quantity, received_at: lot.received_at, expiry_date: lot.expiry_date,
-      incoming_stock_id: lot.incoming_stock_id, user_id: ownerId,
+      receipt_line_id: lot.receipt_line_id, user_id: ownerId,
       location_id: toLocationId, location_name: toLoc.name,
       warehouse_id: toLoc.warehouse_id, warehouse_name: toWarehouseName,
     });

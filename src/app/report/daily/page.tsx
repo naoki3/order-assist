@@ -40,29 +40,50 @@ export default async function DailyReportPage({ searchParams }: PageProps) {
 
   const supabase = await createClient();
 
-  const [{ data: incomingData }, { data: outgoingData }, { data: lotsRaw }, { data: lotOutgoingRaw }] = await Promise.all([
+  type RawReceiptLine = { product_name: string; received_qty: number; receipts: { received_at: string } | { received_at: string }[] };
+  type RawShipmentLine = { product_name: string; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+  type RawLotShipmentLine = { lot_id: number | null; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+
+  const [{ data: incomingRaw }, { data: outgoingRaw }, { data: lotsRaw }, { data: lotOutgoingRaw }] = await Promise.all([
     supabase
-      .from('incoming_stock')
-      .select('product_name, quantity, received_at')
-      .not('received_at', 'is', null)
-      .gte('received_at', from + 'T00:00:00')
-      .lte('received_at', to + 'T23:59:59'),
+      .from('receipt_lines')
+      .select('product_name, received_qty, receipts!inner(received_at)')
+      .not('receipts.received_at', 'is', null)
+      .gte('receipts.received_at', from + 'T00:00:00')
+      .lte('receipts.received_at', to + 'T23:59:59'),
     supabase
-      .from('outgoing_stock')
-      .select('product_name, quantity, shipped_at')
-      .not('shipped_at', 'is', null)
-      .gte('shipped_at', from + 'T00:00:00')
-      .lte('shipped_at', to + 'T23:59:59'),
+      .from('shipment_lines')
+      .select('product_name, quantity, shipments!inner(shipped_at)')
+      .eq('status', 'shipped')
+      .not('shipments.shipped_at', 'is', null)
+      .gte('shipments.shipped_at', from + 'T00:00:00')
+      .lte('shipments.shipped_at', to + 'T23:59:59'),
     supabase
       .from('lots')
       .select('id, product_name, quantity, received_at, lot_number, expiry_date, status_name, warehouse_name, location_name')
       .lte('received_at', to),
     supabase
-      .from('outgoing_stock')
-      .select('lot_id, quantity, shipped_at')
-      .not('shipped_at', 'is', null)
+      .from('shipment_lines')
+      .select('lot_id, quantity, shipments!inner(shipped_at)')
+      .eq('status', 'shipped')
+      .not('shipments.shipped_at', 'is', null)
       .not('lot_id', 'is', null),
   ]);
+
+  const incomingData = ((incomingRaw ?? []) as RawReceiptLine[]).map((r) => {
+    const rec = Array.isArray(r.receipts) ? r.receipts[0] : r.receipts;
+    return { product_name: r.product_name, quantity: r.received_qty, received_at: rec?.received_at ?? '' };
+  }).filter((r) => r.received_at);
+
+  const outgoingData = ((outgoingRaw ?? []) as RawShipmentLine[]).map((r) => {
+    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
+    return { product_name: r.product_name, quantity: r.quantity, shipped_at: s?.shipped_at ?? '' };
+  }).filter((r) => r.shipped_at);
+
+  const lotOutgoingFlat = ((lotOutgoingRaw ?? []) as RawLotShipmentLine[]).map((r) => {
+    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
+    return { lot_id: r.lot_id, quantity: r.quantity, shipped_at: s?.shipped_at ?? '' };
+  }).filter((r) => r.shipped_at && r.lot_id != null);
 
   // Build activity rows (incoming / outgoing)
   const dataMap = new Map<string, DailyReportRow>();
@@ -86,7 +107,7 @@ export default async function DailyReportPage({ searchParams }: PageProps) {
 
   // Build lot outgoing map: lotId -> [{date, qty}]
   const outgoingByLot = new Map<number, { date: string; qty: number }[]>();
-  for (const o of lotOutgoingRaw ?? []) {
+  for (const o of lotOutgoingFlat) {
     if (!o.lot_id || !o.shipped_at) continue;
     const date = toLocalDateStr(tz, new Date(o.shipped_at));
     const arr = outgoingByLot.get(o.lot_id) ?? [];

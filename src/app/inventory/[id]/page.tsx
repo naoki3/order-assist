@@ -59,16 +59,20 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
   const lotIds = lots.map((l) => l.id);
   const outgoingByLot: Record<number, LotOutgoingRecord[]> = {};
   if (lotIds.length > 0) {
+    type RawLine = { id: number; lot_id: number | null; quantity: number; note: string | null; shipments: { shipped_at: string; destination_name: string | null; carrier_name: string | null } | { shipped_at: string; destination_name: string | null; carrier_name: string | null }[] };
     const { data: outgoingData } = await supabase
-      .from('outgoing_stock')
-      .select('id, lot_id, shipped_at, quantity, destination_name, carrier_name, note')
+      .from('shipment_lines')
+      .select('id, lot_id, quantity, note, shipments!inner(shipped_at, destination_name, carrier_name)')
       .in('lot_id', lotIds)
-      .not('shipped_at', 'is', null)
-      .order('shipped_at', { ascending: false });
-    for (const row of outgoingData ?? []) {
+      .eq('status', 'shipped')
+      .not('shipments.shipped_at', 'is', null)
+      .order('shipments.shipped_at', { ascending: false });
+    for (const row of (outgoingData ?? []) as RawLine[]) {
       if (!row.lot_id) continue;
+      const s = Array.isArray(row.shipments) ? row.shipments[0] : row.shipments;
+      if (!s?.shipped_at) continue;
       const arr = outgoingByLot[row.lot_id] ?? [];
-      arr.push(row as LotOutgoingRecord);
+      arr.push({ id: row.id, lot_id: row.lot_id, shipped_at: s.shipped_at, quantity: row.quantity, destination_name: s.destination_name ?? null, carrier_name: s.carrier_name ?? null, note: row.note });
       outgoingByLot[row.lot_id] = arr;
     }
   }

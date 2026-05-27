@@ -36,46 +36,123 @@ export interface OrderHistoryItem {
   items: unknown;
 }
 
-export interface OutgoingStock {
-  id: number;
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  scheduled_date: string;
-  note: string | null;
-  shipped_at: string | null;
-  lot_id: number | null;
-  lot_number: string | null;
-  expiry_date: string | null;
-  destination_id: number | null;
-  destination_name: string | null;
-  carrier_id: number | null;
-  carrier_name: string | null;
-  location_id: number | null;
-  location_name: string | null;
-  warehouse_id: number | null;
-  warehouse_name: string | null;
-  returned_qty: number;
-  allocated_at: string | null;
-}
+// ─── 入荷 ────────────────────────────────────────────────────────────────────
 
-export interface IncomingStock {
+export interface Receipt {
   id: number;
-  order_history_id: number | null;
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  expected_date: string;
-  received_at: string | null;
-  expiry_date: string | null;
-  lot_number: string | null;
+  receipt_no: string;
+  receipt_type: string;
+  status: string;
   supplier_id: number | null;
   supplier_name: string | null;
   warehouse_id: number | null;
   warehouse_name: string | null;
+  external_ref_no: string | null;
+  source_system: string;
+  order_history_id: number | null;
+  expected_date: string;
+  received_at: string | null;
+  note: string | null;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ReceiptLine {
+  id: number;
+  receipt_id: number;
+  product_id: number;
+  product_name: string;
+  expected_qty: number;
+  received_qty: number | null;
+  lot_number: string | null;
+  expiry_date: string | null;
   location_id: number | null;
   location_name: string | null;
+  status: string;
+  note: string | null;
+  user_id: string;
+  created_at: string;
 }
+
+/** Receipt with its lines embedded (for page-level queries). */
+export type ReceiptWithLines = Receipt & { receipt_lines: ReceiptLine[] };
+
+/** Flat view merging receipt header + one line — mirrors the old IncomingStock shape. */
+export type IncomingStock = ReceiptLine & {
+  // header fields
+  receipt_no: string;
+  receipt_type: string;
+  receipt_status: string;
+  supplier_id: number | null;
+  supplier_name: string | null;
+  warehouse_id: number | null;
+  warehouse_name: string | null;
+  order_history_id: number | null;
+  expected_date: string;
+  quantity: number;       // alias for expected_qty
+  received_at: string | null;
+};
+
+// ─── 出荷 ────────────────────────────────────────────────────────────────────
+
+export interface Shipment {
+  id: number;
+  shipment_no: string;
+  shipment_type: string;
+  status: string;
+  destination_id: number | null;
+  destination_name: string | null;
+  carrier_id: number | null;
+  carrier_name: string | null;
+  warehouse_id: number | null;
+  warehouse_name: string | null;
+  external_ref_no: string | null;
+  source_system: string;
+  scheduled_date: string;
+  shipped_at: string | null;
+  note: string | null;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ShipmentLine {
+  id: number;
+  shipment_id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  lot_id: number | null;
+  lot_number: string | null;
+  expiry_date: string | null;
+  location_id: number | null;
+  location_name: string | null;
+  warehouse_id: number | null;
+  warehouse_name: string | null;
+  allocated_at: string | null;
+  shipped_qty: number;
+  returned_qty: number;
+  status: string;
+  note: string | null;
+  user_id: string;
+  created_at: string;
+}
+
+/** Shipment with its lines embedded (for page-level queries). */
+export type ShipmentWithLines = Shipment & { shipment_lines: ShipmentLine[] };
+
+/** Flat view merging shipment header + one line — mirrors the old OutgoingStock shape. */
+export type OutgoingStock = ShipmentLine & {
+  // header fields
+  shipment_no: string;
+  shipment_type: string;
+  shipment_status: string;
+  destination_id: number | null;
+  destination_name: string | null;
+  carrier_id: number | null;
+  carrier_name: string | null;
+  scheduled_date: string;
+  shipped_at: string | null;
+};
 
 export interface Lot {
   id: number;
@@ -85,7 +162,7 @@ export interface Lot {
   quantity: number;
   received_at: string;
   expiry_date: string | null;
-  incoming_stock_id: number | null;
+  receipt_line_id: number | null;
   location_id: number | null;
   location_name: string | null;
   warehouse_id: number | null;

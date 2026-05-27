@@ -1,11 +1,28 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { OutgoingStock } from '@/lib/db';
+import type { OutgoingStock, ShipmentWithLines, ShipmentLine } from '@/lib/db';
 import ShippedHistoryList from '@/components/ShippedHistoryList';
 import type { UnitConfig } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
+
+function flattenShipments(shipments: ShipmentWithLines[]): OutgoingStock[] {
+  return shipments.flatMap((s) =>
+    s.shipment_lines.map((line: ShipmentLine) => ({
+      ...line,
+      shipment_no:     s.shipment_no,
+      shipment_type:   s.shipment_type,
+      shipment_status: s.status,
+      destination_id:   s.destination_id,
+      destination_name: s.destination_name,
+      carrier_id:       s.carrier_id,
+      carrier_name:     s.carrier_name,
+      scheduled_date:   s.scheduled_date,
+      shipped_at:       s.shipped_at,
+    }))
+  );
+}
 
 export default async function ShippingHistoryPage({
   searchParams,
@@ -15,22 +32,23 @@ export default async function ShippingHistoryPage({
   const { date } = await searchParams;
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
 
-  let query = supabase.from('outgoing_stock').select('*').not('shipped_at', 'is', null);
+  // eslint-disable-next-line prefer-const
+  let shipmentsQuery = supabase.from('shipments').select('*, shipment_lines(*)').eq('status', 'shipped');
 
   if (date) {
     const next = new Date(date);
     next.setDate(next.getDate() + 1);
     const nextStr = next.toISOString().split('T')[0];
-    query = query.gte('shipped_at', date).lt('shipped_at', nextStr).order('shipped_at', { ascending: false });
+    shipmentsQuery = shipmentsQuery.gte('shipped_at', date).lt('shipped_at', nextStr).order('shipped_at', { ascending: false });
   } else {
-    query = query.order('shipped_at', { ascending: false }).limit(60);
+    shipmentsQuery = shipmentsQuery.order('shipped_at', { ascending: false }).limit(60);
   }
 
   const [{ data }, { data: productsData }] = await Promise.all([
-    query,
+    shipmentsQuery,
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
-  const items = (data ?? []) as OutgoingStock[];
+  const items = flattenShipments((data ?? []) as ShipmentWithLines[]);
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );

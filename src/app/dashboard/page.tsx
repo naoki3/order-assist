@@ -4,7 +4,6 @@ import { toLocalDateStr } from '@/lib/tz';
 import { t, translations } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase';
 import type { Recommendation } from '@/lib/calculator';
-import type { IncomingStock } from '@/lib/db';
 import DashboardCharts from '@/components/DashboardCharts';
 import Link from 'next/link';
 
@@ -42,51 +41,62 @@ async function getSalesTrend(tz: string): Promise<{ date: string; quantity: numb
   const maxDate = dates[dates.length - 1];
   const supabase = await createClient();
   const { data } = await supabase
-    .from('outgoing_stock')
-    .select('shipped_at, quantity')
+    .from('shipments')
+    .select('shipped_at, shipment_lines(quantity)')
     .not('shipped_at', 'is', null)
     .gte('shipped_at', minDate + 'T00:00:00')
     .lte('shipped_at', maxDate + 'T23:59:59');
   const byDate: Record<string, number> = {};
-  for (const row of data ?? []) {
+  for (const row of (data ?? []) as { shipped_at: string; shipment_lines: { quantity: number }[] }[]) {
     if (!row.shipped_at) continue;
     const d = toLocalDateStr(tz, new Date(row.shipped_at));
-    byDate[d] = (byDate[d] ?? 0) + row.quantity;
+    const total = (row.shipment_lines ?? []).reduce((s, l) => s + l.quantity, 0);
+    byDate[d] = (byDate[d] ?? 0) + total;
   }
   return Object.entries(byDate).map(([date, quantity]) => ({ date, quantity }));
 }
 
-async function getTodayIncoming(tz: string): Promise<IncomingStock[]> {
+async function getTodayIncoming(tz: string): Promise<{ id: number; product_name: string; quantity: number }[]> {
   const today = toLocalDateStr(tz);
   const supabase = await createClient();
   const { data } = await supabase
-    .from('incoming_stock')
-    .select('*')
-    .eq('expected_date', today)
-    .is('received_at', null)
+    .from('receipt_lines')
+    .select('id, product_name, expected_qty, receipts!inner(expected_date, status)')
+    .eq('receipts.expected_date', today)
+    .eq('receipts.status', 'expected')
+    .eq('status', 'pending')
     .order('id');
-  return (data ?? []) as IncomingStock[];
+  return ((data ?? []) as { id: number; product_name: string; expected_qty: number }[]).map(r => ({
+    id: r.id,
+    product_name: r.product_name,
+    quantity: r.expected_qty,
+  }));
 }
 
 async function getTodayReceived(tz: string): Promise<{ product_name: string; quantity: number }[]> {
   const today = toLocalDateStr(tz);
   const supabase = await createClient();
   const { data } = await supabase
-    .from('incoming_stock')
-    .select('product_name, quantity')
-    .gte('received_at', today + 'T00:00:00')
-    .lte('received_at', today + 'T23:59:59');
-  return (data ?? []) as { product_name: string; quantity: number }[];
+    .from('receipt_lines')
+    .select('product_name, expected_qty, receipts!inner(received_at)')
+    .gte('receipts.received_at', today + 'T00:00:00')
+    .lte('receipts.received_at', today + 'T23:59:59')
+    .eq('status', 'received');
+  return ((data ?? []) as { product_name: string; expected_qty: number }[]).map(r => ({
+    product_name: r.product_name,
+    quantity: r.expected_qty,
+  }));
 }
 
 async function getTodayShipped(tz: string): Promise<{ product_name: string; quantity: number }[]> {
   const today = toLocalDateStr(tz);
   const supabase = await createClient();
   const { data } = await supabase
-    .from('outgoing_stock')
-    .select('product_name, quantity')
-    .gte('shipped_at', today + 'T00:00:00')
-    .lte('shipped_at', today + 'T23:59:59');
+    .from('shipment_lines')
+    .select('product_name, quantity, shipments!inner(shipped_at)')
+    .gte('shipments.shipped_at', today + 'T00:00:00')
+    .lte('shipments.shipped_at', today + 'T23:59:59')
+    .eq('status', 'shipped');
   return (data ?? []) as { product_name: string; quantity: number }[];
 }
 
