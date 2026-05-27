@@ -37,12 +37,12 @@ export default async function ShippingHistoryPage({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-xl font-bold text-slate-800 mb-1">{t('shipping.historyTitle', lang)}</h1>
         <p className="text-sm text-slate-500">{t('shipping.historySubtitle', lang)}</p>
       </div>
 
-      <form method="GET" className="flex gap-2">
+      <form method="GET" className="flex gap-2 print:hidden">
         <input
           type="date"
           name="date"
@@ -62,7 +62,7 @@ export default async function ShippingHistoryPage({
       </form>
 
       <div>
-        <p className="text-xs text-slate-400 mb-2">
+        <p className="text-xs text-slate-400 mb-2 print:hidden">
           {date ? `${t('shipping.shippedDate', lang)}: ${date}` : t('shipping.recentShippedLabel', lang)}
         </p>
         <ShippedHistoryList items={items} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} />
