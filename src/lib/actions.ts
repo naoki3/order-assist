@@ -182,6 +182,19 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
       return { error: `在庫不足: 商品ID ${pid} の現在庫 ${stockMap[pid] ?? 0} 個、出荷予定 ${qty} 個` };
   }
 
+  for (const item of items) {
+    if (item.lot_id) {
+      const { data: lot } = await supabase.from('lots').select('quantity').eq('id', item.lot_id).single();
+      const { data: reserved } = await supabase
+        .from('outgoing_stock').select('quantity').eq('lot_id', item.lot_id).is('shipped_at', null).neq('id', item.id);
+      const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
+      const available = (lot?.quantity ?? 0) - reservedQty;
+      if (available < item.quantity) {
+        return { error: `ロット在庫不足 (ロットID:${item.lot_id}): 引当可能 ${available} 個、出荷予定 ${item.quantity} 個` };
+      }
+    }
+  }
+
   const { error: markError } = await supabase
     .from('outgoing_stock').update({ shipped_at: now.toISOString() }).in('id', ids);
   if (markError) return { error: `Failed to confirm shipment: ${markError.message}` };
@@ -985,6 +998,17 @@ export async function confirmShipment(
   const currentStock = inv?.current_stock ?? 0;
   if (currentStock < outgoing.quantity) {
     return { error: `在庫不足: 現在庫 ${currentStock} 個、出荷予定 ${outgoing.quantity} 個` };
+  }
+
+  if (outgoing.lot_id) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
+    const { data: reserved } = await supabase
+      .from('outgoing_stock').select('quantity').eq('lot_id', outgoing.lot_id).is('shipped_at', null).neq('id', id);
+    const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
+    const available = (lot?.quantity ?? 0) - reservedQty;
+    if (available < outgoing.quantity) {
+      return { error: `ロット在庫不足: 引当可能 ${available} 個、出荷予定 ${outgoing.quantity} 個` };
+    }
   }
 
   const { error: updateError } = await supabase
