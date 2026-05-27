@@ -3,7 +3,7 @@ import { getLang, getTz, getCurrency, CURRENCY_SYMBOLS } from '@/lib/lang';
 import { toLocalDateStr } from '@/lib/tz';
 import { t } from '@/lib/i18n';
 import Link from 'next/link';
-import type { Product, OutgoingStock } from '@/lib/db';
+import type { Product } from '@/lib/db';
 import { formatQty } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
@@ -18,15 +18,21 @@ export default async function SalesPage() {
 
   const [{ data: outgoingData }, { data: productsData }] = await Promise.all([
     supabase
-      .from('outgoing_stock')
-      .select('*')
-      .not('shipped_at', 'is', null)
-      .gte('shipped_at', startStr + 'T00:00:00')
-      .order('shipped_at', { ascending: false }),
+      .from('shipment_lines')
+      .select('*, shipments!inner(shipped_at, destination_name, carrier_name, scheduled_date)')
+      .eq('status', 'shipped')
+      .not('shipments.shipped_at', 'is', null)
+      .gte('shipments.shipped_at', startStr + 'T00:00:00')
+      .order('shipments.shipped_at', { ascending: false }),
     supabase.from('products').select('*').order('id'),
   ]);
 
-  const outgoing = (outgoingData ?? []) as OutgoingStock[];
+  type RawLine = { product_id: number; product_name: string; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+  type FlatLine = { product_id: number; product_name: string; quantity: number; shipped_at: string | null };
+  const outgoing = ((outgoingData ?? []) as RawLine[]).map((r): FlatLine => {
+    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
+    return { product_id: r.product_id, product_name: r.product_name, quantity: r.quantity, shipped_at: s?.shipped_at ?? null };
+  });
   const products = (productsData ?? []) as Product[];
   const productMap = new Map(products.map((p) => [p.id, p]));
 

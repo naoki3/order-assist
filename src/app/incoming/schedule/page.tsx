@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { IncomingStock } from '@/lib/db';
+import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
 import IncomingScheduleList from '@/components/IncomingScheduleList';
 import IncomingCsvImport from '@/components/IncomingCsvImport';
 import { cookies } from 'next/headers';
@@ -9,14 +9,33 @@ import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
+function flattenReceipts(receipts: ReceiptWithLines[]) {
+  return receipts.flatMap((r) =>
+    r.receipt_lines.map((line: ReceiptLine) => ({
+      ...line,
+      quantity: line.expected_qty,
+      receipt_no: r.receipt_no,
+      receipt_type: r.receipt_type,
+      receipt_status: r.status,
+      supplier_id: r.supplier_id,
+      supplier_name: r.supplier_name,
+      warehouse_id: r.warehouse_id,
+      warehouse_name: r.warehouse_name,
+      order_history_id: r.order_history_id,
+      expected_date: r.expected_date,
+      received_at: r.received_at,
+    }))
+  );
+}
+
 export default async function IncomingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
   const [{ data: pendingData }, { data: productsData }, { data: inventoryData }, { data: suppliersData }, { data: warehousesData }] = await Promise.all([
     supabase
-      .from('incoming_stock')
-      .select('*')
-      .is('received_at', null)
+      .from('receipts')
+      .select('*, receipt_lines(*)')
+      .eq('status', 'expected')
       .order('expected_date', { ascending: false })
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type, default_warehouse_id').order('id'),
@@ -24,7 +43,7 @@ export default async function IncomingSchedulePage() {
     supabase.from('suppliers').select('id, name').order('name'),
     supabase.from('warehouses').select('id, name').order('name'),
   ]);
-  const pending = (pendingData ?? []) as IncomingStock[];
+  const pending = flattenReceipts((pendingData ?? []) as ReceiptWithLines[]);
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
   const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null; default_warehouse_id: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
   const suppliers = (suppliersData ?? []) as { id: number; name: string }[];

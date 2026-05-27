@@ -3,12 +3,32 @@ import { getLang } from '@/lib/lang';
 import { translations } from '@/lib/i18n';
 import IncomingConfirmList from '@/components/IncomingConfirmList';
 import ReceivedHistoryList from '@/components/ReceivedHistoryList';
-import type { IncomingStock } from '@/lib/db';
+import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
 import type { UnitConfig } from '@/lib/units';
 import { cookies } from 'next/headers';
 import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
+
+/** Flatten receipt+lines into a list of IncomingStock-shaped objects for existing components. */
+function flattenReceipts(receipts: ReceiptWithLines[]) {
+  return receipts.flatMap((r) =>
+    r.receipt_lines.map((line: ReceiptLine) => ({
+      ...line,
+      quantity: line.expected_qty,
+      receipt_no: r.receipt_no,
+      receipt_type: r.receipt_type,
+      receipt_status: r.status,
+      supplier_id: r.supplier_id,
+      supplier_name: r.supplier_name,
+      warehouse_id: r.warehouse_id,
+      warehouse_name: r.warehouse_name,
+      order_history_id: r.order_history_id,
+      expected_date: r.expected_date,
+      received_at: r.received_at,
+    }))
+  );
+}
 
 export default async function IncomingPage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
@@ -16,17 +36,23 @@ export default async function IncomingPage() {
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
 
   const [{ data: pendingData }, { data: receivedData }, { data: productsData }, { data: locationsData }] = await Promise.all([
-    supabase.from('incoming_stock').select('*')
-      .is('received_at', null)
-      .order('expected_date', { ascending: false }).order('id'),
-    supabase.from('incoming_stock').select('*')
-      .not('received_at', 'is', null)
-      .order('received_at', { ascending: false }).limit(60),
+    supabase.from('receipts')
+      .select('*, receipt_lines(*)')
+      .eq('status', 'expected')
+      .order('expected_date', { ascending: false })
+      .order('id'),
+    supabase.from('receipts')
+      .select('*, receipt_lines(*)')
+      .eq('status', 'received')
+      .order('received_at', { ascending: false })
+      .limit(60),
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type'),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
   ]);
-  const pending = (pendingData ?? []) as IncomingStock[];
-  const received = (receivedData ?? []) as IncomingStock[];
+
+  const pending = flattenReceipts((pendingData ?? []) as ReceiptWithLines[]);
+  const received = flattenReceipts((receivedData ?? []) as ReceiptWithLines[]);
+
   type ProductRow = { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null };
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     (productsData ?? []).map((p: ProductRow) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])

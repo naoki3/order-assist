@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { OutgoingStock, Lot } from '@/lib/db';
+import type { ShipmentWithLines, ShipmentLine, Lot } from '@/lib/db';
 import OutgoingCsvImport from '@/components/OutgoingCsvImport';
 import OutgoingScheduleList from '@/components/OutgoingScheduleList';
 import { cookies } from 'next/headers';
@@ -9,14 +9,31 @@ import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
+function flattenShipments(shipments: ShipmentWithLines[]) {
+  return shipments.flatMap((s) =>
+    s.shipment_lines.map((line: ShipmentLine) => ({
+      ...line,
+      shipment_no:     s.shipment_no,
+      shipment_type:   s.shipment_type,
+      shipment_status: s.status,
+      destination_id:   s.destination_id,
+      destination_name: s.destination_name,
+      carrier_id:       s.carrier_id,
+      carrier_name:     s.carrier_name,
+      scheduled_date:   s.scheduled_date,
+      shipped_at:       s.shipped_at,
+    }))
+  );
+}
+
 export default async function ShippingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
   const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }, { data: destinationsData }, { data: carriersData }, { data: locationsData }] = await Promise.all([
     supabase
-      .from('outgoing_stock')
-      .select('*')
-      .is('shipped_at', null)
+      .from('shipments')
+      .select('*, shipment_lines(*)')
+      .in('status', ['requested', 'allocated'])
       .order('scheduled_date', { ascending: false })
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, default_warehouse_id').order('id'),
@@ -26,7 +43,7 @@ export default async function ShippingSchedulePage() {
     supabase.from('carriers').select('id, name').order('name'),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
   ]);
-  const pending = (pendingData ?? []) as OutgoingStock[];
+  const pending = flattenShipments((pendingData ?? []) as ShipmentWithLines[]);
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
   const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; default_warehouse_id: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
   const lots = (lotsData ?? []) as Lot[];
