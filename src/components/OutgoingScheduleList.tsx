@@ -407,6 +407,34 @@ interface Props {
   today?: string;
 }
 
+interface PickingGroup {
+  warehouse: string | null;
+  location: string | null;
+  items: OutgoingStock[];
+}
+
+function buildPickingGroups(items: OutgoingStock[]): PickingGroup[] {
+  const map = new Map<string, PickingGroup>();
+  for (const item of items) {
+    const key = `${item.warehouse_name ?? '\x00'}||${item.location_name ?? '\x00'}`;
+    if (!map.has(key)) map.set(key, { warehouse: item.warehouse_name, location: item.location_name, items: [] });
+    map.get(key)!.items.push(item);
+  }
+  const groups = Array.from(map.values()).sort((a, b) => {
+    const wa = a.warehouse ?? '';
+    const wb = b.warehouse ?? '';
+    if (wa !== wb) return wa.localeCompare(wb);
+    return (a.location ?? '').localeCompare(b.location ?? '');
+  });
+  for (const g of groups) {
+    g.items.sort((a, b) => {
+      if (a.scheduled_date !== b.scheduled_date) return a.scheduled_date.localeCompare(b.scheduled_date);
+      return a.product_name.localeCompare(b.product_name);
+    });
+  }
+  return groups;
+}
+
 export default function OutgoingScheduleList({ items, emptyText, products, lots, destinations = [], carriers = [], locations = [], today = '' }: Props) {
   const { t } = useT();
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
@@ -419,6 +447,7 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
 
   const groups = groupByDate(items);
   const pendingDateInGroups = pendingDate ? groups.some(g => g.date === pendingDate) : false;
+  const pickingGroups = buildPickingGroups(items);
 
   function handleAdded(id: number) { setNewIds((prev) => new Set([...prev, id])); }
 
@@ -431,41 +460,94 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
   }
 
   return (
-    <div className="space-y-3">
-      {showDateInput ? (
-        <form onSubmit={handleDateSubmit} className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
-          <p className="text-sm font-semibold text-slate-700 mb-3">{t('shipping.newDateTitle')}</p>
-          <div className="flex gap-2">
-            <DateInput value={dateInputValue} onChange={setDateInputValue} required className="flex-1 min-w-0 text-sm" />
-            <button type="submit" disabled={!dateInputValue}
-              className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50 shrink-0">
-              {t('shipping.addButton')}
-            </button>
-            <button type="button" onClick={() => setShowDateInput(false)}
-              className="px-3 py-2 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors shrink-0">
-              {t('common.cancel')}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button type="button" onClick={() => setShowDateInput(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-green-400 hover:text-green-700 transition-colors">
-          <Plus size={15} /> {t('shipping.addDate')}
-        </button>
+    <div>
+      {/* Print picking list button — screen only */}
+      {items.length > 0 && (
+        <div className="flex justify-end mb-2 print:hidden">
+          <button type="button" onClick={() => window.print()}
+            className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+            {t('shipping.printPickingList')}
+          </button>
+        </div>
       )}
 
-      {pendingDate && !pendingDateInGroups && (
-        <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
-          products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
-      )}
+      {/* Regular schedule view — hidden when printing */}
+      <div className="print:hidden space-y-3">
+        {showDateInput ? (
+          <form onSubmit={handleDateSubmit} className="bg-white rounded-xl border-2 border-dashed border-green-400 p-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">{t('shipping.newDateTitle')}</p>
+            <div className="flex gap-2">
+              <DateInput value={dateInputValue} onChange={setDateInputValue} required className="flex-1 min-w-0 text-sm" />
+              <button type="submit" disabled={!dateInputValue}
+                className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-50 shrink-0">
+                {t('shipping.addButton')}
+              </button>
+              <button type="button" onClick={() => setShowDateInput(false)}
+                className="px-3 py-2 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors shrink-0">
+                {t('common.cancel')}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setShowDateInput(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-green-400 hover:text-green-700 transition-colors">
+            <Plus size={15} /> {t('shipping.addDate')}
+          </button>
+        )}
 
-      {groups.length === 0 && !pendingDate
-        ? <p className="text-slate-400 text-sm">{emptyText}</p>
-        : groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
-            products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={handleAdded} defaultOpen={date === today} />
-        ))
-      }
+        {pendingDate && !pendingDateInGroups && (
+          <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
+            products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
+        )}
+
+        {groups.length === 0 && !pendingDate
+          ? <p className="text-slate-400 text-sm">{emptyText}</p>
+          : groups.map(({ date, items: dateItems }) => (
+            <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
+              products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={handleAdded} defaultOpen={date === today} />
+          ))
+        }
+      </div>
+
+      {/* Picking list — print only */}
+      {items.length > 0 && (
+        <div className="hidden print:block text-sm">
+          <h1 className="text-xl font-bold text-slate-800 mb-4">{t('shipping.pickingList')}</h1>
+          {pickingGroups.map((group, gi) => {
+            const warehouseLabel = group.warehouse ?? t('shipping.pickingNone');
+            const locationLabel = group.location ?? t('shipping.pickingNone');
+            return (
+              <div key={gi} className="mb-6">
+                <p className="font-semibold text-slate-700 mb-1 border-b border-slate-300 pb-0.5">
+                  {t('shipping.pickingWarehouse')}: {warehouseLabel}
+                  {' / '}
+                  {t('shipping.pickingLocation')}: {locationLabel}
+                </p>
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingDate')}</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingProduct')}</th>
+                      <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingLot')}</th>
+                      <th className="border border-slate-300 px-2 py-1 text-right">{t('shipping.pickingQty')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.items.map((item, ii) => (
+                      <tr key={ii} className="border-b border-slate-200">
+                        <td className="border border-slate-300 px-2 py-1 font-mono">{formatDisplayDate(item.scheduled_date)}</td>
+                        <td className="border border-slate-300 px-2 py-1">{item.product_name}</td>
+                        <td className="border border-slate-300 px-2 py-1 font-mono">{item.lot_number ?? '—'}</td>
+                        <td className="border border-slate-300 px-2 py-1 text-right">{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

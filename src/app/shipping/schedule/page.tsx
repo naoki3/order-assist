@@ -36,14 +36,14 @@ export default async function ShippingSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-xl font-bold text-slate-800 mb-1">{t('shipping.scheduleTitle', lang)}</h1>
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
       <OutgoingScheduleList items={pending} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} destinations={destinations} carriers={carriers} locations={locations} today={today} />
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="print:hidden bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
         <div className="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600 font-mono">
           <p className="font-sans font-semibold text-slate-500 mb-1.5">{t('shipping.csvFormat', lang)}</p>
