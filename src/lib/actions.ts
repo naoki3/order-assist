@@ -498,6 +498,8 @@ export async function updateStock(
 
   revalidatePath('/');
   revalidatePath('/products');
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/[id]', 'page');
   return { success: 'ok' };
 }
 
@@ -1095,6 +1097,7 @@ export async function updateLotProperties(
   if (error) return { error: `更新失敗: ${error.message}` };
 
   revalidatePath('/inventory');
+  revalidatePath('/inventory/[id]', 'page');
   revalidatePath('/inventory/correction');
   return { success: 'ok' };
 }
@@ -2083,6 +2086,7 @@ export async function transferStock(
   });
 
   revalidatePath('/inventory');
+  revalidatePath('/inventory/[id]', 'page');
   revalidatePath('/inventory/transfer');
   return { success: 'ok' };
 }
