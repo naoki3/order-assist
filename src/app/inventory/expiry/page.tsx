@@ -1,17 +1,11 @@
 import { createClient } from '@/lib/supabase';
 import { getLang, getTz } from '@/lib/lang';
-import { t, translations } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import { toLocalDateStr } from '@/lib/tz';
 import { formatDisplayDate } from '@/lib/tz';
 import type { Lot } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z');
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 function diffDays(today: string, expiryDate: string): number {
   const a = new Date(today + 'T12:00:00Z');
@@ -23,10 +17,64 @@ interface LotWithDays extends Lot {
   daysLeft: number;
 }
 
+function LotTable({ items, colorClass, lang }: {
+  items: LotWithDays[];
+  colorClass: string;
+  lang: Lang;
+}) {
+  const isJa = lang === 'ja';
+  const daysText = (lot: LotWithDays) =>
+    lot.daysLeft < 0
+      ? (isJa ? `${Math.abs(lot.daysLeft)}日超過` : `${Math.abs(lot.daysLeft)}d overdue`)
+      : (isJa ? `残${lot.daysLeft}日` : `${lot.daysLeft}d left`);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className={`border-b border-slate-200 ${colorClass}`}>
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('inventory.lotExpiry', lang)}</th>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('inventory.lotNumber', lang)}</th>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('dailyReport.product', lang)}</th>
+            <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600">{t('inventory.lotQty', lang)}</th>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden sm:table-cell">{t('inventory.correctionStatus', lang)}</th>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden md:table-cell">{t('incoming.warehouseScheduled', lang)}</th>
+            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden md:table-cell">{t('inventory.location', lang)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((lot) => (
+            <tr key={lot.id} className="border-b border-slate-100 hover:bg-slate-50">
+              <td className="px-4 py-2 font-mono text-xs text-slate-700">
+                <div>{formatDisplayDate(lot.expiry_date!)}</div>
+                <div className={`text-xs font-semibold ${lot.daysLeft < 0 ? 'text-red-600' : lot.daysLeft <= 7 ? 'text-amber-600' : 'text-slate-400'}`}>
+                  {daysText(lot)}
+                </div>
+              </td>
+              <td className="px-4 py-2 font-mono text-xs text-slate-700">{lot.lot_number}</td>
+              <td className="px-4 py-2 text-slate-800">{lot.product_name}</td>
+              <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-700">{lot.quantity}</td>
+              <td className="px-4 py-2 hidden sm:table-cell">
+                {lot.status_name ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{lot.status_name}</span>
+                ) : (
+                  <span className="text-slate-300 text-xs">—</span>
+                )}
+              </td>
+              <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.warehouse_name ?? '—'}</td>
+              <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.location_name ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function ExpiryAlertPage() {
   const [lang, tz] = await Promise.all([getLang(), getTz()]);
   const today = toLocalDateStr(tz);
-  const dict = translations[lang];
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -45,53 +93,6 @@ export default async function ExpiryAlertPage() {
   const within7 = lots.filter((l) => l.daysLeft >= 0 && l.daysLeft <= 7);
   const within30 = lots.filter((l) => l.daysLeft > 7 && l.daysLeft <= 30);
   const over30 = lots.filter((l) => l.daysLeft > 30);
-
-  function LotTable({ items, colorClass }: { items: LotWithDays[]; colorClass: string }) {
-    if (items.length === 0) return null;
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className={`border-b border-slate-200 ${colorClass}`}>
-            <tr>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('inventory.lotExpiry', lang)}</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('inventory.lotNumber', lang)}</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">{t('dailyReport.product', lang)}</th>
-              <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600">{t('inventory.lotQty', lang)}</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden sm:table-cell">{t('inventory.correctionStatus', lang)}</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden md:table-cell">{t('incoming.warehouseScheduled', lang)}</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600 hidden md:table-cell">{t('inventory.location', lang)}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((lot) => (
-              <tr key={lot.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2 font-mono text-xs text-slate-700">
-                  <div>{formatDisplayDate(lot.expiry_date!)}</div>
-                  <div className={`text-xs font-semibold ${lot.daysLeft < 0 ? 'text-red-600' : lot.daysLeft <= 7 ? 'text-amber-600' : 'text-slate-400'}`}>
-                    {lot.daysLeft < 0
-                      ? (dict['inventory.daysOver'] as (n: number) => string)(Math.abs(lot.daysLeft))
-                      : (dict['inventory.daysLeft'] as (n: number) => string)(lot.daysLeft)}
-                  </div>
-                </td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-700">{lot.lot_number}</td>
-                <td className="px-4 py-2 text-slate-800">{lot.product_name}</td>
-                <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-700">{lot.quantity}</td>
-                <td className="px-4 py-2 hidden sm:table-cell">
-                  {lot.status_name ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{lot.status_name}</span>
-                  ) : (
-                    <span className="text-slate-300 text-xs">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.warehouse_name ?? '—'}</td>
-                <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.location_name ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
 
   const hasAny = lots.length > 0;
 
@@ -113,7 +114,7 @@ export default async function ExpiryAlertPage() {
                 {t('inventory.expired', lang)}
                 <span className="ml-1 text-xs font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">{expired.length}</span>
               </h2>
-              <LotTable items={expired} colorClass="bg-red-50" />
+              <LotTable items={expired} colorClass="bg-red-50" lang={lang} />
             </section>
           )}
 
@@ -124,7 +125,7 @@ export default async function ExpiryAlertPage() {
                 {t('inventory.expiryWithin7', lang)}
                 <span className="ml-1 text-xs font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{within7.length}</span>
               </h2>
-              <LotTable items={within7} colorClass="bg-amber-50" />
+              <LotTable items={within7} colorClass="bg-amber-50" lang={lang} />
             </section>
           )}
 
@@ -135,7 +136,7 @@ export default async function ExpiryAlertPage() {
                 {t('inventory.expiryWithin30', lang)}
                 <span className="ml-1 text-xs font-semibold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">{within30.length}</span>
               </h2>
-              <LotTable items={within30} colorClass="bg-yellow-50" />
+              <LotTable items={within30} colorClass="bg-yellow-50" lang={lang} />
             </section>
           )}
 
@@ -146,7 +147,7 @@ export default async function ExpiryAlertPage() {
                 {t('inventory.expiryOver30', lang)}
                 <span className="ml-1 text-xs font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">{over30.length}</span>
               </h2>
-              <LotTable items={over30} colorClass="bg-slate-50" />
+              <LotTable items={over30} colorClass="bg-slate-50" lang={lang} />
             </section>
           )}
         </>

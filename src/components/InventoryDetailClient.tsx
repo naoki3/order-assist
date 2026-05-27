@@ -5,6 +5,7 @@ import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { updateLotProperties, transferStock, updateLotQuantity } from '@/lib/actions';
 import type { Lot, Product } from '@/lib/db';
+import type { LotOutgoingRecord } from '@/app/inventory/[id]/page';
 import { formatQty } from '@/lib/units';
 import LotTag from './LotTag';
 import DateInput from './DateInput';
@@ -36,6 +37,7 @@ interface Props {
   warehouses: WarehouseOption[];
   statuses: StatusOption[];
   today: string;
+  outgoingByLot: Record<number, LotOutgoingRecord[]>;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -56,16 +58,17 @@ function StatusBadge({ name, color }: { name: string; color: string }) {
   );
 }
 
-function LotCard({ lot, product, locations, warehouses, statuses, today }: {
+function LotCard({ lot, product, locations, warehouses, statuses, today, outgoing }: {
   lot: Lot;
   product: Product;
   locations: LocationOption[];
   warehouses: WarehouseOption[];
   statuses: StatusOption[];
   today: string;
+  outgoing: LotOutgoingRecord[];
 }) {
   const { t, lang } = useT();
-  const [mode, setMode] = useState<'none' | 'correction' | 'transfer' | 'adjust'>('none');
+  const [mode, setMode] = useState<'none' | 'correction' | 'transfer' | 'adjust' | 'history'>('none');
 
   const [corrState, corrAction] = useActionState(updateLotProperties, null);
   const { successMsg: corrSuccess, errorMsg: corrError } = useActionFeedback(corrState, t('common.saved'));
@@ -147,6 +150,15 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
         >
           {t('inventory.adjustTitle')}
         </button>
+        {outgoing.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setMode(mode === 'history' ? 'none' : 'history')}
+            className={`text-xs px-2 py-1 rounded-lg border transition-colors ${mode === 'history' ? 'bg-slate-200 border-slate-300' : 'border-slate-200 hover:bg-slate-100'}`}
+          >
+            {t('inventory.outgoingHistory')}
+          </button>
+        )}
       </div>
 
       {mode === 'correction' && (
@@ -262,6 +274,38 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
           </div>
         </form>
       )}
+
+      {mode === 'history' && (
+        <div className="pt-2 border-t border-slate-200 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-1.5">{t('inventory.outgoingHistory')}</p>
+          {outgoing.length === 0 ? (
+            <p className="text-xs text-slate-400">{t('inventory.noOutgoingHistory')}</p>
+          ) : (
+            <div className="space-y-1">
+              {outgoing.map((rec) => (
+                <div key={rec.id} className="flex items-start gap-2 text-xs text-slate-600">
+                  <span className="font-mono text-slate-400 shrink-0">{formatDisplayDate(rec.shipped_at.slice(0, 10))}</span>
+                  <span className="font-semibold text-slate-700 shrink-0">
+                    {rec.quantity} {t('inventory.units')}
+                  </span>
+                  {rec.destination_name && (
+                    <span className="text-slate-400">→ {rec.destination_name}</span>
+                  )}
+                  {rec.carrier_name && (
+                    <span className="text-slate-400">({rec.carrier_name})</span>
+                  )}
+                  {rec.note && (
+                    <span className="text-slate-400 truncate">{rec.note}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <button type="button" onClick={() => setMode('none')} className="mt-2 text-xs text-slate-400 hover:text-slate-600 transition-colors">
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -288,7 +332,7 @@ function groupLotsByLocation(lots: Lot[]): { key: string; locationId: number | n
   return groups;
 }
 
-export default function InventoryDetailClient({ product, lots, currentStock, locations, warehouses, statuses, today }: Props) {
+export default function InventoryDetailClient({ product, lots, currentStock, locations, warehouses, statuses, today, outgoingByLot }: Props) {
   const { t, lang } = useT();
 
   const totalStr = product.pieces_per_ball
@@ -331,7 +375,7 @@ export default function InventoryDetailClient({ product, lots, currentStock, loc
                 </div>
                 <div className="space-y-2">
                   {group.lots.map((lot) => (
-                    <LotCard key={lot.id} lot={lot} product={product} locations={locations} warehouses={warehouses} statuses={statuses} today={today} />
+                    <LotCard key={lot.id} lot={lot} product={product} locations={locations} warehouses={warehouses} statuses={statuses} today={today} outgoing={outgoingByLot[lot.id] ?? []} />
                   ))}
                 </div>
               </div>
