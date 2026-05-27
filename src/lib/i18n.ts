@@ -518,6 +518,14 @@ export const translations = {
     'dailyReport.apply': '適用',
     'dailyReport.subtotal': '小計',
     'dailyReport.total': '合計',
+    'dailyReport.stock': '在庫数',
+    'dailyReport.lotDetail': '在庫明細',
+    'dailyReport.lotNumber': 'ロット番号',
+    'dailyReport.expiry': '賞味期限',
+    'dailyReport.status': '在庫状態',
+    'dailyReport.warehouse': '倉庫',
+    'dailyReport.location': 'ロケーション',
+    'dailyReport.lotQty': '数量',
 
     // Dashboard daily
     'dashboard.todayReceived': '本日の入荷実績',
@@ -1050,6 +1058,14 @@ export const translations = {
     'dailyReport.apply': 'Apply',
     'dailyReport.subtotal': 'Subtotal',
     'dailyReport.total': 'Total',
+    'dailyReport.stock': 'Stock',
+    'dailyReport.lotDetail': 'Inventory Detail',
+    'dailyReport.lotNumber': 'Lot Number',
+    'dailyReport.expiry': 'Expiry Date',
+    'dailyReport.status': 'Status',
+    'dailyReport.warehouse': 'Warehouse',
+    'dailyReport.location': 'Location',
+    'dailyReport.lotQty': 'Qty',
 
     // Dashboard daily
     'dashboard.todayReceived': "Today's Received",
