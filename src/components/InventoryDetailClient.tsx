@@ -114,8 +114,6 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
         <div className="flex-1 min-w-0 space-y-0.5">
           <LotTag lotNumber={lot.lot_number} expiryDate={lot.expiry_date} today={today} expiryLabel={t('inventory.lotExpiry')} />
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
-            {lot.warehouse_name && <span>{t('incoming.warehouseScheduled')}: {lot.warehouse_name}</span>}
-            {lot.location_name && <span>{t('inventory.location')}: {lot.location_name}</span>}
             {lot.received_at && <span>{t('inventory.lastReceived')}: {formatDisplayDate(lot.received_at)}</span>}
           </div>
           {lot.status_name && lot.status_color && (
@@ -268,12 +266,36 @@ function LotCard({ lot, product, locations, warehouses, statuses, today }: {
   );
 }
 
+function groupLotsByLocation(lots: Lot[]): { key: string; locationId: number | null; locationName: string | null; warehouseName: string | null; lots: Lot[] }[] {
+  const map = new Map<string, { locationId: number | null; locationName: string | null; warehouseName: string | null; lots: Lot[] }>();
+  for (const lot of lots) {
+    const key = lot.location_id != null ? String(lot.location_id) : '__none__';
+    if (!map.has(key)) {
+      map.set(key, { locationId: lot.location_id, locationName: lot.location_name, warehouseName: lot.warehouse_name, lots: [] });
+    }
+    map.get(key)!.lots.push(lot);
+  }
+  const groups = Array.from(map.entries()).map(([key, val]) => ({ key, ...val }));
+  // Named locations first (sorted by warehouse → location), then no-location last
+  groups.sort((a, b) => {
+    if (a.locationId === null && b.locationId !== null) return 1;
+    if (a.locationId !== null && b.locationId === null) return -1;
+    const wa = a.warehouseName ?? '';
+    const wb = b.warehouseName ?? '';
+    if (wa !== wb) return wa.localeCompare(wb);
+    return (a.locationName ?? '').localeCompare(b.locationName ?? '');
+  });
+  return groups;
+}
+
 export default function InventoryDetailClient({ product, lots, currentStock, locations, warehouses, statuses, today }: Props) {
   const { t, lang } = useT();
 
   const totalStr = product.pieces_per_ball
     ? `${formatQty(currentStock, product, lang)} (${currentStock}${t('units.pieceSuffix')})`
     : `${currentStock.toLocaleString()} ${t('inventory.units')}`;
+
+  const locationGroups = groupLotsByLocation(lots);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -285,10 +307,36 @@ export default function InventoryDetailClient({ product, lots, currentStock, loc
       {lots.length === 0 ? (
         <p className="text-sm text-slate-400">{t('inventory.noLots')}</p>
       ) : (
-        <div className="space-y-2">
-          {lots.map((lot) => (
-            <LotCard key={lot.id} lot={lot} product={product} locations={locations} warehouses={warehouses} statuses={statuses} today={today} />
-          ))}
+        <div className="space-y-3">
+          {locationGroups.map((group) => {
+            const groupQty = group.lots.reduce((s, l) => s + l.quantity, 0);
+            const groupQtyStr = product.pieces_per_ball
+              ? `${formatQty(groupQty, product, lang)} (${groupQty}${t('units.pieceSuffix')})`
+              : `${groupQty.toLocaleString()} ${t('inventory.units')}`;
+            return (
+              <div key={group.key}>
+                <div className="flex items-center justify-between mb-1.5 px-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                    {group.locationName ? (
+                      <>
+                        {group.warehouseName && <span className="text-slate-400">{group.warehouseName}</span>}
+                        {group.warehouseName && <span className="text-slate-300">›</span>}
+                        <span>{group.locationName}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400">{t('inventory.noLocation')}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400">{groupQtyStr}</span>
+                </div>
+                <div className="space-y-2">
+                  {group.lots.map((lot) => (
+                    <LotCard key={lot.id} lot={lot} product={product} locations={locations} warehouses={warehouses} statuses={statuses} today={today} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
