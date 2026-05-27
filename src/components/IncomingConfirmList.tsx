@@ -17,9 +17,7 @@ export interface LocationOption {
   warehouse_id: number | null;
 }
 
-function Item({
-  item, unitConfig, expiryType, locations,
-}: {
+function Item({ item, unitConfig, expiryType, locations }: {
   item: IncomingStock;
   unitConfig: UnitConfig;
   expiryType: string | null;
@@ -29,15 +27,15 @@ function Item({
   const [confirming, setConfirming] = useState(false);
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
   const [delState, delAction] = useActionState(deleteIncomingSchedule, null);
+  const [locationId, setLocationId] = useState('');
+  const selectedLocation = locations.find((l) => l.id === Number(locationId));
+
+  const filteredLocations = item.warehouse_id
+    ? locations.filter((l) => l.warehouse_id === item.warehouse_id)
+    : [];
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
-
-  // Filter locations by the item's warehouse
-  const itemWarehouseId = (item as { warehouse_id?: number | null }).warehouse_id ?? null;
-  const filteredLocations = itemWarehouseId
-    ? locations.filter((l) => l.warehouse_id === itemWarehouseId)
-    : locations;
 
   return (
     <div className="py-2.5 space-y-2">
@@ -48,9 +46,6 @@ function Item({
             <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig, lang)}</span>
           ) : (
             <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('incoming.units')}</span>
-          )}
-          {(item as { warehouse_name?: string | null }).warehouse_name && (
-            <span className="text-xs text-slate-400 ml-2">{(item as { warehouse_name?: string | null }).warehouse_name}</span>
           )}
         </div>
         {confirming ? (
@@ -77,6 +72,8 @@ function Item({
       {!confirming && (
         <form action={receiveAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="location_id" value={locationId} />
+          <input type="hidden" name="location_name" value={selectedLocation?.name ?? ''} />
           <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
@@ -84,11 +81,21 @@ function Item({
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
             <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
-          <select name="location_id" required
-            className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
-            <option value="">{t('incoming.selectLocation')}</option>
-            {filteredLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
+          {filteredLocations.length > 0 && (
+            <label className="flex-1 min-w-32 flex flex-col gap-0.5">
+              <span className="text-xs text-slate-500">{t('incoming.location')}</span>
+              <select
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">—</option>
+                {filteredLocations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
             {t('incoming.markReceived')}
@@ -102,9 +109,7 @@ function Item({
   );
 }
 
-function DateGroup({
-  date, items, unitMap, expiryTypeMap, today, locations,
-}: {
+function DateGroup({ date, items, unitMap, expiryTypeMap, today, locations }: {
   date: string;
   items: IncomingStock[];
   unitMap: Record<number, UnitConfig>;
@@ -139,7 +144,9 @@ function DateGroup({
         <div className="px-4 pb-3">
           <div className="divide-y divide-slate-100">
             {items.map(item => (
-              <Item key={item.id} item={item}
+              <Item
+                key={item.id}
+                item={item}
                 unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
                 expiryType={expiryTypeMap[item.product_id] ?? null}
                 locations={locations}
@@ -148,13 +155,8 @@ function DateGroup({
           </div>
           {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
           {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
-          <form action={bulkAction} className="pt-3 space-y-2">
+          <form action={bulkAction} className="pt-2">
             <input type="hidden" name="ids" value={JSON.stringify(items.map(i => i.id))} />
-            <select name="location_id" required
-              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="">{t('incoming.selectLocation')} ({t('incoming.bulkAll')})</option>
-              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
             <button type="submit"
               className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
               {tf<string>('common.bulkConfirm', items.length)}

@@ -346,6 +346,7 @@ export const translations = {
     'incoming.selectSupplier': '仕入先（任意）',
     'incoming.warehouseScheduled': '入荷予定倉庫',
     'incoming.selectWarehouse': '倉庫を選択（任意）',
+    'incoming.location': 'ロケーション',
     'incoming.selectLocation': 'ロケーションを選択',
     'incoming.bulkAll': '全件',
     'shipping.selectLocation': 'ロケーション（任意）',

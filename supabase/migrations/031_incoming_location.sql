@@ -1,0 +1,3 @@
+ALTER TABLE incoming_stock
+  ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS location_name TEXT;

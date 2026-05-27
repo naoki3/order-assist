@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useT } from './LanguageProvider';
 import type { MasterCsvImportResult } from '@/lib/actions';
 
@@ -13,11 +13,21 @@ interface Props {
   action: MasterCsvAction;
   formatHeader: string;
   formatExamples: string[];
+  sampleData?: string;
 }
 
-export default function MasterCsvImport({ action, formatHeader, formatExamples }: Props) {
+export default function MasterCsvImport({ action, formatHeader, formatExamples, sampleData }: Props) {
   const { t, tf } = useT();
   const [result, formAction, pending] = useActionState(action, null);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    if (!sampleData) return;
+    navigator.clipboard.writeText(sampleData).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 mt-4">
@@ -27,6 +37,21 @@ export default function MasterCsvImport({ action, formatHeader, formatExamples }
         <p className="text-slate-400 break-all">{formatHeader}</p>
         {formatExamples.map((line, i) => <p key={i}>{line}</p>)}
       </div>
+      {sampleData && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-xs font-semibold text-slate-500">サンプルデータ</p>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+            >
+              {copied ? '✓ コピー完了' : 'コピー'}
+            </button>
+          </div>
+          <pre className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600 font-mono overflow-x-auto whitespace-pre-wrap break-all">{sampleData}</pre>
+        </div>
+      )}
       <form action={formAction} className="space-y-3">
         <textarea
           name="csv"

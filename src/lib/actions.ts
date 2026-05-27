@@ -259,6 +259,9 @@ export async function receiveIncoming(
   const id = Number(formData.get('id'));
   const formLot = String(formData.get('lot_number') ?? '').trim();
   const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
+  const locationIdRaw = formData.get('location_id');
+  const location_id = locationIdRaw && String(locationIdRaw).trim() !== '' ? Number(locationIdRaw) : null;
+  const location_name = (formData.get('location_name') as string | null) || null;
   const supabase = await createClient();
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
@@ -298,7 +301,7 @@ export async function receiveIncoming(
 
   const { error: updateError } = await supabase
     .from('incoming_stock')
-    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate, lot_number: lotNumber })
+    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate, lot_number: lotNumber, location_id, location_name })
     .eq('id', id);
 
   if (updateError) return { error: `Failed to mark as received: ${updateError.message}` };
