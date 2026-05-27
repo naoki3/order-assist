@@ -235,21 +235,29 @@ function AddProductForm({
                 ))}
               </select>
             )}
-            {availableStatuses.length > 0 && (
-              <select
-                value={filterStatus}
-                onChange={(e) => { setFilterStatus(e.target.value); setSelectedLotId(''); }}
-                className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option value="">{t('shipping.filterStatus')}</option>
-                {availableStatuses.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            )}
+            <select
+              value={filterStatus}
+              onChange={(e) => { setFilterStatus(e.target.value); setSelectedLotId(''); }}
+              className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">{t('shipping.filterStatus')}</option>
+              {availableStatuses.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
           <select name="lot_id"
             value={selectedLotId}
-            onChange={(e) => setSelectedLotId(e.target.value)}
+            onChange={(e) => {
+              const lotId = e.target.value;
+              setSelectedLotId(lotId);
+              if (lotId) {
+                const lot = productLots.find(l => l.id === Number(lotId));
+                if (lot) {
+                  setFilterExpiry(lot.expiry_date ?? '');
+                  setFilterStatus(lot.status_name ?? '');
+                }
+              }
+            }}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
             <option value="">{t('shipping.selectLot')}</option>
             {filteredLots.map((l) => (
