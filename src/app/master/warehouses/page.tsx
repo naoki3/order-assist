@@ -46,6 +46,10 @@ export default async function WarehousesPage() {
         action={importWarehousesCsv}
         formatHeader="name,address,note"
         formatExamples={['東京倉庫,東京都江東区〇〇1-1,メイン倉庫', '大阪倉庫,大阪府大阪市〇〇2-2,']}
+        sampleData={`名称,住所,備考
+東京倉庫,東京都江東区有明1-1-1,冷蔵・冷凍設備あり
+大阪倉庫,大阪府大阪市住之江区南港北2-1-10,
+名古屋倉庫,愛知県名古屋市港区金城ふ頭2-2-2,`}
       />
     </div>
   );

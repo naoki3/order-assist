@@ -66,6 +66,18 @@ export default async function LocationsPage() {
             action={importLocationsCsv}
             formatHeader="name,warehouse_name,note"
             formatExamples={['A-1-1,東京倉庫,冷蔵エリア', 'B-2-3,大阪倉庫,']}
+            sampleData={`名称,倉庫名,備考
+A-01,東京倉庫,常温ゾーン
+A-02,東京倉庫,常温ゾーン
+A-03,東京倉庫,常温ゾーン
+B-01,東京倉庫,冷蔵ゾーン
+B-02,東京倉庫,冷蔵ゾーン
+C-01,東京倉庫,冷凍ゾーン
+A-01,大阪倉庫,
+A-02,大阪倉庫,
+B-01,大阪倉庫,
+A-01,名古屋倉庫,
+A-02,名古屋倉庫,`}
           />
         </>
       )}

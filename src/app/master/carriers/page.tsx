@@ -47,6 +47,12 @@ export default async function CarriersPage() {
         action={importCarriersCsv}
         formatHeader="name,contact_name,phone,note"
         formatExamples={['ヤマト運輸,山田,0120-01-1234,配送頻度:毎日']}
+        sampleData={`名称,担当者名,電話番号,備考
+ヤマト運輸,担当:法人窓口,0120-01-9625,クール便対応可
+佐川急便,担当:法人担当,0120-36-9820,大型荷物対応
+日本通運,鈴木担当,0120-333-070,チャーター便あり
+西濃運輸,,0120-912-925,パレット輸送専門
+福山通運,中村,0120-15-8090,`}
       />
     </div>
   );
