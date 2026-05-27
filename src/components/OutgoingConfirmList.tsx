@@ -10,6 +10,33 @@ import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import { formatDisplayDate } from '@/lib/tz';
 
+interface PickingGroup {
+  warehouse: string | null;
+  location: string | null;
+  items: OutgoingStock[];
+}
+
+function buildPickingGroups(items: OutgoingStock[]): PickingGroup[] {
+  const map = new Map<string, PickingGroup>();
+  for (const item of items) {
+    const key = `${item.warehouse_name ?? '\x00'}||${item.location_name ?? '\x00'}`;
+    if (!map.has(key)) map.set(key, { warehouse: item.warehouse_name, location: item.location_name, items: [] });
+    map.get(key)!.items.push(item);
+  }
+  const groups = Array.from(map.values()).sort((a, b) => {
+    const wa = a.warehouse ?? '', wb = b.warehouse ?? '';
+    if (wa !== wb) return wa.localeCompare(wb);
+    return (a.location ?? '').localeCompare(b.location ?? '');
+  });
+  for (const g of groups) {
+    g.items.sort((a, b) => {
+      if (a.scheduled_date !== b.scheduled_date) return a.scheduled_date.localeCompare(b.scheduled_date);
+      return a.product_name.localeCompare(b.product_name);
+    });
+  }
+  return groups;
+}
+
 function Item({ item, unitConfig }: { item: OutgoingStock; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
@@ -133,13 +160,62 @@ function groupByDate(items: OutgoingStock[]) {
 }
 
 export default function OutgoingConfirmList({ items, emptyText, unitMap = {}, today = '' }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; today?: string }) {
+  const { t } = useT();
   const groups = groupByDate(items);
+  const pickingGroups = buildPickingGroups(items);
+
   if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
+
   return (
-    <div className="space-y-2">
-      {groups.map(({ date, items: dateItems }) => (
-        <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} today={today} />
-      ))}
+    <div>
+      {/* Print button — screen only */}
+      <div className="flex justify-end mb-2 print:hidden">
+        <button type="button" onClick={() => window.print()}
+          className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
+          {t('shipping.printPickingList')}
+        </button>
+      </div>
+
+      {/* Regular confirm list — hidden when printing */}
+      <div className="print:hidden space-y-2">
+        {groups.map(({ date, items: dateItems }) => (
+          <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} today={today} />
+        ))}
+      </div>
+
+      {/* Picking list — print only */}
+      <div className="hidden print:block text-sm">
+        <h1 className="text-xl font-bold text-slate-800 mb-4">{t('shipping.pickingList')}</h1>
+        {pickingGroups.map((group, gi) => (
+          <div key={gi} className="mb-6">
+            <p className="font-semibold text-slate-700 mb-1 border-b border-slate-300 pb-0.5">
+              {t('shipping.pickingWarehouse')}: {group.warehouse ?? t('shipping.pickingNone')}
+              {' / '}
+              {t('shipping.pickingLocation')}: {group.location ?? t('shipping.pickingNone')}
+            </p>
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100">
+                  <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingDate')}</th>
+                  <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingProduct')}</th>
+                  <th className="border border-slate-300 px-2 py-1 text-left">{t('shipping.pickingLot')}</th>
+                  <th className="border border-slate-300 px-2 py-1 text-right">{t('shipping.pickingQty')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.items.map((item, ii) => (
+                  <tr key={ii} className="border-b border-slate-200">
+                    <td className="border border-slate-300 px-2 py-1 font-mono">{formatDisplayDate(item.scheduled_date)}</td>
+                    <td className="border border-slate-300 px-2 py-1">{item.product_name}</td>
+                    <td className="border border-slate-300 px-2 py-1 font-mono">{item.lot_number ?? '—'}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-right">{item.quantity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
