@@ -110,6 +110,8 @@ function AddProductForm({
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedLotId, setSelectedLotId] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
+  const [filterExpiry, setFilterExpiry] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
 
   const selectedProduct = products.find((p) => p.id === Number(selectedProductId)) ?? null;
@@ -123,6 +125,36 @@ function AddProductForm({
       if (!b.expiry_date) return -1;
       return a.expiry_date.localeCompare(b.expiry_date);
     });
+
+  const availableExpiries = (() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const l of productLots) {
+      if (l.expiry_date && !seen.has(l.expiry_date)) {
+        seen.add(l.expiry_date);
+        result.push(l.expiry_date);
+      }
+    }
+    return result.sort();
+  })();
+
+  const availableStatuses = (() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const l of productLots) {
+      if (l.status_name && !seen.has(l.status_name)) {
+        seen.add(l.status_name);
+        result.push(l.status_name);
+      }
+    }
+    return result.sort();
+  })();
+
+  const filteredLots = productLots.filter(l => {
+    if (filterExpiry && l.expiry_date !== filterExpiry) return false;
+    if (filterStatus && l.status_name !== filterStatus) return false;
+    return true;
+  });
 
   // Derive available warehouses from lots for selected product
   const productWarehouses = (() => {
@@ -155,6 +187,8 @@ function AddProductForm({
         setSelectedProductId('');
         setSelectedLotId('');
         setSelectedWarehouseId(null);
+        setFilterExpiry('');
+        setFilterStatus('');
         onCancel();
       }
     });
@@ -170,6 +204,8 @@ function AddProductForm({
             const pid = Number(e.target.value);
             setSelectedProductId(e.target.value);
             setSelectedLotId('');
+            setFilterExpiry('');
+            setFilterStatus('');
             const prod = products.find((p) => p.id === pid);
             setSelectedWarehouseId(prod?.default_warehouse_id ?? null);
           }}
@@ -187,17 +223,37 @@ function AddProductForm({
       </div>
       {selectedProductId && (
         <>
+          <div className="flex gap-2">
+            {availableExpiries.length > 0 && (
+              <select
+                value={filterExpiry}
+                onChange={(e) => { setFilterExpiry(e.target.value); setSelectedLotId(''); }}
+                className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="">{t('shipping.filterExpiry')}</option>
+                {availableExpiries.map((d) => (
+                  <option key={d} value={d}>{formatDisplayDate(d)}</option>
+                ))}
+              </select>
+            )}
+            {availableStatuses.length > 0 && (
+              <select
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value); setSelectedLotId(''); }}
+                className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="">{t('shipping.filterStatus')}</option>
+                {availableStatuses.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <select name="lot_id"
             value={selectedLotId}
             onChange={(e) => setSelectedLotId(e.target.value)}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
             <option value="">{t('shipping.selectLot')}</option>
-            {productLots.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.lot_number}
-                {l.expiry_date ? ` · ${t('inventory.lotExpiry')} ${formatDisplayDate(l.expiry_date)}` : ''}
-                {` · ${l.quantity}${t('shipping.units')}`}
-              </option>
+            {filteredLots.map((l) => (
+              <option key={l.id} value={l.id}>{l.lot_number}</option>
             ))}
           </select>
           {selectedLotId && (

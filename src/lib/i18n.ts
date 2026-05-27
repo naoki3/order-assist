@@ -352,6 +352,8 @@ export const translations = {
     'incoming.selectLocation': 'ロケーションを選択',
     'incoming.bulkAll': '全件',
     'shipping.selectLocation': 'ロケーション（任意）',
+    'shipping.filterExpiry': '賞味期限（全て）',
+    'shipping.filterStatus': '在庫状態（全て）',
 
     // Stock Transfer
     'nav.inventoryTransfer': '在庫移動',
@@ -883,6 +885,8 @@ export const translations = {
     'incoming.selectLocation': 'Select Location',
     'incoming.bulkAll': 'all',
     'shipping.selectLocation': 'Location (optional)',
+    'shipping.filterExpiry': 'Expiry (all)',
+    'shipping.filterStatus': 'Status (all)',
 
     // Stock Transfer
     'nav.inventoryTransfer': 'Stock Transfer',
