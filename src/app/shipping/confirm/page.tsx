@@ -26,18 +26,18 @@ export default async function ShippingConfirmPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="print:hidden">
         <h1 className="text-xl font-bold text-slate-800 mb-1">{t('shipping.confirmTitle', lang)}</h1>
         <p className="text-sm text-slate-500">{t('shipping.confirmSubtitle', lang)}</p>
       </div>
 
-      <div>
+      <div className="print:hidden">
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('shipping.pending', lang)}</h2>
         <OutgoingConfirmList items={pending} emptyText={t('shipping.noPending', lang)} unitMap={unitMap} today={today} />
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('shipping.recentShipped', lang)}</h2>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2 print:hidden">{t('shipping.recentShipped', lang)}</h2>
         <ShippedHistoryList items={shipped} emptyText={t('shipping.noPending', lang)} unitMap={unitMap} />
       </div>
     </div>
