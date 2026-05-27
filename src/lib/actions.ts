@@ -86,21 +86,8 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     .is('received_at', null);
   if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
 
-  // Resolve location/warehouse names once
-  const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
-  const locationName = loc?.name ?? null;
-  const bulkWarehouseId = loc?.warehouse_id ?? null;
-  let bulkWarehouseName: string | null = null;
-  if (bulkWarehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', bulkWarehouseId).single();
-    bulkWarehouseName = w?.name ?? null;
-  }
-
-  const now = new Date();
-  const localToday = await getLocalDate();
-  const todayStr = localToday.replace(/-/g, '');
+  // 賞味期限チェック
   const productIds = [...new Set(items.map((i) => i.product_id))];
-
   const { data: products } = await supabase
     .from('products').select('id, expiry_type').in('id', productIds);
   const expiryTypeMap = Object.fromEntries((products ?? []).map((p) => [p.id, p.expiry_type]));
@@ -112,40 +99,40 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     return { error: `賞味期限未入力の商品があります: ${missingExpiry.map((i) => i.product_name).join(', ')}` };
   }
 
-  const { data: inventories } = await supabase
-    .from('inventory').select('product_id, current_stock').in('product_id', productIds);
-  const stockMap: Record<number, number> = {};
-  for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
+  // ロケーション・倉庫名を解決
+  const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
+  const locationName = loc?.name ?? null;
+  const bulkWarehouseId = loc?.warehouse_id ?? null;
+  let bulkWarehouseName: string | null = null;
+  if (bulkWarehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', bulkWarehouseId).single();
+    bulkWarehouseName = w?.name ?? null;
+  }
 
-  const delta: Record<number, number> = {};
-  for (const item of items) delta[item.product_id] = (delta[item.product_id] ?? 0) + item.quantity;
-
-  const { error: markError } = await supabase
-    .from('incoming_stock').update({ received_at: now.toISOString() }).in('id', ids);
-  if (markError) return { error: `Failed to mark received: ${markError.message}` };
+  const localToday = await getLocalDate();
+  const todayStr = localToday.replace(/-/g, '');
+  const errors: string[] = [];
 
   for (const item of items) {
-    const expiryDate: string | null = item.expiry_date ?? null;
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
-    await supabase.from('incoming_stock')
-      .update({ lot_number: lotNumber, expiry_date: expiryDate }).eq('id', item.id);
-    await supabase.from('lots').insert({
-      lot_number: lotNumber, product_id: item.product_id, product_name: item.product_name,
-      quantity: item.quantity, received_at: localToday,
-      expiry_date: expiryDate, incoming_stock_id: item.id, user_id: ownerId,
-      location_id: locationId, location_name: locationName,
-      warehouse_id: bulkWarehouseId, warehouse_name: bulkWarehouseName,
+    const { data, error } = await supabase.rpc('fn_receive_incoming', {
+      p_incoming_id:    item.id,
+      p_lot_number:     lotNumber,
+      p_expiry_date:    item.expiry_date ?? null,
+      p_location_id:    locationId,
+      p_location_name:  locationName,
+      p_warehouse_id:   bulkWarehouseId,
+      p_warehouse_name: bulkWarehouseName,
+      p_local_today:    localToday,
+      p_owner_id:       ownerId,
+      p_operation_id:   crypto.randomUUID(),
     });
+    if (error) { errors.push(error.message); continue; }
+    const result = data as { ok?: boolean; error?: string } | null;
+    if (result?.error) errors.push(result.error);
   }
 
-  for (const [pidStr, qty] of Object.entries(delta)) {
-    const pid = Number(pidStr);
-    const { error: invError } = await supabase.from('inventory').upsert({
-      product_id: pid, current_stock: (stockMap[pid] ?? 0) + qty,
-      updated_at: localToday,
-    });
-    if (invError) return { error: `Failed to update inventory: ${invError.message}` };
-  }
+  if (errors.length > 0) return { error: errors.join(' / ') };
 
   revalidatePath('/incoming');
   revalidatePath('/inventory');
@@ -160,85 +147,15 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   if (ids.length === 0) return { success: 'ok' };
 
   const supabase = await createClient();
-  const { data: items, error: fetchError } = await supabase
-    .from('outgoing_stock').select('id, product_id, quantity, lot_id')
-    .in('id', ids).is('shipped_at', null);
-  if (fetchError || !items || items.length === 0) return { error: 'Items not found' };
-
-  const now = new Date();
   const localToday = await getLocalDate();
-  const productIds = [...new Set(items.map((i) => i.product_id))];
-  const { data: inventories } = await supabase
-    .from('inventory').select('product_id, current_stock').in('product_id', productIds);
-  const stockMap: Record<number, number> = {};
-  for (const inv of inventories ?? []) stockMap[inv.product_id] = inv.current_stock;
 
-  const delta: Record<number, number> = {};
-  for (const item of items) delta[item.product_id] = (delta[item.product_id] ?? 0) + item.quantity;
-
-  for (const [pidStr, qty] of Object.entries(delta)) {
-    const pid = Number(pidStr);
-    if ((stockMap[pid] ?? 0) < qty)
-      return { error: `在庫不足: 商品ID ${pid} の現在庫 ${stockMap[pid] ?? 0} 個、出荷予定 ${qty} 個` };
-  }
-
-  for (const item of items) {
-    if (item.lot_id) {
-      const { data: lot } = await supabase.from('lots').select('quantity').eq('id', item.lot_id).single();
-      const { data: reserved } = await supabase
-        .from('outgoing_stock').select('quantity').eq('lot_id', item.lot_id).is('shipped_at', null).neq('id', item.id);
-      const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
-      const available = (lot?.quantity ?? 0) - reservedQty;
-      if (available < item.quantity) {
-        return { error: `ロット在庫不足 (ロットID:${item.lot_id}): 引当可能 ${available} 個、出荷予定 ${item.quantity} 個` };
-      }
-    }
-  }
-
-  const { error: markError } = await supabase
-    .from('outgoing_stock').update({ shipped_at: now.toISOString() }).in('id', ids);
-  if (markError) return { error: `Failed to confirm shipment: ${markError.message}` };
-
-  for (const [pidStr, qty] of Object.entries(delta)) {
-    const pid = Number(pidStr);
-    const { error: invError } = await supabase.from('inventory').upsert({
-      product_id: pid, current_stock: (stockMap[pid] ?? 0) - qty,
-      updated_at: localToday,
-    });
-    if (invError) return { error: `Failed to update inventory: ${invError.message}` };
-  }
-
-  for (const item of items) {
-    if (item.lot_id) {
-      const { data: lot } = await supabase.from('lots').select('quantity').eq('id', item.lot_id).single();
-      if (lot) await supabase.from('lots')
-        .update({ quantity: Math.max(0, lot.quantity - item.quantity) }).eq('id', item.lot_id);
-    } else {
-      let bq = supabase
-        .from('lots').select('id, quantity, lot_number')
-        .eq('product_id', item.product_id).gt('quantity', 0);
-      if ((item as { location_id?: number | null }).location_id) {
-        bq = bq.eq('location_id', (item as { location_id?: number | null }).location_id!);
-      }
-      const { data: fifoLots } = await bq
-        .order('expiry_date', { ascending: true, nullsFirst: false })
-        .order('location_id', { ascending: true, nullsFirst: false })
-        .order('lot_number', { ascending: true });
-      let remaining = item.quantity;
-      let firstLotId: number | null = null;
-      let firstLotNumber: string | null = null;
-      for (const lot of (fifoLots ?? [])) {
-        if (remaining <= 0) break;
-        if (firstLotId === null) { firstLotId = lot.id; firstLotNumber = lot.lot_number; }
-        const take = Math.min(lot.quantity, remaining);
-        await supabase.from('lots').update({ quantity: lot.quantity - take }).eq('id', lot.id);
-        remaining -= take;
-      }
-      if (firstLotId !== null) {
-        await supabase.from('outgoing_stock').update({ lot_id: firstLotId, lot_number: firstLotNumber }).eq('id', item.id);
-      }
-    }
-  }
+  const { data, error } = await supabase.rpc('fn_confirm_bulk_shipment', {
+    p_outgoing_ids: ids,
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
@@ -273,36 +190,30 @@ export async function receiveIncoming(
   const formLot = String(formData.get('lot_number') ?? '').trim();
   const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
   const locationIdRaw = formData.get('location_id');
-  const location_id = locationIdRaw && String(locationIdRaw).trim() !== '' ? Number(locationIdRaw) : null;
-  const location_name = (formData.get('location_name') as string | null) || null;
+  const locationId = locationIdRaw && String(locationIdRaw).trim() !== '' ? Number(locationIdRaw) : null;
+
+  if (!locationId) return { error: 'ロケーションは必須です' };
+
   const supabase = await createClient();
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
   const { data: incoming, error: fetchError } = await supabase
     .from('incoming_stock')
-    .select('product_id, product_name, quantity, lot_number, warehouse_id')
+    .select('product_id, lot_number, warehouse_id')
     .eq('id', id)
     .single();
-
-  if (fetchError || !incoming) {
-    return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
-  }
+  if (fetchError || !incoming) return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
 
   const { data: product } = await supabase
     .from('products').select('expiry_type').eq('id', incoming.product_id).single();
-  const expiryRequired = !!(product?.expiry_type && product.expiry_type !== 'none');
-  if (expiryRequired && !formExpiry) return { error: '賞味期限は必須です' };
-
-  const locationId = Number(formData.get('location_id')) || null;
-  if (!locationId) return { error: 'ロケーションは必須です' };
+  if (product?.expiry_type && product.expiry_type !== 'none' && !formExpiry) {
+    return { error: '賞味期限は必須です' };
+  }
 
   const localToday = await getLocalDate();
-  const todayStr = localToday.replace(/-/g, '');
-  const lotNumber = formLot || incoming.lot_number || `${todayStr}-${id}`;
-  const expiryDate: string | null = formExpiry;
+  const lotNumber = formLot || incoming.lot_number || `${localToday.replace(/-/g, '')}-${id}`;
 
-  // Resolve location and warehouse names
   const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
   const locationName = loc?.name ?? null;
   const warehouseId = (incoming as { warehouse_id?: number | null }).warehouse_id ?? loc?.warehouse_id ?? null;
@@ -312,40 +223,21 @@ export async function receiveIncoming(
     warehouseName = w?.name ?? null;
   }
 
-  const { error: updateError } = await supabase
-    .from('incoming_stock')
-    .update({ received_at: new Date().toISOString(), expiry_date: expiryDate, lot_number: lotNumber, location_id, location_name })
-    .eq('id', id);
-
-  if (updateError) return { error: `Failed to mark as received: ${updateError.message}` };
-
-  const { data: inv } = await supabase
-    .from('inventory')
-    .select('current_stock')
-    .eq('product_id', incoming.product_id)
-    .single();
-
-  const { error: upsertError } = await supabase.from('inventory').upsert({
-    product_id: incoming.product_id,
-    current_stock: (inv?.current_stock ?? 0) + incoming.quantity,
-    updated_at: localToday,
+  const { data, error } = await supabase.rpc('fn_receive_incoming', {
+    p_incoming_id:    id,
+    p_lot_number:     lotNumber,
+    p_expiry_date:    formExpiry ?? null,
+    p_location_id:    locationId,
+    p_location_name:  locationName,
+    p_warehouse_id:   warehouseId,
+    p_warehouse_name: warehouseName,
+    p_local_today:    localToday,
+    p_owner_id:       ownerId,
+    p_operation_id:   crypto.randomUUID(),
   });
-
-  if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
-  await supabase.from('lots').insert({
-    lot_number: lotNumber,
-    product_id: incoming.product_id,
-    product_name: incoming.product_name,
-    quantity: incoming.quantity,
-    received_at: localToday,
-    expiry_date: expiryDate,
-    incoming_stock_id: id,
-    user_id: ownerId,
-    location_id: locationId,
-    location_name: locationName,
-    warehouse_id: warehouseId,
-    warehouse_name: warehouseName,
-  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/incoming');
   revalidatePath('/inventory');
@@ -798,30 +690,16 @@ export async function unreceiveIncoming(
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
   const supabase = await createClient();
-
-  const { data: incoming } = await supabase
-    .from('incoming_stock')
-    .select('product_id, quantity')
-    .eq('id', id)
-    .not('received_at', 'is', null)
-    .single();
-  if (!incoming) return { error: '入荷済みレコードが見つかりません' };
-
-  await supabase.from('lots').delete().eq('incoming_stock_id', id);
-
-  const { error } = await supabase
-    .from('incoming_stock')
-    .update({ received_at: null })
-    .eq('id', id);
-  if (error) return { error: `取り消し失敗: ${error.message}` };
-
-  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', incoming.product_id).single();
   const localToday = await getLocalDate();
-  await supabase.from('inventory').upsert({
-    product_id: incoming.product_id,
-    current_stock: Math.max(0, (inv?.current_stock ?? 0) - incoming.quantity),
-    updated_at: localToday,
+
+  const { data, error } = await supabase.rpc('fn_unreceive_incoming', {
+    p_incoming_id:  id,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
   });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/incoming');
   revalidatePath('/inventory');
@@ -835,35 +713,16 @@ export async function unshipOutgoing(
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
   const supabase = await createClient();
-
-  const { data: outgoing } = await supabase
-    .from('outgoing_stock')
-    .select('product_id, quantity, lot_id')
-    .eq('id', id)
-    .not('shipped_at', 'is', null)
-    .single();
-  if (!outgoing) return { error: '出荷済みレコードが見つかりません' };
-
-  const { error } = await supabase
-    .from('outgoing_stock')
-    .update({ shipped_at: null })
-    .eq('id', id);
-  if (error) return { error: `取り消し失敗: ${error.message}` };
-
-  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', outgoing.product_id).single();
   const localToday = await getLocalDate();
-  await supabase.from('inventory').upsert({
-    product_id: outgoing.product_id,
-    current_stock: (inv?.current_stock ?? 0) + outgoing.quantity,
-    updated_at: localToday,
-  });
 
-  if (outgoing.lot_id) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
-    if (lot) {
-      await supabase.from('lots').update({ quantity: lot.quantity + outgoing.quantity }).eq('id', outgoing.lot_id);
-    }
-  }
+  const { data, error } = await supabase.rpc('fn_unship_outgoing', {
+    p_outgoing_id:  id,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
@@ -978,86 +837,16 @@ export async function confirmShipment(
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
   const supabase = await createClient();
-
-  const { data: outgoing, error: fetchError } = await supabase
-    .from('outgoing_stock')
-    .select('product_id, quantity, lot_id, location_id')
-    .eq('id', id)
-    .single();
-
-  if (fetchError || !outgoing) {
-    return { error: `Item not found: ${fetchError?.message ?? 'unknown error'}` };
-  }
-
-  const { data: inv } = await supabase
-    .from('inventory')
-    .select('current_stock')
-    .eq('product_id', outgoing.product_id)
-    .single();
-
-  const currentStock = inv?.current_stock ?? 0;
-  if (currentStock < outgoing.quantity) {
-    return { error: `在庫不足: 現在庫 ${currentStock} 個、出荷予定 ${outgoing.quantity} 個` };
-  }
-
-  if (outgoing.lot_id) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
-    const { data: reserved } = await supabase
-      .from('outgoing_stock').select('quantity').eq('lot_id', outgoing.lot_id).is('shipped_at', null).neq('id', id);
-    const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
-    const available = (lot?.quantity ?? 0) - reservedQty;
-    if (available < outgoing.quantity) {
-      return { error: `ロット在庫不足: 引当可能 ${available} 個、出荷予定 ${outgoing.quantity} 個` };
-    }
-  }
-
-  const { error: updateError } = await supabase
-    .from('outgoing_stock')
-    .update({ shipped_at: new Date().toISOString() })
-    .eq('id', id);
-
-  if (updateError) return { error: `Failed to confirm shipment: ${updateError.message}` };
-
   const localToday = await getLocalDate();
-  const { error: upsertError } = await supabase.from('inventory').upsert({
-    product_id: outgoing.product_id,
-    current_stock: currentStock - outgoing.quantity,
-    updated_at: localToday,
+
+  const { data, error } = await supabase.rpc('fn_confirm_shipment', {
+    p_outgoing_id:  id,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
   });
-
-  if (upsertError) return { error: `Failed to update inventory: ${upsertError.message}` };
-
-  if (outgoing.lot_id) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
-    if (lot) {
-      await supabase.from('lots').update({ quantity: Math.max(0, lot.quantity - outgoing.quantity) }).eq('id', outgoing.lot_id);
-    }
-  } else {
-    // FIFO: expiry_date → location_id (asc) → lot_number
-    let fifoQuery = supabase
-      .from('lots').select('id, quantity, lot_number')
-      .eq('product_id', outgoing.product_id).gt('quantity', 0);
-    if ((outgoing as { location_id?: number | null }).location_id) {
-      fifoQuery = fifoQuery.eq('location_id', (outgoing as { location_id?: number | null }).location_id!);
-    }
-    const { data: fifoLots } = await fifoQuery
-      .order('expiry_date', { ascending: true, nullsFirst: false })
-      .order('location_id', { ascending: true, nullsFirst: false })
-      .order('lot_number', { ascending: true });
-    let remaining = outgoing.quantity;
-    let firstLotId: number | null = null;
-    let firstLotNumber: string | null = null;
-    for (const lot of (fifoLots ?? [])) {
-      if (remaining <= 0) break;
-      if (firstLotId === null) { firstLotId = lot.id; firstLotNumber = lot.lot_number; }
-      const take = Math.min(lot.quantity, remaining);
-      await supabase.from('lots').update({ quantity: lot.quantity - take }).eq('id', lot.id);
-      remaining -= take;
-    }
-    if (firstLotId !== null) {
-      await supabase.from('outgoing_stock').update({ lot_id: firstLotId, lot_number: firstLotNumber }).eq('id', id);
-    }
-  }
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
@@ -1072,27 +861,17 @@ export async function updateLotQuantity(
   const lotId = Number(formData.get('lot_id'));
   const newQty = Number(formData.get('quantity'));
   const supabase = await createClient();
-
-  const { data: lot } = await supabase.from('lots').select('product_id, quantity').eq('id', lotId).single();
-  if (!lot) return { error: 'ロットが見つかりません' };
-
-  const { data: reserved } = await supabase
-    .from('outgoing_stock').select('quantity').eq('lot_id', lotId).is('shipped_at', null);
-  const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
-  if (newQty < reservedQty) {
-    return { error: `出荷予定で ${reservedQty} 個確保済みのため、${reservedQty} 個未満には設定できません` };
-  }
-
   const localToday = await getLocalDate();
-  await supabase.from('lots').update({ quantity: newQty }).eq('id', lotId);
 
-  const { data: allLots } = await supabase.from('lots').select('quantity').eq('product_id', lot.product_id);
-  const totalStock = (allLots ?? []).reduce((s, l) => s + l.quantity, 0);
-  await supabase.from('inventory').upsert({
-    product_id: lot.product_id,
-    current_stock: totalStock,
-    updated_at: localToday,
+  const { data, error } = await supabase.rpc('fn_adjust_lot_quantity', {
+    p_lot_id:       lotId,
+    p_new_qty:      newQty,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
   });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/inventory');
   revalidatePath('/inventory/adjust');
@@ -2071,27 +1850,14 @@ export async function saveCycleCount(entries: CycleCountEntry[]): Promise<Action
 
   const localToday = await getLocalDate();
 
-  // Group lot_ids by product_id so we can recalculate inventory per product
-  const lotIds = changes.map((e) => e.lot_id);
-  const { data: lots } = await supabase.from('lots').select('id, product_id, quantity').in('id', lotIds);
-  if (!lots) return { error: 'ロット情報の取得に失敗しました' };
-
-  const lotMap = Object.fromEntries(lots.map((l) => [l.id, l]));
-
-  // Apply updates
-  for (const entry of changes) {
-    const lot = lotMap[entry.lot_id];
-    if (!lot || lot.quantity === entry.actual_qty) continue;
-    await supabase.from('lots').update({ quantity: entry.actual_qty }).eq('id', entry.lot_id);
-  }
-
-  // Recalculate inventory for each affected product
-  const productIds = [...new Set(lots.map((l) => l.product_id))];
-  for (const pid of productIds) {
-    const { data: allLots } = await supabase.from('lots').select('quantity').eq('product_id', pid);
-    const total = (allLots ?? []).reduce((s, l) => s + l.quantity, 0);
-    await supabase.from('inventory').upsert({ product_id: pid, current_stock: total, updated_at: localToday });
-  }
+  const { data, error } = await supabase.rpc('fn_save_cycle_count', {
+    p_entries:      JSON.stringify(changes.map((e) => ({ lot_id: e.lot_id, actual_qty: e.actual_qty }))),
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/inventory');
   revalidatePath('/inventory/cycle-count');
@@ -2112,41 +1878,17 @@ export async function returnOutgoing(
   const supabase = await createClient();
   if (!await getOwnerId(supabase)) return { error: 'Not authenticated' };
 
-  const { data: outgoing } = await supabase
-    .from('outgoing_stock')
-    .select('product_id, quantity, lot_id, returned_qty')
-    .eq('id', id)
-    .not('shipped_at', 'is', null)
-    .single();
-  if (!outgoing) return { error: '出荷済みレコードが見つかりません' };
-
-  const alreadyReturned = outgoing.returned_qty ?? 0;
-  const maxReturn = outgoing.quantity - alreadyReturned;
-  if (returnQty > maxReturn) {
-    return { error: `返品数量は${maxReturn}個以下にしてください` };
-  }
-
-  const { error } = await supabase
-    .from('outgoing_stock')
-    .update({ returned_qty: alreadyReturned + returnQty })
-    .eq('id', id);
-  if (error) return { error: `更新失敗: ${error.message}` };
-
   const localToday = await getLocalDate();
 
-  if (outgoing.lot_id) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', outgoing.lot_id).single();
-    if (lot) {
-      await supabase.from('lots').update({ quantity: lot.quantity + returnQty }).eq('id', outgoing.lot_id);
-    }
-  }
-
-  const { data: inv } = await supabase.from('inventory').select('current_stock').eq('product_id', outgoing.product_id).single();
-  await supabase.from('inventory').upsert({
-    product_id: outgoing.product_id,
-    current_stock: (inv?.current_stock ?? 0) + returnQty,
-    updated_at: localToday,
+  const { data, error } = await supabase.rpc('fn_return_outgoing', {
+    p_outgoing_id:  id,
+    p_return_qty:   returnQty,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
   });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
 
   revalidatePath('/shipping/history');
   revalidatePath('/inventory');
