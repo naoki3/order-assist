@@ -58,7 +58,8 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
     {
       type: 'group', key: 'inventory', label: t('nav.inventoryGroup'), icon: Package,
       items: [
-        { href: '/inventory', label: t('nav.inventory'), exact: false },
+        { href: '/inventory', label: t('nav.inventory'), exact: true },
+        { href: '/inventory/expiry', label: t('nav.inventoryExpiry'), exact: false },
       ],
     },
     {

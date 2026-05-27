@@ -89,16 +89,42 @@ async function getTodayShipped(tz: string): Promise<{ product_name: string; quan
   return (data ?? []) as { product_name: string; quantity: number }[];
 }
 
+async function getExpiryAlerts(tz: string): Promise<{ expiredCount: number; within7: { lot_number: string; product_name: string; expiry_date: string; daysLeft: number }[] }> {
+  const today = toLocalDateStr(tz);
+  const in7 = new Date(today + 'T12:00:00Z');
+  in7.setUTCDate(in7.getUTCDate() + 7);
+  const in7Str = in7.toISOString().slice(0, 10);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('lots')
+    .select('lot_number, product_name, expiry_date')
+    .not('expiry_date', 'is', null)
+    .gt('quantity', 0)
+    .lte('expiry_date', in7Str)
+    .order('expiry_date', { ascending: true });
+
+  const lots = (data ?? []) as { lot_number: string; product_name: string; expiry_date: string }[];
+  const expiredCount = lots.filter((l) => l.expiry_date < today).length;
+  const within7 = lots.map((l) => {
+    const a = new Date(today + 'T12:00:00Z');
+    const b = new Date(l.expiry_date + 'T12:00:00Z');
+    return { ...l, daysLeft: Math.round((b.getTime() - a.getTime()) / 86400000) };
+  });
+  return { expiredCount, within7 };
+}
+
 export default async function DashboardPage() {
   const [lang, tz] = await Promise.all([getLang(), getTz()]);
   const dates = buildLastNDates(tz, 7);
 
-  const [recommendations, salesData, todayIncoming, todayReceived, todayShipped] = await Promise.all([
+  const [recommendations, salesData, todayIncoming, todayReceived, todayShipped, expiryAlerts] = await Promise.all([
     getRecommendations(new Date(), lang),
     getSalesTrend(tz),
     getTodayIncoming(tz),
     getTodayReceived(tz),
     getTodayShipped(tz),
+    getExpiryAlerts(tz),
   ]);
   const dict = translations[lang];
 
@@ -183,6 +209,45 @@ export default async function DashboardPage() {
           <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.todayEstimate', lang)}</p>
         </div>
       </div>
+
+      {/* Expiry alert widget */}
+      {(expiryAlerts.expiredCount > 0 || expiryAlerts.within7.length > 0) && (
+        <div className={`rounded-xl border p-4 ${expiryAlerts.expiredCount > 0 ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-slate-600">{t('dashboard.expiryAlert', lang)}</p>
+            <a href="/inventory/expiry" className="text-xs text-green-700 hover:underline font-medium">詳細 →</a>
+          </div>
+          <div className="flex gap-4">
+            {expiryAlerts.expiredCount > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-red-600">{expiryAlerts.expiredCount}</p>
+                <p className="text-xs text-red-500">{t('dashboard.expiryExpired', lang)}</p>
+              </div>
+            )}
+            {expiryAlerts.within7.filter(l => l.daysLeft >= 0).length > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{expiryAlerts.within7.filter(l => l.daysLeft >= 0).length}</p>
+                <p className="text-xs text-amber-600">{t('dashboard.expiryWarning', lang)}</p>
+              </div>
+            )}
+          </div>
+          {expiryAlerts.within7.length > 0 && (
+            <div className="mt-2 space-y-0.5">
+              {expiryAlerts.within7.slice(0, 5).map((l, i) => (
+                <p key={i} className="text-xs text-slate-600">
+                  {l.product_name} <span className="font-mono text-slate-400">{l.lot_number}</span>
+                  {' '}<span className={l.daysLeft < 0 ? 'text-red-600 font-semibold' : 'text-amber-600'}>
+                    {l.daysLeft < 0 ? `${Math.abs(l.daysLeft)}日超過` : `残${l.daysLeft}日`}
+                  </span>
+                </p>
+              ))}
+              {expiryAlerts.within7.length > 5 && (
+                <p className="text-xs text-slate-400">他 {expiryAlerts.within7.length - 5} 件...</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Charts (client component) */}
       <DashboardCharts salesTrend={salesTrend} bestSellers={bestSellers} />
