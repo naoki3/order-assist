@@ -368,6 +368,7 @@ export const translations = {
     'transfer.noLots': '在庫のあるロットがありません',
     'transfer.success': '移動しました',
     'inventory.location': 'ロケーション',
+    'inventory.noLocation': 'ロケーション未設定',
 
     // History
     'history.title': '発注履歴',
@@ -898,6 +899,7 @@ export const translations = {
     'transfer.noLots': 'No lots with available stock',
     'transfer.success': 'Transferred',
     'inventory.location': 'Location',
+    'inventory.noLocation': 'No location set',
 
     // History
     'history.title': 'Order History',
