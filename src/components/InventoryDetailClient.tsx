@@ -17,18 +17,51 @@ interface LocationOption {
   warehouse_name: string | null;
 }
 
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
+interface StatusOption {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface Props {
   product: Product;
   lots: Lot[];
   currentStock: number;
   locations: LocationOption[];
+  warehouses: WarehouseOption[];
+  statuses: StatusOption[];
   today: string;
 }
 
-function LotCard({ lot, product, locations, today }: {
+const COLOR_MAP: Record<string, string> = {
+  slate: 'bg-slate-100 text-slate-700',
+  red: 'bg-red-100 text-red-700',
+  amber: 'bg-amber-100 text-amber-700',
+  green: 'bg-green-100 text-green-700',
+  blue: 'bg-blue-100 text-blue-700',
+  purple: 'bg-purple-100 text-purple-700',
+};
+
+function StatusBadge({ name, color }: { name: string; color: string }) {
+  const cls = COLOR_MAP[color] ?? COLOR_MAP.slate;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {name}
+    </span>
+  );
+}
+
+function LotCard({ lot, product, locations, warehouses, statuses, today }: {
   lot: Lot;
   product: Product;
   locations: LocationOption[];
+  warehouses: WarehouseOption[];
+  statuses: StatusOption[];
   today: string;
 }) {
   const { t, lang } = useT();
@@ -52,10 +85,15 @@ function LotCard({ lot, product, locations, today }: {
     }
   }, [transState]);
 
-  // Filter locations: if lot has a warehouse, only show locations in that warehouse
-  const filteredLocations = lot.warehouse_id
-    ? locations.filter((l) => l.warehouse_id === lot.warehouse_id)
-    : locations;
+  // Warehouse select state for transfer
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
+  const filteredLocations = selectedWarehouseId
+    ? locations.filter((l) => l.warehouse_id === selectedWarehouseId)
+    : [];
+
+  // Status select state for correction
+  const [selectedStatusId, setSelectedStatusId] = useState<number | null>(lot.status_id ?? null);
+  const selectedStatus = statuses.find((s) => s.id === selectedStatusId) ?? null;
 
   const qtyStr = product.pieces_per_ball
     ? `${formatQty(lot.quantity, product, lang)} (${lot.quantity}${t('units.pieceSuffix')})`
@@ -71,6 +109,11 @@ function LotCard({ lot, product, locations, today }: {
             {lot.location_name && <span>{t('inventory.location')}: {lot.location_name}</span>}
             {lot.received_at && <span>{t('inventory.lastReceived')}: {formatDisplayDate(lot.received_at)}</span>}
           </div>
+          {lot.status_name && lot.status_color && (
+            <div className="mt-1">
+              <StatusBadge name={lot.status_name} color={lot.status_color} />
+            </div>
+          )}
         </div>
         <span className="text-sm font-semibold text-slate-700 shrink-0">{qtyStr}</span>
       </div>
@@ -83,10 +126,10 @@ function LotCard({ lot, product, locations, today }: {
         >
           {t('inventory.correctionTitle')}
         </button>
-        {filteredLocations.length > 0 && (
+        {warehouses.length > 0 && (
           <button
             type="button"
-            onClick={() => setMode(mode === 'transfer' ? 'none' : 'transfer')}
+            onClick={() => { setSelectedWarehouseId(null); setMode(mode === 'transfer' ? 'none' : 'transfer'); }}
             className={`text-xs px-2 py-1 rounded-lg border transition-colors ${mode === 'transfer' ? 'bg-slate-200 border-slate-300' : 'border-slate-200 hover:bg-slate-100'}`}
           >
             {t('transfer.title')}
@@ -97,6 +140,8 @@ function LotCard({ lot, product, locations, today }: {
       {mode === 'correction' && (
         <form key={corrKey} action={corrAction} className="space-y-2 pt-1">
           <input type="hidden" name="lot_id" value={lot.id} />
+          <input type="hidden" name="status_name" value={selectedStatus?.name ?? ''} />
+          <input type="hidden" name="status_color" value={selectedStatus?.color ?? ''} />
           <div>
             <label className="text-xs text-slate-500 mb-0.5 block">{t('inventory.correctionLotNumber')}</label>
             <input type="text" name="lot_number" required defaultValue={lot.lot_number}
@@ -106,6 +151,22 @@ function LotCard({ lot, product, locations, today }: {
             <label className="text-xs text-slate-500 mb-0.5 block">{t('inventory.correctionExpiry')}</label>
             <DateInput name="expiry_date" defaultValue={lot.expiry_date ?? ''} className="w-full text-sm" />
           </div>
+          {statuses.length > 0 && (
+            <div>
+              <label className="text-xs text-slate-500 mb-0.5 block">{t('inventory.correctionStatus')}</label>
+              <select
+                name="status_id"
+                value={selectedStatusId ?? ''}
+                onChange={(e) => setSelectedStatusId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">{t('inventory.noStatus')}</option>
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {corrError && <p className="text-red-600 text-xs">{corrError}</p>}
           {corrSuccess && <p className="text-green-600 text-xs">{corrSuccess}</p>}
           <button type="submit" className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
@@ -123,22 +184,38 @@ function LotCard({ lot, product, locations, today }: {
               className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
-            <label className="text-xs text-slate-500 mb-0.5 block">{t('transfer.toLocation')}</label>
-            <select name="to_location_id" required
-              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+            <label className="text-xs text-slate-500 mb-0.5 block">{t('transfer.toWarehouse')}</label>
+            <select
+              value={selectedWarehouseId ?? ''}
+              onChange={(e) => setSelectedWarehouseId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
               <option value="">—</option>
-              {filteredLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}{l.warehouse_name ? ` (${l.warehouse_name})` : ''}</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
               ))}
             </select>
           </div>
+          {selectedWarehouseId && (
+            <div>
+              <label className="text-xs text-slate-500 mb-0.5 block">{t('transfer.toLocation')}</label>
+              <select name="to_location_id" required
+                className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="">—</option>
+                {filteredLocations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <input type="text" name="note" placeholder={t('transfer.note')}
               className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           {transError && <p className="text-red-600 text-xs">{transError}</p>}
           {transSuccess && <p className="text-green-600 text-xs">{transSuccess}</p>}
-          <button type="submit" className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium">
+          <button type="submit" disabled={!selectedWarehouseId || filteredLocations.length === 0}
+            className="w-full py-1.5 bg-green-700 text-white text-xs rounded-lg hover:bg-green-800 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
             {t('transfer.submit')}
           </button>
         </form>
@@ -175,7 +252,7 @@ function StockAdjustSection({ product, currentStock }: { product: Product; curre
   );
 }
 
-export default function InventoryDetailClient({ product, lots, currentStock, locations, today }: Props) {
+export default function InventoryDetailClient({ product, lots, currentStock, locations, warehouses, statuses, today }: Props) {
   const { t, lang } = useT();
 
   const totalStr = product.pieces_per_ball
@@ -194,7 +271,7 @@ export default function InventoryDetailClient({ product, lots, currentStock, loc
       ) : (
         <div className="space-y-2">
           {lots.map((lot) => (
-            <LotCard key={lot.id} lot={lot} product={product} locations={locations} today={today} />
+            <LotCard key={lot.id} lot={lot} product={product} locations={locations} warehouses={warehouses} statuses={statuses} today={today} />
           ))}
         </div>
       )}

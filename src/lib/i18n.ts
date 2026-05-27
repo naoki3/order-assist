@@ -117,6 +117,8 @@ export const translations = {
     'inventory.correctionSave': '保存',
     'inventory.correctionSaving': '保存中...',
     'inventory.correctionNoLots': 'ロットがまだ登録されていません',
+    'inventory.correctionStatus': '在庫状態',
+    'inventory.noStatus': '（状態なし）',
     'incoming.lotNumberPlaceholder': 'ロット番号（省略時は自動採番）',
 
     // Products
@@ -358,6 +360,7 @@ export const translations = {
     'transfer.selectProduct': '商品を選択',
     'transfer.selectLot': 'ロットを選択',
     'transfer.quantity': '数量',
+    'transfer.toWarehouse': '移動先倉庫',
     'transfer.toLocation': '移動先ロケーション',
     'transfer.note': '備考（任意）',
     'transfer.submit': '移動する',
@@ -698,6 +701,8 @@ export const translations = {
     'inventory.correctionSave': 'Save',
     'inventory.correctionSaving': 'Saving...',
     'inventory.correctionNoLots': 'No lots registered yet',
+    'inventory.correctionStatus': 'Inventory status',
+    'inventory.noStatus': '(no status)',
     'incoming.lotNumberPlaceholder': 'Lot number (auto-generated if blank)',
 
     // Products
@@ -885,6 +890,7 @@ export const translations = {
     'transfer.selectProduct': 'Select product',
     'transfer.selectLot': 'Select lot',
     'transfer.quantity': 'Quantity',
+    'transfer.toWarehouse': 'Destination warehouse',
     'transfer.toLocation': 'Destination location',
     'transfer.note': 'Note (optional)',
     'transfer.submit': 'Transfer',
