@@ -23,13 +23,23 @@ function Item({ item, unitConfig }: { item: OutgoingStock; unitConfig: UnitConfi
     <div className="py-2.5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-          {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500 ml-2">{formatQty(item.quantity, unitConfig, lang)}</span>
-          ) : (
-            <span className="text-xs text-slate-500 ml-2">{item.quantity} {t('shipping.units')}</span>
+          <div className="flex items-baseline gap-1 flex-wrap">
+            <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+            {unitConfig.pieces_per_ball ? (
+              <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
+            ) : (
+              <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+            )}
+            {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
+          </div>
+          {(item.warehouse_name || item.location_name || item.destination_name || item.carrier_name) && (
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+              {item.warehouse_name && <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>}
+              {item.location_name && <span className="text-xs text-slate-400">{t('inventory.location')}: {item.location_name}</span>}
+              {item.destination_name && <span className="text-xs text-slate-400">{t('shipping.destination')}: {item.destination_name}</span>}
+              {item.carrier_name && <span className="text-xs text-slate-400">{t('shipping.carrier')}: {item.carrier_name}</span>}
+            </div>
           )}
-          {item.note && <span className="text-xs text-slate-400 ml-1">· {item.note}</span>}
           {shipError && <p className="text-red-600 text-xs mt-0.5">{shipError}</p>}
           {delError && <p className="text-red-600 text-xs mt-0.5">{delError}</p>}
           {shipSuccess && <p className="text-green-600 text-xs mt-0.5">{shipSuccess}</p>}

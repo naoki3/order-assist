@@ -19,7 +19,7 @@ export default async function ShippingSchedulePage() {
       .is('shipped_at', null)
       .order('scheduled_date', { ascending: false })
       .order('id'),
-    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
+    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, default_warehouse_id').order('id'),
     supabase.from('lots').select('*').gt('quantity', 0).order('expiry_date', { ascending: true, nullsFirst: false }),
     supabase.from('inventory').select('product_id, current_stock'),
     supabase.from('delivery_destinations').select('id, name').order('name'),
@@ -28,7 +28,7 @@ export default async function ShippingSchedulePage() {
   ]);
   const pending = (pendingData ?? []) as OutgoingStock[];
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
-  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
+  const products = ((productsData ?? []) as { id: number; name: string; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; default_warehouse_id: number | null }[]).filter((p) => (stockMap[p.id] ?? 0) > 0);
   const lots = (lotsData ?? []) as Lot[];
   const destinations = (destinationsData ?? []) as { id: number; name: string }[];
   const carriers = (carriersData ?? []) as { id: number; name: string }[];
