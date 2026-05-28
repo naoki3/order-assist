@@ -139,6 +139,7 @@ export interface ShipmentLine {
   created_at: string;
   lot_status_name: string | null;
   lot_status_color: string | null;
+  unit_price: number | null;
 }
 
 /** Shipment with its lines embedded (for page-level queries). */

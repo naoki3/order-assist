@@ -7,10 +7,10 @@ import SalesReportCharts from '@/components/SalesReportCharts';
 import TargetForm from '@/components/TargetForm';
 
 interface IncomingRow { product_id: number; quantity: number; received_at: string }
-interface OutgoingRow { product_id: number; quantity: number; shipped_at: string }
-type RawReceiptLine = { product_id: number; received_qty: number; receipts: { received_at: string } | { received_at: string }[] };
-type RawShipmentLine = { product_id: number; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
-type RawLotShipmentLine = { lot_id: number | null; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+interface OutgoingRow { product_id: number; quantity: number; shipped_at: string; unit_price: number | null }
+type RawReceipt = { received_at: string; receipt_lines: { product_id: number; received_qty: number }[] };
+type RawShipment = { shipped_at: string; shipment_lines: { product_id: number; quantity: number; shipped_qty: number | null; unit_price: number | null; status: string }[] };
+type RawLotShipment = { shipped_at: string; shipment_lines: { lot_id: number | null; quantity: number; shipped_qty: number | null; status: string }[] };
 
 export const dynamic = 'force-dynamic';
 
@@ -60,26 +60,27 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   const [{ data: productsData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }, { data: lotOutgoingData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('sales_targets').select('target_amount').eq('month', to.slice(0, 7)).maybeSingle(),
-    supabase.from('receipt_lines').select('product_id, received_qty, receipts!inner(received_at)').not('receipts.received_at', 'is', null).gte('receipts.received_at', fromTs).lte('receipts.received_at', toTs),
-    supabase.from('shipment_lines').select('product_id, quantity, shipments!inner(shipped_at)').eq('status', 'shipped').not('shipments.shipped_at', 'is', null).gte('shipments.shipped_at', fromTs).lte('shipments.shipped_at', toTs),
+    supabase.from('receipts').select('received_at, receipt_lines!inner(product_id, received_qty)').not('received_at', 'is', null).gte('received_at', fromTs).lte('received_at', toTs),
+    supabase.from('shipments').select('shipped_at, shipment_lines!inner(product_id, quantity, shipped_qty, unit_price, status)').eq('status', 'shipped').not('shipped_at', 'is', null).gte('shipped_at', fromTs).lte('shipped_at', toTs),
     supabase.from('lots').select('id, product_id, quantity, received_at').gt('quantity', 0).lte('received_at', to),
-    supabase.from('shipment_lines').select('lot_id, quantity, shipments!inner(shipped_at)').eq('status', 'shipped').not('lot_id', 'is', null).not('shipments.shipped_at', 'is', null),
+    supabase.from('shipments').select('shipped_at, shipment_lines!inner(lot_id, quantity, shipped_qty, status)').eq('status', 'shipped').not('shipped_at', 'is', null),
   ]);
 
   const products = (productsData ?? []) as Product[];
-  const incomings: IncomingRow[] = ((incomingData ?? []) as RawReceiptLine[]).map((r) => {
-    const rec = Array.isArray(r.receipts) ? r.receipts[0] : r.receipts;
-    return { product_id: r.product_id, quantity: r.received_qty, received_at: rec?.received_at ?? '' };
-  }).filter((r) => r.received_at);
-  const outgoings: OutgoingRow[] = ((outgoingData ?? []) as RawShipmentLine[]).map((r) => {
-    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
-    return { product_id: r.product_id, quantity: r.quantity, shipped_at: s?.shipped_at ?? '' };
-  }).filter((r) => r.shipped_at);
+  const incomings: IncomingRow[] = ((incomingData ?? []) as RawReceipt[]).flatMap((r) =>
+    r.receipt_lines.map((l) => ({ product_id: l.product_id, quantity: l.received_qty, received_at: r.received_at }))
+  ).filter((r) => r.received_at);
+  const outgoings: OutgoingRow[] = ((outgoingData ?? []) as RawShipment[]).flatMap((r) =>
+    r.shipment_lines
+      .filter((l) => l.status === 'shipped')
+      .map((l) => ({ product_id: l.product_id, quantity: l.shipped_qty ?? l.quantity, shipped_at: r.shipped_at, unit_price: l.unit_price }))
+  ).filter((r) => r.shipped_at);
   const lots = (lotsData ?? []) as { id: number; product_id: number; quantity: number; received_at: string }[];
-  const lotOutgoingFlat = ((lotOutgoingData ?? []) as RawLotShipmentLine[]).map((r) => {
-    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
-    return { lot_id: r.lot_id!, quantity: r.quantity, date: s?.shipped_at?.slice(0, 10) ?? '' };
-  }).filter((r) => r.date);
+  const lotOutgoingFlat = ((lotOutgoingData ?? []) as RawLotShipment[]).flatMap((r) =>
+    r.shipment_lines
+      .filter((l) => l.status === 'shipped' && l.lot_id != null)
+      .map((l) => ({ lot_id: l.lot_id!, quantity: l.shipped_qty ?? l.quantity, date: r.shipped_at?.slice(0, 10) ?? '' }))
+  ).filter((r) => r.date);
   const lotOutgoingMap = new Map<number, { date: string; qty: number }[]>();
   for (const o of lotOutgoingFlat) {
     const arr = lotOutgoingMap.get(o.lot_id) ?? [];
@@ -100,7 +101,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   for (const o of outgoings) {
     if (!byProduct[o.product_id]) byProduct[o.product_id] = { units: 0, revenue: 0 };
     byProduct[o.product_id].units += o.quantity;
-    const price = priceMap[o.product_id];
+    const price = o.unit_price ?? priceMap[o.product_id];
     byProduct[o.product_id].revenue += price != null ? o.quantity * price : 0;
   }
 
@@ -120,7 +121,7 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
     const d = o.shipped_at.slice(0, 10);
     if (!salesByDate[d]) salesByDate[d] = { units: 0, revenue: 0 };
     salesByDate[d].units += o.quantity;
-    const price = priceMap[o.product_id];
+    const price = o.unit_price ?? priceMap[o.product_id];
     salesByDate[d].revenue += price != null ? o.quantity * price : 0;
   }
 
