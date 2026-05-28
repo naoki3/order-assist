@@ -45,7 +45,10 @@ export default function ShippingConfirmClient({ pending, shipped, unitMap, today
     s.shipment_lines.some((l) => l.allocated_at !== null)
   );
 
-  const allocatedLineCount = allocatedShipments.reduce((s, sh) => s + sh.shipment_lines.length, 0);
+  const allocatedLineCount = allocatedShipments.reduce(
+    (s, sh) => s + sh.shipment_lines.filter((l) => l.allocated_at !== null).length,
+    0
+  );
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'allocation', label: t('shipping.tabAllocation'), count: unallocated.length },

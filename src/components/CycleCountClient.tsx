@@ -6,7 +6,8 @@ import { useT } from './LanguageProvider';
 import { formatDisplayDate } from '@/lib/tz';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
-import { saveCycleCount } from '@/lib/actions';
+import { saveCycleCountDraft, applyCycleCountSession, discardCycleCountSession } from '@/lib/actions';
+import type { SaveCycleCountDraftResult } from '@/lib/actions';
 import type { Lot } from '@/lib/db';
 
 const COLOR_MAP: Record<string, string> = {
@@ -43,6 +44,7 @@ export default function CycleCountClient({ lots, unitMap, warehouses }: Props) {
   );
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [draftSessionId, setDraftSessionId] = useState<number | null>(null);
 
   const filteredLots = selectedWarehouseId
     ? lots.filter((l) => String(l.warehouse_id ?? '') === selectedWarehouseId)
@@ -50,7 +52,6 @@ export default function CycleCountClient({ lots, unitMap, warehouses }: Props) {
 
   const selectedWarehouse = warehouses.find((w) => String(w.id) === selectedWarehouseId);
 
-  // Group by product
   const grouped = filteredLots.reduce<Record<string, Lot[]>>((acc, l) => {
     (acc[l.product_name] ??= []).push(l);
     return acc;
@@ -68,38 +69,66 @@ export default function CycleCountClient({ lots, unitMap, warehouses }: Props) {
   function handleChange(lotId: number, value: string) {
     setRows((prev) => ({ ...prev, [lotId]: value }));
     setMessage(null);
+    setDraftSessionId(null);
   }
 
-  function handleSave() {
-    const entries = lots.map((l) => ({
-      lot_id: l.id,
+  const changedEntries = filteredLots
+    .map((l) => ({
+      lot_id:     l.id,
       actual_qty: Number(rows[l.id] ?? l.quantity),
-    })).filter((e) => !isNaN(e.actual_qty));
+      system_qty: l.quantity,
+    }))
+    .filter((e) => !isNaN(e.actual_qty) && e.actual_qty !== e.system_qty);
 
-    const changed = entries.filter((e) => {
-      const lot = lots.find((l) => l.id === e.lot_id);
-      return lot && e.actual_qty !== lot.quantity;
-    });
-
-    if (changed.length === 0) {
+  function handleSaveDraft() {
+    if (changedEntries.length === 0) {
       setMessage({ type: 'success', text: t('cycleCount.noChanges') });
       return;
     }
-
     startTransition(async () => {
-      const result = await saveCycleCount(entries);
-      if (result && 'error' in result) {
+      const result: SaveCycleCountDraftResult = await saveCycleCountDraft(
+        changedEntries,
+        draftSessionId,
+        selectedWarehouse?.id ?? null,
+        selectedWarehouse?.name ?? null
+      );
+      if (!result) return;
+      if ('error' in result) {
         setMessage({ type: 'error', text: result.error });
       } else {
-        setMessage({ type: 'success', text: t('cycleCount.saved') });
+        setDraftSessionId(result.session_id ?? null);
+        setMessage({ type: 'success', text: t('cycleCount.draftSaved') });
       }
     });
   }
 
-  const totalChanges = filteredLots.filter((l) => {
-    const actual = Number(rows[l.id] ?? l.quantity);
-    return !isNaN(actual) && actual !== l.quantity;
-  }).length;
+  function handleApply() {
+    if (!draftSessionId) return;
+    startTransition(async () => {
+      const result = await applyCycleCountSession(draftSessionId);
+      if (!result) return;
+      if ('error' in result) {
+        setMessage({ type: 'error', text: result.error });
+      } else {
+        setDraftSessionId(null);
+        setMessage({ type: 'success', text: t('cycleCount.applied') });
+      }
+    });
+  }
+
+  function handleDiscard() {
+    if (!draftSessionId) return;
+    startTransition(async () => {
+      const result = await discardCycleCountSession(draftSessionId);
+      if (!result) return;
+      if ('error' in result) {
+        setMessage({ type: 'error', text: result.error });
+      } else {
+        setDraftSessionId(null);
+        setMessage(null);
+      }
+    });
+  }
 
   const uc = (l: Lot): UnitConfig => unitMap[l.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null };
 
@@ -113,7 +142,6 @@ export default function CycleCountClient({ lots, unitMap, warehouses }: Props) {
     return <p className="text-slate-400 text-sm print:hidden">{t('cycleCount.noLots')}</p>;
   }
 
-  // Build print rows (all lots in display order, with current values)
   const printRows = filteredLots.map((l) => ({
     lot: l,
     systemQty: l.quantity,
@@ -254,18 +282,60 @@ export default function CycleCountClient({ lots, unitMap, warehouses }: Props) {
               <p className={`text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-700'}`}>{message.text}</p>
             )}
 
+            {/* Draft review panel */}
+            {draftSessionId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-semibold text-amber-800">{t('cycleCount.draftReview')}</p>
+                <ul className="text-xs text-amber-700 space-y-0.5">
+                  {changedEntries.map((e) => {
+                    const lot = lots.find((l) => l.id === e.lot_id);
+                    const diff = e.actual_qty - e.system_qty;
+                    return (
+                      <li key={e.lot_id}>
+                        {lot?.product_name} ({lot?.lot_number}):
+                        {' '}{e.system_qty} → {e.actual_qty}
+                        {' '}<span className={diff > 0 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                          ({diff > 0 ? '+' : ''}{diff})
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    disabled={isPending}
+                    className="px-4 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
+                  >
+                    {isPending ? t('cycleCount.saving') : t('cycleCount.apply')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscard}
+                    disabled={isPending}
+                    className="px-4 py-2 bg-white border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                  >
+                    {t('cycleCount.discard')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
-              {totalChanges > 0 && (
-                <p className="text-xs text-slate-500">{totalChanges}件の差異があります</p>
+              {changedEntries.length > 0 && !draftSessionId && (
+                <p className="text-xs text-slate-500">{changedEntries.length}件の差異があります</p>
               )}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isPending}
-                className="ml-auto px-4 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
-              >
-                {isPending ? t('cycleCount.saving') : t('cycleCount.save')}
-              </button>
+              {!draftSessionId && (
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isPending}
+                  className="ml-auto px-4 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors font-medium"
+                >
+                  {isPending ? t('cycleCount.saving') : t('cycleCount.saveDraft')}
+                </button>
+              )}
             </div>
           </>
         )}

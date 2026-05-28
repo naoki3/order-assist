@@ -10,13 +10,26 @@ import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import { formatDisplayDate } from '@/lib/tz';
 
-function ShipmentLineRow({ line, unitConfig }: { line: ShipmentLine; unitConfig: UnitConfig }) {
+function ShipmentLineRow({
+  line,
+  unitConfig,
+  shipQty,
+  onShipQtyChange,
+}: {
+  line: ShipmentLine;
+  unitConfig: UnitConfig;
+  shipQty?: string;
+  onShipQtyChange?: (v: string) => void;
+}) {
   const { t, lang } = useT();
   const [deallocState, deallocAction] = useActionState(deallocateOutgoing, null);
   const { errorMsg: deallocError } = useActionFeedback(deallocState, '');
 
+  const remaining = line.quantity - (line.shipped_qty ?? 0);
+  const isAllocated = line.allocated_at !== null && line.status === 'allocated';
+
   return (
-    <div className="py-2 flex items-center justify-between gap-3">
+    <div className="py-2 flex items-start justify-between gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1 flex-wrap">
           <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
@@ -39,15 +52,30 @@ function ShipmentLineRow({ line, unitConfig }: { line: ShipmentLine; unitConfig:
         </div>
         {deallocError && <p className="text-red-600 text-xs mt-0.5">{deallocError}</p>}
       </div>
-      {line.allocated_at && (
-        <form action={deallocAction} className="flex-shrink-0">
-          <input type="hidden" name="id" value={line.id} />
-          <button type="submit"
-            className="text-amber-600 text-xs hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
-            {t('shipping.btnDeallocate')}
-          </button>
-        </form>
-      )}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {isAllocated && onShipQtyChange && (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-xs text-slate-400">{t('shipping.shipQty')}</span>
+            <input
+              type="number"
+              min={1}
+              max={remaining}
+              value={shipQty ?? String(remaining)}
+              onChange={(e) => onShipQtyChange(e.target.value)}
+              className="w-16 text-right border border-slate-300 rounded-md px-2 py-1 text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
+        {line.allocated_at && (
+          <form action={deallocAction} className="flex-shrink-0">
+            <input type="hidden" name="id" value={line.id} />
+            <button type="submit"
+              className="text-amber-600 text-xs hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
+              {t('shipping.btnDeallocate')}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
@@ -58,11 +86,22 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
   const [shipState, shipAction] = useActionState(confirmShipment, null);
   const [delState, delAction] = useActionState(deleteOutgoingSchedule, null);
 
+  const allocatedLines = shipment.shipment_lines.filter((l) => l.allocated_at !== null && l.status === 'allocated');
+  const [lineQtys, setLineQtys] = useState<Record<number, string>>(() =>
+    Object.fromEntries(allocatedLines.map((l) => [l.id, String(l.quantity - (l.shipped_qty ?? 0))]))
+  );
+
   const { successMsg: shipSuccess, errorMsg: shipError } = useActionFeedback(shipState, t('common.confirmed'));
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
 
   const hasAllocated = shipment.shipment_lines.some((l) => l.allocated_at !== null);
   const isToday = shipment.scheduled_date === today;
+
+  const shipQtysJson = JSON.stringify(
+    Object.fromEntries(
+      allocatedLines.map((l) => [String(l.id), Number(lineQtys[l.id] ?? (l.quantity - (l.shipped_qty ?? 0)))])
+    )
+  );
 
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
@@ -80,7 +119,6 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
             <span className="text-xs text-slate-400">{t('shipping.carrier')}: {shipment.carrier_name}</span>
           )}
           <span className="text-xs text-slate-400">{formatDisplayDate(shipment.scheduled_date)}{isToday && ' (今日)'}</span>
-          {/* Allocation status badge */}
           {hasAllocated ? (
             <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">引当済</span>
           ) : (
@@ -95,6 +133,8 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
             key={line.id}
             line={line}
             unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+            shipQty={lineQtys[line.id]}
+            onShipQtyChange={(v) => setLineQtys((prev) => ({ ...prev, [line.id]: v }))}
           />
         ))}
       </div>
@@ -121,6 +161,7 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
           <>
             <form action={shipAction}>
               <input type="hidden" name="id" value={shipment.id} />
+              <input type="hidden" name="ship_qtys" value={shipQtysJson} />
               <button type="submit"
                 className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
                 {t('shipping.confirm')}

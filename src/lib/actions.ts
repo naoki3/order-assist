@@ -240,6 +240,11 @@ export async function receiveIncoming(
     warehouseName = w?.name ?? null;
   }
 
+  const receivedQtyRaw = formData.get('received_qty');
+  const receivedQty = receivedQtyRaw && String(receivedQtyRaw).trim() !== ''
+    ? Number(receivedQtyRaw)
+    : null;
+
   const { data, error } = await supabase.rpc('fn_receive_receipt_line', {
     p_receipt_line_id: id,
     p_lot_number:      lotNumber,
@@ -254,6 +259,7 @@ export async function receiveIncoming(
     p_status_id:       statusId,
     p_status_name:     statusName,
     p_status_color:    statusColor,
+    p_received_qty:    receivedQty,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -1091,8 +1097,17 @@ export async function confirmShipment(
   _prev: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  // id is the shipment.id (= shipment_line.shipment_id for 1:1 migrated data)
   const id = Number(formData.get('id'));
+  const shipQtysRaw = formData.get('ship_qtys') as string | null;
+  let shipQtys: Record<string, number> | null = null;
+  if (shipQtysRaw) {
+    try {
+      const parsed = JSON.parse(shipQtysRaw) as Record<string, number>;
+      // Only pass to DB if any qty differs from default (DB handles full=null)
+      shipQtys = Object.keys(parsed).length > 0 ? parsed : null;
+    } catch { /* ignore parse errors */ }
+  }
+
   const supabase = await createClient();
   const localToday = await getLocalDate();
 
@@ -1100,6 +1115,7 @@ export async function confirmShipment(
     p_shipment_id:  id,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
+    p_ship_qtys:    shipQtys,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -2273,6 +2289,7 @@ export async function setRolePermissions(
 export interface CycleCountEntry {
   lot_id: number;
   actual_qty: number;
+  system_qty: number;
 }
 
 export async function saveCycleCount(entries: CycleCountEntry[]): Promise<ActionResult> {
@@ -2294,6 +2311,79 @@ export async function saveCycleCount(entries: CycleCountEntry[]): Promise<Action
   if (result?.error) return { error: result.error };
 
   revalidatePath('/inventory');
+  revalidatePath('/inventory/cycle-count');
+  return { success: 'ok' };
+}
+
+export type SaveCycleCountDraftResult = { error: string } | { success: string; session_id?: number } | null;
+
+export async function saveCycleCountDraft(
+  entries: CycleCountEntry[],
+  sessionId: number | null,
+  warehouseId: number | null,
+  warehouseName: string | null
+): Promise<SaveCycleCountDraftResult> {
+  if (entries.length === 0) return { error: '差異のある明細がありません' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_save_cycle_count_draft', {
+    p_entries:       JSON.stringify(entries.map((e) => ({
+      lot_id: e.lot_id, actual_qty: e.actual_qty, system_qty: e.system_qty,
+    }))),
+    p_session_id:    sessionId,
+    p_owner_id:      ownerId,
+    p_warehouse_id:  warehouseId,
+    p_warehouse_name: warehouseName,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string; session_id?: number } | null;
+  if (result?.error) return { error: result.error };
+
+  return { success: 'ok', session_id: result?.session_id };
+}
+
+export async function applyCycleCountSession(
+  sessionId: number
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const localToday = await getLocalDate();
+
+  const { data, error } = await supabase.rpc('fn_apply_cycle_count_session', {
+    p_session_id:   sessionId,
+    p_owner_id:     ownerId,
+    p_operation_id: crypto.randomUUID(),
+    p_local_today:  localToday,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/inventory');
+  revalidatePath('/inventory/cycle-count');
+  return { success: 'ok' };
+}
+
+export async function discardCycleCountSession(
+  sessionId: number
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_discard_cycle_count_session', {
+    p_session_id: sessionId,
+    p_owner_id:   ownerId,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
   revalidatePath('/inventory/cycle-count');
   return { success: 'ok' };
 }
