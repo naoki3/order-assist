@@ -1808,24 +1808,6 @@ export async function deleteUserProfile(_prev: ActionResult, formData: FormData)
   return { success: 'ok' };
 }
 
-export async function updateDefaultWarehouse(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
-  const warehouseId = formData.get('warehouse_id') ? Number(formData.get('warehouse_id')) : null;
-  const warehouseName = (formData.get('warehouse_name') as string | null) || null;
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({ warehouse_id: warehouseId })
-    .eq('auth_user_id', user.id);
-  if (error) return { error: error.message };
-  revalidatePath('/settings');
-  revalidatePath('/incoming/schedule');
-  revalidatePath('/shipping/schedule');
-  void warehouseName;
-  return { success: 'ok' };
-}
-
 // ─── Warehouses ───────────────────────────────────────────────────────────────
 
 export async function addWarehouse(_prev: ActionResult, formData: FormData): Promise<ActionResult> {

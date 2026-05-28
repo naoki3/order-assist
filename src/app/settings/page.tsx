@@ -1,29 +1,16 @@
 import Link from 'next/link';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import { createClient } from '@/lib/supabase';
 import SettingsForm from '@/components/SettingsForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: warehousesData }, { data: profileData }] = await Promise.all([
-    supabase.from('warehouses').select('id, name').order('name'),
-    user
-      ? supabase.from('user_profiles').select('warehouse_id').eq('auth_user_id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
-
-  const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
-  const defaultWarehouseId = (profileData as { warehouse_id: number | null } | null)?.warehouse_id ?? null;
-
+  const lang = await getLang();
   return (
     <div>
       <h1 className="text-xl font-bold text-slate-800 mb-4">{t('settings.title', lang)}</h1>
-      <SettingsForm warehouses={warehouses} defaultWarehouseId={defaultWarehouseId} />
+      <SettingsForm />
       <div className="mt-6">
         <Link
           href="/settings/permissions"

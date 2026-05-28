@@ -4,16 +4,9 @@ import { useT } from './LanguageProvider';
 import LanguageToggle from './LanguageToggle';
 import { SUPPORTED_TZ } from '@/lib/tz';
 import type { Currency } from '@/lib/currency';
-import { useState, useActionState } from 'react';
-import { updateDefaultWarehouse } from '@/lib/actions';
-import { useActionFeedback } from '@/hooks/useActionFeedback';
+import { useState } from 'react';
 
-interface Props {
-  warehouses?: { id: number; name: string }[];
-  defaultWarehouseId?: number | null;
-}
-
-export default function SettingsForm({ warehouses = [], defaultWarehouseId = null }: Props) {
+export default function SettingsForm() {
   const { t, tz, setTz, currency, setCurrency } = useT();
   const currencyOptions: { value: Currency; label: string }[] = [
     { value: 'JPY', label: t('settings.currencyJPY') },
@@ -21,23 +14,19 @@ export default function SettingsForm({ warehouses = [], defaultWarehouseId = nul
     { value: 'EUR', label: t('settings.currencyEUR') },
     { value: 'GBP', label: t('settings.currencyGBP') },
   ];
-  const [localSaved, setLocalSaved] = useState(false);
-  const [whState, whAction] = useActionState(updateDefaultWarehouse, null);
-  const { successMsg: whSuccess, errorMsg: whError } = useActionFeedback(whState, t('settings.saved'));
+  const [saved, setSaved] = useState(false);
 
   function handleTzChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setTz(e.target.value);
-    setLocalSaved(true);
-    setTimeout(() => setLocalSaved(false), 2000);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   function handleCurrencyChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setCurrency(e.target.value as Currency);
-    setLocalSaved(true);
-    setTimeout(() => setLocalSaved(false), 2000);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
-
-  const selectedWarehouse = warehouses.find((w) => w.id === defaultWarehouseId);
 
   return (
     <div className="space-y-6">
@@ -78,39 +67,9 @@ export default function SettingsForm({ warehouses = [], defaultWarehouseId = nul
             ))}
           </select>
         </div>
-
-        {warehouses.length > 0 && (
-          <div className="border-t border-slate-100 pt-4">
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
-              {t('settings.defaultWarehouse')}
-            </label>
-            <p className="text-xs text-slate-400 mb-2">{t('settings.defaultWarehouseDesc')}</p>
-            <form action={whAction} className="flex gap-2">
-              <select
-                name="warehouse_id"
-                defaultValue={defaultWarehouseId ?? ''}
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                <option value="">{t('settings.noWarehouse')}</option>
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-              <button type="submit"
-                className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium shrink-0">
-                {t('incoming.saveButton')}
-              </button>
-            </form>
-            {whError && <p className="text-red-600 text-xs mt-1">{whError}</p>}
-            {whSuccess && <p className="text-green-600 text-xs mt-1">{whSuccess}</p>}
-            {selectedWarehouse && !whSuccess && (
-              <p className="text-xs text-slate-400 mt-1">現在: {selectedWarehouse.name}</p>
-            )}
-          </div>
-        )}
       </div>
 
-      {localSaved && (
+      {saved && (
         <p className="text-green-600 text-sm font-medium text-center">{t('settings.saved')}</p>
       )}
     </div>
