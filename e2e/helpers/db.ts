@@ -69,3 +69,36 @@ export async function deleteTestShipmentsByWarehouse(warehouseId: number) {
   const sb = adminClient();
   await sb.from('shipments').delete().eq('warehouse_id', warehouseId);
 }
+
+/**
+ * テスト用の在庫・ロットを直接 seed する。
+ * 出荷フローのテストで「引当できる在庫がある」状態を作るために使う。
+ */
+export async function seedInventory(productId: number, warehouseId: number, qty: number) {
+  const sb = adminClient();
+
+  // lots に 1 件追加
+  const { data: lot, error: lotErr } = await sb
+    .from('lots')
+    .insert({
+      product_id: productId,
+      warehouse_id: warehouseId,
+      lot_number: `E2E-LOT-${Date.now()}`,
+      quantity: qty,
+      received_at: new Date().toISOString().split('T')[0],
+    })
+    .select()
+    .single();
+  if (lotErr) throw new Error(`seedInventory lot: ${lotErr.message}`);
+
+  // inventory を upsert
+  const { error: invErr } = await sb
+    .from('inventory')
+    .upsert(
+      { product_id: productId, current_stock: qty, allocated_qty: 0 },
+      { onConflict: 'product_id' }
+    );
+  if (invErr) throw new Error(`seedInventory inventory: ${invErr.message}`);
+
+  return lot;
+}
