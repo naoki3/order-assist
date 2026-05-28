@@ -4,6 +4,7 @@
 -- Receipt header becomes 'discrepancy' when at least one line is discrepancy
 -- and no lines are still pending.
 
+DROP FUNCTION IF EXISTS fn_receive_receipt_line(bigint, text, date, bigint, text, bigint, text, text, uuid, text);
 DROP FUNCTION IF EXISTS fn_receive_receipt_line(bigint, text, date, bigint, text, bigint, text, text, uuid, text, bigint, text, text);
 
 CREATE OR REPLACE FUNCTION fn_receive_receipt_line(
