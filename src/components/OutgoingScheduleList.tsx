@@ -538,7 +538,7 @@ function groupByDate(shipments: ShipmentWithLines[]) {
     arr.push(s);
     map.set(s.scheduled_date, arr);
   }
-  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss }));
+  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss })).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 interface Props {
