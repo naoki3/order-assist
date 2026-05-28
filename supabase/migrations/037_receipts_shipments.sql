@@ -135,53 +135,82 @@ CREATE POLICY "own_shipment_lines" ON shipment_lines FOR ALL
   WITH CHECK (user_id = get_owner_id());
 
 -- ── データ移行: incoming_stock → receipts + receipt_lines ────────────────────
+-- カラムが存在するかを information_schema で確認してから動的 SQL で INSERT
 
--- ヘッダー (ID 保存)
-INSERT INTO receipts (
-  id, receipt_no, receipt_type, status,
-  supplier_id, supplier_name, warehouse_id, warehouse_name,
-  source_system, order_history_id, expected_date, received_at,
-  user_id, created_at
-)
-SELECT
-  id,
-  'RCV-' || lpad(id::text, 6, '0'),
-  'planned',
-  CASE WHEN received_at IS NOT NULL THEN 'received' ELSE 'expected' END,
-  supplier_id, supplier_name, warehouse_id, warehouse_name,
-  CASE WHEN order_history_id IS NOT NULL THEN 'order' ELSE 'manual' END,
-  order_history_id,
-  expected_date,
-  received_at,
-  COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = incoming_stock.order_history_id)),
-  now()
-FROM incoming_stock
-WHERE COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = incoming_stock.order_history_id)) IS NOT NULL;
+DO $$
+DECLARE
+  v_sql text;
+  c boolean;
+  supplier_id_e    text := 'NULL::bigint';
+  supplier_name_e  text := 'NULL::text';
+  warehouse_id_e   text := 'NULL::bigint';
+  warehouse_name_e text := 'NULL::text';
+  order_history_e  text := 'NULL::bigint';
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='supplier_id')    INTO c; IF c THEN supplier_id_e    := 'supplier_id';    END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='supplier_name')  INTO c; IF c THEN supplier_name_e  := 'supplier_name';  END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='warehouse_id')   INTO c; IF c THEN warehouse_id_e   := 'warehouse_id';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='warehouse_name') INTO c; IF c THEN warehouse_name_e := 'warehouse_name'; END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='order_history_id') INTO c; IF c THEN order_history_e := 'order_history_id'; END IF;
 
--- シーケンスをリセット
+  v_sql := format(
+    $q$INSERT INTO receipts (
+         id, receipt_no, receipt_type, status,
+         supplier_id, supplier_name, warehouse_id, warehouse_name,
+         source_system, order_history_id, expected_date, received_at,
+         user_id, created_at)
+       SELECT id,
+              'RCV-' || lpad(id::text, 6, '0'),
+              'planned',
+              CASE WHEN received_at IS NOT NULL THEN 'received' ELSE 'expected' END,
+              %s, %s, %s, %s,
+              CASE WHEN %s IS NOT NULL THEN 'order' ELSE 'manual' END,
+              %s,
+              expected_date, received_at,
+              COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = %s)),
+              now()
+       FROM incoming_stock
+       WHERE COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = %s)) IS NOT NULL$q$,
+    supplier_id_e, supplier_name_e, warehouse_id_e, warehouse_name_e,
+    order_history_e, order_history_e, order_history_e, order_history_e
+  );
+  EXECUTE v_sql;
+END $$;
+
 SELECT setval('receipts_id_seq', COALESCE((SELECT MAX(id) FROM receipts), 0) + 1, false);
 
--- 明細 (同一 ID)
-INSERT INTO receipt_lines (
-  id, receipt_id, product_id, product_name,
-  expected_qty, received_qty, lot_number, expiry_date,
-  location_id, location_name, status,
-  user_id, created_at
-)
-SELECT
-  s.id,
-  s.id,  -- receipt_id = receipt.id (1:1)
-  s.product_id, s.product_name,
-  s.quantity,
-  CASE WHEN s.received_at IS NOT NULL THEN s.quantity ELSE NULL END,
-  s.lot_number,
-  s.expiry_date,
-  s.location_id, s.location_name,
-  CASE WHEN s.received_at IS NOT NULL THEN 'received' ELSE 'pending' END,
-  r.user_id,
-  now()
-FROM incoming_stock s
-JOIN receipts r ON r.id = s.id;
+DO $$
+DECLARE
+  v_sql text;
+  c boolean;
+  lot_number_e    text := 'NULL::text';
+  expiry_date_e   text := 'NULL::date';
+  location_id_e   text := 'NULL::bigint';
+  location_name_e text := 'NULL::text';
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='lot_number')    INTO c; IF c THEN lot_number_e    := 's.lot_number';    END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='expiry_date')   INTO c; IF c THEN expiry_date_e   := 's.expiry_date';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='location_id')   INTO c; IF c THEN location_id_e   := 's.location_id';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='incoming_stock' AND column_name='location_name') INTO c; IF c THEN location_name_e := 's.location_name'; END IF;
+
+  v_sql := format(
+    $q$INSERT INTO receipt_lines (
+         id, receipt_id, product_id, product_name,
+         expected_qty, received_qty, lot_number, expiry_date,
+         location_id, location_name, status, user_id, created_at)
+       SELECT s.id, s.id,
+              s.product_id, s.product_name,
+              s.quantity,
+              CASE WHEN s.received_at IS NOT NULL THEN s.quantity ELSE NULL END,
+              %s, %s, %s, %s,
+              CASE WHEN s.received_at IS NOT NULL THEN 'received' ELSE 'pending' END,
+              r.user_id, now()
+       FROM incoming_stock s
+       JOIN receipts r ON r.id = s.id$q$,
+    lot_number_e, expiry_date_e, location_id_e, location_name_e
+  );
+  EXECUTE v_sql;
+END $$;
 
 SELECT setval('receipt_lines_id_seq', COALESCE((SELECT MAX(id) FROM receipt_lines), 0) + 1, false);
 
@@ -189,7 +218,6 @@ SELECT setval('receipt_lines_id_seq', COALESCE((SELECT MAX(id) FROM receipt_line
 
 ALTER TABLE lots ADD COLUMN IF NOT EXISTS receipt_line_id bigint;
 
--- ID 保存の 1:1 移行なので直接コピー可能
 UPDATE lots SET receipt_line_id = incoming_stock_id WHERE incoming_stock_id IS NOT NULL;
 
 ALTER TABLE lots ADD CONSTRAINT lots_receipt_line_id_fkey
@@ -197,7 +225,6 @@ ALTER TABLE lots ADD CONSTRAINT lots_receipt_line_id_fkey
 
 -- ── incoming_stock の FK 制約・トリガーを整理してから DROP ──────────────────
 
--- lots.incoming_stock_id FK を削除
 ALTER TABLE lots DROP CONSTRAINT IF EXISTS lots_incoming_stock_id_fkey;
 ALTER TABLE lots DROP COLUMN IF EXISTS incoming_stock_id;
 
@@ -205,60 +232,109 @@ DROP TABLE incoming_stock CASCADE;
 
 -- ── データ移行: outgoing_stock → shipments + shipment_lines ─────────────────
 
--- ヘッダー (ID 保存)
-INSERT INTO shipments (
-  id, shipment_no, shipment_type, status,
-  destination_id, destination_name, carrier_id, carrier_name,
-  warehouse_id, warehouse_name,
-  source_system, scheduled_date, shipped_at,
-  note, user_id, created_at
-)
-SELECT
-  id,
-  'SHP-' || lpad(id::text, 6, '0'),
-  'normal',
-  CASE
-    WHEN shipped_at   IS NOT NULL THEN 'shipped'
-    WHEN allocated_at IS NOT NULL THEN 'allocated'
-    ELSE 'requested'
-  END,
-  destination_id, destination_name, carrier_id, carrier_name,
-  warehouse_id, warehouse_name,
-  'manual',
-  scheduled_date, shipped_at,
-  note, user_id, now()
-FROM outgoing_stock
-WHERE user_id IS NOT NULL;
+DO $$
+DECLARE
+  v_sql text;
+  c boolean;
+  destination_id_e   text := 'NULL::bigint';
+  destination_name_e text := 'NULL::text';
+  carrier_id_e       text := 'NULL::bigint';
+  carrier_name_e     text := 'NULL::text';
+  warehouse_id_e     text := 'NULL::bigint';
+  warehouse_name_e   text := 'NULL::text';
+  note_e             text := 'NULL::text';
+  allocated_at_e     text := 'NULL::timestamptz';
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='destination_id')   INTO c; IF c THEN destination_id_e   := 'destination_id';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='destination_name') INTO c; IF c THEN destination_name_e := 'destination_name'; END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='carrier_id')       INTO c; IF c THEN carrier_id_e       := 'carrier_id';       END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='carrier_name')     INTO c; IF c THEN carrier_name_e     := 'carrier_name';     END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='warehouse_id')     INTO c; IF c THEN warehouse_id_e     := 'warehouse_id';     END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='warehouse_name')   INTO c; IF c THEN warehouse_name_e   := 'warehouse_name';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='note')             INTO c; IF c THEN note_e             := 'note';             END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='allocated_at')     INTO c; IF c THEN allocated_at_e     := 'allocated_at';     END IF;
+
+  v_sql := format(
+    $q$INSERT INTO shipments (
+         id, shipment_no, shipment_type, status,
+         destination_id, destination_name, carrier_id, carrier_name,
+         warehouse_id, warehouse_name,
+         source_system, scheduled_date, shipped_at,
+         note, user_id, created_at)
+       SELECT id,
+              'SHP-' || lpad(id::text, 6, '0'),
+              'normal',
+              CASE WHEN shipped_at IS NOT NULL THEN 'shipped'
+                   WHEN %s IS NOT NULL THEN 'allocated'
+                   ELSE 'requested' END,
+              %s, %s, %s, %s, %s, %s,
+              'manual',
+              scheduled_date, shipped_at,
+              %s, user_id, now()
+       FROM outgoing_stock
+       WHERE user_id IS NOT NULL$q$,
+    allocated_at_e,
+    destination_id_e, destination_name_e, carrier_id_e, carrier_name_e,
+    warehouse_id_e, warehouse_name_e, note_e
+  );
+  EXECUTE v_sql;
+END $$;
 
 SELECT setval('shipments_id_seq', COALESCE((SELECT MAX(id) FROM shipments), 0) + 1, false);
 
--- 明細 (同一 ID)
-INSERT INTO shipment_lines (
-  id, shipment_id, product_id, product_name, quantity,
-  lot_id, lot_number, expiry_date,
-  location_id, location_name, warehouse_id, warehouse_name,
-  allocated_at, shipped_qty, returned_qty, status,
-  note, user_id, created_at
-)
-SELECT
-  o.id,
-  o.id,  -- shipment_id = shipment.id (1:1)
-  o.product_id, o.product_name, o.quantity,
-  o.lot_id, o.lot_number, o.expiry_date,
-  o.location_id, o.location_name, o.warehouse_id, o.warehouse_name,
-  o.allocated_at,
-  CASE WHEN o.shipped_at IS NOT NULL THEN o.quantity ELSE 0 END,
-  COALESCE(o.returned_qty, 0),
-  CASE
-    WHEN o.shipped_at   IS NOT NULL THEN 'shipped'
-    WHEN o.allocated_at IS NOT NULL THEN 'allocated'
-    ELSE 'requested'
-  END,
-  o.note,
-  s.user_id,
-  now()
-FROM outgoing_stock o
-JOIN shipments s ON s.id = o.id;
+DO $$
+DECLARE
+  v_sql text;
+  c boolean;
+  lot_id_e        text := 'NULL::bigint';
+  lot_number_e    text := 'NULL::text';
+  expiry_date_e   text := 'NULL::date';
+  location_id_e   text := 'NULL::bigint';
+  location_name_e text := 'NULL::text';
+  warehouse_id_e  text := 'NULL::bigint';
+  warehouse_name_e text := 'NULL::text';
+  allocated_at_e  text := 'NULL::timestamptz';
+  returned_qty_e  text := '0';
+  note_e          text := 'NULL::text';
+BEGIN
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='lot_id')        INTO c; IF c THEN lot_id_e        := 'o.lot_id';        END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='lot_number')    INTO c; IF c THEN lot_number_e    := 'o.lot_number';    END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='expiry_date')   INTO c; IF c THEN expiry_date_e   := 'o.expiry_date';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='location_id')   INTO c; IF c THEN location_id_e   := 'o.location_id';   END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='location_name') INTO c; IF c THEN location_name_e := 'o.location_name'; END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='warehouse_id')  INTO c; IF c THEN warehouse_id_e  := 'o.warehouse_id';  END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='warehouse_name') INTO c; IF c THEN warehouse_name_e := 'o.warehouse_name'; END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='allocated_at')  INTO c; IF c THEN allocated_at_e  := 'o.allocated_at';  END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='returned_qty')  INTO c; IF c THEN returned_qty_e  := 'COALESCE(o.returned_qty, 0)'; END IF;
+  SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='outgoing_stock' AND column_name='note')          INTO c; IF c THEN note_e          := 'o.note';          END IF;
+
+  v_sql := format(
+    $q$INSERT INTO shipment_lines (
+         id, shipment_id, product_id, product_name, quantity,
+         lot_id, lot_number, expiry_date,
+         location_id, location_name, warehouse_id, warehouse_name,
+         allocated_at, shipped_qty, returned_qty, status,
+         note, user_id, created_at)
+       SELECT o.id, o.id,
+              o.product_id, o.product_name, o.quantity,
+              %s, %s, %s,
+              %s, %s, %s, %s,
+              %s,
+              CASE WHEN o.shipped_at IS NOT NULL THEN o.quantity ELSE 0 END,
+              %s,
+              CASE WHEN o.shipped_at IS NOT NULL THEN 'shipped'
+                   WHEN %s IS NOT NULL THEN 'allocated'
+                   ELSE 'requested' END,
+              %s,
+              s.user_id, now()
+       FROM outgoing_stock o
+       JOIN shipments s ON s.id = o.id$q$,
+    lot_id_e, lot_number_e, expiry_date_e,
+    location_id_e, location_name_e, warehouse_id_e, warehouse_name_e,
+    allocated_at_e, returned_qty_e, allocated_at_e, note_e
+  );
+  EXECUTE v_sql;
+END $$;
 
 SELECT setval('shipment_lines_id_seq', COALESCE((SELECT MAX(id) FROM shipment_lines), 0) + 1, false);
 
