@@ -10,6 +10,7 @@ interface IncomingRow { product_id: number; quantity: number; received_at: strin
 interface OutgoingRow { product_id: number; quantity: number; shipped_at: string }
 type RawReceiptLine = { product_id: number; received_qty: number; receipts: { received_at: string } | { received_at: string }[] };
 type RawShipmentLine = { product_id: number; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+type RawLotShipmentLine = { lot_id: number | null; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
 
 export const dynamic = 'force-dynamic';
 
@@ -56,12 +57,13 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const fromTs = from + 'T00:00:00.000Z';
   const toTs = to + 'T23:59:59.999Z';
-  const [{ data: productsData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }] = await Promise.all([
+  const [{ data: productsData }, { data: targetData }, { data: incomingData }, { data: outgoingData }, { data: lotsData }, { data: lotOutgoingData }] = await Promise.all([
     supabase.from('products').select('*').order('id'),
     supabase.from('sales_targets').select('target_amount').eq('month', to.slice(0, 7)).maybeSingle(),
     supabase.from('receipt_lines').select('product_id, received_qty, receipts!inner(received_at)').not('receipts.received_at', 'is', null).gte('receipts.received_at', fromTs).lte('receipts.received_at', toTs),
     supabase.from('shipment_lines').select('product_id, quantity, shipments!inner(shipped_at)').eq('status', 'shipped').not('shipments.shipped_at', 'is', null).gte('shipments.shipped_at', fromTs).lte('shipments.shipped_at', toTs),
-    supabase.from('lots').select('product_id, quantity'),
+    supabase.from('lots').select('id, product_id, quantity, received_at').gt('quantity', 0).lte('received_at', to),
+    supabase.from('shipment_lines').select('lot_id, quantity, shipments!inner(shipped_at)').eq('status', 'shipped').not('lot_id', 'is', null).not('shipments.shipped_at', 'is', null),
   ]);
 
   const products = (productsData ?? []) as Product[];
@@ -73,7 +75,17 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
     const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
     return { product_id: r.product_id, quantity: r.quantity, shipped_at: s?.shipped_at ?? '' };
   }).filter((r) => r.shipped_at);
-  const lots = (lotsData ?? []) as { product_id: number; quantity: number }[];
+  const lots = (lotsData ?? []) as { id: number; product_id: number; quantity: number; received_at: string }[];
+  const lotOutgoingFlat = ((lotOutgoingData ?? []) as RawLotShipmentLine[]).map((r) => {
+    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
+    return { lot_id: r.lot_id!, quantity: r.quantity, date: s?.shipped_at?.slice(0, 10) ?? '' };
+  }).filter((r) => r.date);
+  const lotOutgoingMap = new Map<number, { date: string; qty: number }[]>();
+  for (const o of lotOutgoingFlat) {
+    const arr = lotOutgoingMap.get(o.lot_id) ?? [];
+    arr.push({ date: o.date, qty: o.quantity });
+    lotOutgoingMap.set(o.lot_id, arr);
+  }
   const feeMap = Object.fromEntries(products.map((p) => [p.id, {
     inc: p.incoming_fee_per_piece,
     sto: p.storage_fee_per_piece,
@@ -112,10 +124,21 @@ export default async function SalesReportPage({ searchParams }: PageProps) {
     salesByDate[d].revenue += price != null ? o.quantity * price : 0;
   }
 
-  // Logistics cost per day
-  const storageFeePerDay = lots.reduce((sum, l) => sum + l.quantity * (feeMap[l.product_id]?.sto ?? 0), 0);
+  // Logistics cost per day — reconstruct historical lot quantities per day (same logic as daily report)
   const logisticsByDate: Record<string, { incoming: number; storage: number; outgoing: number }> = {};
-  for (const d of allDates) logisticsByDate[d] = { incoming: 0, storage: storageFeePerDay, outgoing: 0 };
+  for (const d of allDates) {
+    let storageFee = 0;
+    for (const lot of lots) {
+      if (lot.received_at > d) continue;
+      const outgoingAfter = (lotOutgoingMap.get(lot.id) ?? [])
+        .filter((o) => o.date > d)
+        .reduce((s, o) => s + o.qty, 0);
+      const qtyAtDate = lot.quantity + outgoingAfter;
+      if (qtyAtDate <= 0) continue;
+      storageFee += qtyAtDate * (feeMap[lot.product_id]?.sto ?? 0);
+    }
+    logisticsByDate[d] = { incoming: 0, storage: storageFee, outgoing: 0 };
+  }
   for (const row of incomings) {
     const d = row.received_at.slice(0, 10);
     if (logisticsByDate[d]) logisticsByDate[d].incoming += row.quantity * (feeMap[row.product_id]?.inc ?? 0);
