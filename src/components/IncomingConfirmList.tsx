@@ -17,29 +17,41 @@ export interface LocationOption {
   warehouse_id: number | null;
 }
 
+export interface StatusOption {
+  id: number;
+  name: string;
+  color: string;
+}
+
 function ReceiptLineItem({
   line,
   receipt,
   unitConfig,
   expiryType,
   locations,
+  statuses,
 }: {
   line: ReceiptLine;
   receipt: ReceiptWithLines;
   unitConfig: UnitConfig;
   expiryType: string | null;
   locations: LocationOption[];
+  statuses: StatusOption[];
 }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
   const [receiveState, receiveAction] = useActionState(receiveIncoming, null);
   const [delState, delAction] = useActionState(deleteIncomingSchedule, null);
   const [locationId, setLocationId] = useState('');
-  const selectedLocation = locations.find((l) => l.id === Number(locationId));
+  const defaultStatus = statuses.find((s) => s.name === '良品') ?? statuses[0] ?? null;
+  const [statusId, setStatusId] = useState(() => String(defaultStatus?.id ?? ''));
 
   const filteredLocations = receipt.warehouse_id
     ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
     : [];
+
+  const selectedLocation = locations.find((l) => l.id === Number(locationId));
+  const selectedStatus = statuses.find((s) => s.id === Number(statusId)) ?? defaultStatus;
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
@@ -87,6 +99,9 @@ function ReceiptLineItem({
           <input type="hidden" name="id" value={line.id} />
           <input type="hidden" name="location_id" value={locationId} />
           <input type="hidden" name="location_name" value={selectedLocation?.name ?? ''} />
+          <input type="hidden" name="status_id" value={selectedStatus?.id ?? ''} />
+          <input type="hidden" name="status_name" value={selectedStatus?.name ?? ''} />
+          <input type="hidden" name="status_color" value={selectedStatus?.color ?? ''} />
           <input type="text" name="lot_number" defaultValue={line.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
@@ -109,6 +124,20 @@ function ReceiptLineItem({
               </select>
             </label>
           )}
+          {statuses.length > 0 && (
+            <label className="flex-1 min-w-32 flex flex-col gap-0.5">
+              <span className="text-xs text-slate-500">{t('inventory.correctionStatus')}</span>
+              <select
+                value={statusId}
+                onChange={(e) => setStatusId(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <button type="submit"
             className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors font-medium self-end">
             {t('incoming.markReceived')}
@@ -127,11 +156,13 @@ function ReceiptCard({
   unitMap,
   expiryTypeMap,
   locations,
+  statuses,
 }: {
   receipt: ReceiptWithLines;
   unitMap: Record<number, UnitConfig>;
   expiryTypeMap: Record<number, string | null>;
   locations: LocationOption[];
+  statuses: StatusOption[];
 }) {
   const { t, tf } = useT();
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
@@ -162,6 +193,7 @@ function ReceiptCard({
             unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
             expiryType={expiryTypeMap[line.product_id] ?? null}
             locations={locations}
+            statuses={statuses}
           />
         ))}
       </div>
@@ -190,6 +222,7 @@ function DateGroup({
   expiryTypeMap,
   today,
   locations,
+  statuses,
 }: {
   date: string;
   receipts: ReceiptWithLines[];
@@ -197,6 +230,7 @@ function DateGroup({
   expiryTypeMap: Record<number, string | null>;
   today: string;
   locations: LocationOption[];
+  statuses: StatusOption[];
 }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
@@ -228,6 +262,7 @@ function DateGroup({
               unitMap={unitMap}
               expiryTypeMap={expiryTypeMap}
               locations={locations}
+              statuses={statuses}
             />
           ))}
         </div>
@@ -249,7 +284,7 @@ function groupByDate(receipts: ReceiptWithLines[]) {
 }
 
 export default function IncomingConfirmList({
-  receipts, emptyText, unitMap = {}, expiryTypeMap = {}, today = '', locations = [],
+  receipts, emptyText, unitMap = {}, expiryTypeMap = {}, today = '', locations = [], statuses = [],
 }: {
   receipts: ReceiptWithLines[];
   emptyText: string;
@@ -257,13 +292,14 @@ export default function IncomingConfirmList({
   expiryTypeMap?: Record<number, string | null>;
   today?: string;
   locations?: LocationOption[];
+  statuses?: StatusOption[];
 }) {
   const groups = groupByDate(receipts);
   if (receipts.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
   return (
     <div className="space-y-2">
       {groups.map(({ date, receipts: dateReceipts }) => (
-        <DateGroup key={date} date={date} receipts={dateReceipts} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
+        <DateGroup key={date} date={date} receipts={dateReceipts} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} statuses={statuses} />
       ))}
     </div>
   );

@@ -15,7 +15,7 @@ export default async function IncomingPage() {
   const dict = translations[lang];
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
 
-  const [{ data: pendingData }, { data: receivedData }, { data: productsData }, { data: locationsData }] = await Promise.all([
+  const [{ data: pendingData }, { data: receivedData }, { data: productsData }, { data: locationsData }, { data: statusesData }] = await Promise.all([
     supabase.from('receipts')
       .select('*, receipt_lines(*)')
       .eq('status', 'expected')
@@ -28,6 +28,7 @@ export default async function IncomingPage() {
       .limit(60),
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type'),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
+    supabase.from('inventory_statuses').select('id, name, color').order('name'),
   ]);
 
   const pending = (pendingData ?? []) as ReceiptWithLines[];
@@ -41,6 +42,7 @@ export default async function IncomingPage() {
     (productsData ?? []).map((p: ProductRow) => [p.id, p.expiry_type ?? null])
   );
   const locations = (locationsData ?? []) as { id: number; name: string; warehouse_id: number | null }[];
+  const statuses = (statusesData ?? []) as { id: number; name: string; color: string }[];
 
   return (
     <div className="space-y-6">
@@ -51,7 +53,7 @@ export default async function IncomingPage() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
-        <IncomingConfirmList receipts={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
+        <IncomingConfirmList receipts={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} statuses={statuses} />
       </div>
 
       <div>
