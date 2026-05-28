@@ -1,28 +1,11 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { OutgoingStock, ShipmentWithLines, ShipmentLine } from '@/lib/db';
+import type { ShipmentWithLines } from '@/lib/db';
 import ShippedHistoryList from '@/components/ShippedHistoryList';
 import type { UnitConfig } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
-
-function flattenShipments(shipments: ShipmentWithLines[]): OutgoingStock[] {
-  return shipments.flatMap((s) =>
-    s.shipment_lines.map((line: ShipmentLine) => ({
-      ...line,
-      shipment_no:     s.shipment_no,
-      shipment_type:   s.shipment_type,
-      shipment_status: s.status,
-      destination_id:   s.destination_id,
-      destination_name: s.destination_name,
-      carrier_id:       s.carrier_id,
-      carrier_name:     s.carrier_name,
-      scheduled_date:   s.scheduled_date,
-      shipped_at:       s.shipped_at,
-    }))
-  );
-}
 
 export default async function ShippingHistoryPage({
   searchParams,
@@ -48,7 +31,7 @@ export default async function ShippingHistoryPage({
     shipmentsQuery,
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
-  const items = flattenShipments((data ?? []) as ShipmentWithLines[]);
+  const shipments = (data ?? []) as ShipmentWithLines[];
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
@@ -83,7 +66,7 @@ export default async function ShippingHistoryPage({
         <p className="text-xs text-slate-400 mb-2 print:hidden">
           {date ? `${t('shipping.shippedDate', lang)}: ${date}` : t('shipping.recentShippedLabel', lang)}
         </p>
-        <ShippedHistoryList items={items} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} />
+        <ShippedHistoryList shipments={shipments} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} />
       </div>
     </div>
   );

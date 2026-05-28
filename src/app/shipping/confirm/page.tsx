@@ -1,30 +1,13 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { ShipmentWithLines, ShipmentLine, Lot } from '@/lib/db';
+import type { ShipmentWithLines, Lot } from '@/lib/db';
 import type { UnitConfig } from '@/lib/units';
 import ShippingConfirmClient from '@/components/ShippingConfirmClient';
 import { cookies } from 'next/headers';
 import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
-
-function flattenShipments(shipments: ShipmentWithLines[]) {
-  return shipments.flatMap((s) =>
-    s.shipment_lines.map((line: ShipmentLine) => ({
-      ...line,
-      shipment_no:     s.shipment_no,
-      shipment_type:   s.shipment_type,
-      shipment_status: s.status,
-      destination_id:   s.destination_id,
-      destination_name: s.destination_name,
-      carrier_id:       s.carrier_id,
-      carrier_name:     s.carrier_name,
-      scheduled_date:   s.scheduled_date,
-      shipped_at:       s.shipped_at,
-    }))
-  );
-}
 
 export default async function ShippingConfirmPage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
@@ -43,15 +26,20 @@ export default async function ShippingConfirmPage() {
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
 
-  const pending = flattenShipments((pendingData ?? []) as ShipmentWithLines[]);
-  const shipped = flattenShipments((shippedData ?? []) as ShipmentWithLines[]);
+  const pending = (pendingData ?? []) as ShipmentWithLines[];
+  const shipped = (shippedData ?? []) as ShipmentWithLines[];
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     ((productsData ?? []) as { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[])
       .map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
 
   // 未引当アイテムの引当候補ロットを取得 (FEFO順)
-  const unallocatedProductIds = [...new Set(pending.filter(i => !i.allocated_at).map(i => i.product_id))];
+  const unallocatedProductIds = [
+    ...new Set(
+      pending
+        .flatMap(s => s.shipment_lines.filter(l => !l.allocated_at).map(l => l.product_id))
+    ),
+  ];
   const lotsMap: Record<number, Lot[]> = {};
   if (unallocatedProductIds.length > 0) {
     const { data: lotsData } = await supabase
