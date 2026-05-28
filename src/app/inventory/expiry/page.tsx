@@ -7,6 +7,25 @@ import type { Lot } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+const COLOR_MAP: Record<string, string> = {
+  slate:  'bg-slate-100 text-slate-700',
+  red:    'bg-red-100 text-red-700',
+  amber:  'bg-amber-100 text-amber-700',
+  green:  'bg-green-100 text-green-700',
+  blue:   'bg-blue-100 text-blue-700',
+  purple: 'bg-purple-100 text-purple-700',
+  orange: 'bg-orange-100 text-orange-700',
+};
+
+function StatusBadge({ name, color }: { name: string; color: string | null }) {
+  const cls = COLOR_MAP[color ?? ''] ?? COLOR_MAP.slate;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {name}
+    </span>
+  );
+}
+
 function diffDays(today: string, expiryDate: string): number {
   const a = new Date(today + 'T12:00:00Z');
   const b = new Date(expiryDate + 'T12:00:00Z');
@@ -56,11 +75,9 @@ function LotTable({ items, colorClass, lang }: {
               <td className="px-4 py-2 text-slate-800">{lot.product_name}</td>
               <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-700">{lot.quantity}</td>
               <td className="px-4 py-2 hidden sm:table-cell">
-                {lot.status_name ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{lot.status_name}</span>
-                ) : (
-                  <span className="text-slate-300 text-xs">—</span>
-                )}
+                {lot.status_name
+                  ? <StatusBadge name={lot.status_name} color={lot.status_color ?? null} />
+                  : <span className="text-slate-300 text-xs">—</span>}
               </td>
               <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.warehouse_name ?? '—'}</td>
               <td className="px-4 py-2 text-xs text-slate-500 hidden md:table-cell">{lot.location_name ?? '—'}</td>
