@@ -16,7 +16,7 @@ export default async function ShippingSchedulePage() {
     supabase
       .from('shipments')
       .select('*, shipment_lines(*)')
-      .in('status', ['requested', 'allocated'])
+      .eq('status', 'requested')
       .order('scheduled_date', { ascending: true })
       .order('id'),
     supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet, default_warehouse_id').order('id'),
