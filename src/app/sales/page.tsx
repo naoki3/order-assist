@@ -18,21 +18,22 @@ export default async function SalesPage() {
 
   const [{ data: outgoingData }, { data: productsData }] = await Promise.all([
     supabase
-      .from('shipment_lines')
-      .select('*, shipments!inner(shipped_at, destination_name, carrier_name, scheduled_date)')
+      .from('shipments')
+      .select('shipped_at, shipment_lines!inner(product_id, product_name, quantity, shipped_qty, status)')
       .eq('status', 'shipped')
-      .not('shipments.shipped_at', 'is', null)
-      .gte('shipments.shipped_at', startStr + 'T00:00:00')
-      .order('shipments.shipped_at', { ascending: false }),
+      .not('shipped_at', 'is', null)
+      .gte('shipped_at', startStr + 'T00:00:00')
+      .order('shipped_at', { ascending: false }),
     supabase.from('products').select('*').order('id'),
   ]);
 
-  type RawLine = { product_id: number; product_name: string; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] };
+  type RawShipment = { shipped_at: string; shipment_lines: { product_id: number; product_name: string; quantity: number; shipped_qty: number; status: string }[] };
   type FlatLine = { product_id: number; product_name: string; quantity: number; shipped_at: string | null };
-  const outgoing = ((outgoingData ?? []) as RawLine[]).map((r): FlatLine => {
-    const s = Array.isArray(r.shipments) ? r.shipments[0] : r.shipments;
-    return { product_id: r.product_id, product_name: r.product_name, quantity: r.quantity, shipped_at: s?.shipped_at ?? null };
-  });
+  const outgoing = ((outgoingData ?? []) as RawShipment[]).flatMap((s): FlatLine[] =>
+    s.shipment_lines
+      .filter((l) => l.status === 'shipped')
+      .map((l) => ({ product_id: l.product_id, product_name: l.product_name, quantity: l.shipped_qty ?? l.quantity, shipped_at: s.shipped_at }))
+  );
   const products = (productsData ?? []) as Product[];
   const productMap = new Map(products.map((p) => [p.id, p]));
 
