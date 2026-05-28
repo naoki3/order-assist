@@ -240,16 +240,19 @@ function CreateReceiptForm({
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
         />
       </div>
+      {warehouses.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-slate-500">{t('incoming.selectWarehouse')} *</span>
+          <select name="warehouse_id" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+            <option value="">{t('incoming.selectWarehouse')}</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+      )}
       {suppliers.length > 0 && (
         <select name="supplier_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">{t('incoming.selectSupplier')}</option>
           {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      )}
-      {warehouses.length > 0 && (
-        <select name="warehouse_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-          <option value="">{t('incoming.selectWarehouse')}</option>
-          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
       )}
       {error && <p className="text-red-600 text-xs">{error}</p>}

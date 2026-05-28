@@ -111,7 +111,7 @@ function ReceiptLineItem({
 
   const filteredLocations = receipt.warehouse_id
     ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
-    : [];
+    : locations;
 
   const selectedLocation = locations.find((l) => l.id === Number(locationId));
   const selectedStatus = statuses.find((s) => s.id === Number(statusId)) ?? defaultStatus;
@@ -178,7 +178,7 @@ function ReceiptLineItem({
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
             <DateInput name="expiry_date" defaultValue={line.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
-          {filteredLocations.length > 0 && (
+          {locations.length > 0 && (
             <label className="flex-1 min-w-32 flex flex-col gap-0.5">
               <span className="text-xs text-slate-500">{t('incoming.location')}</span>
               <select
