@@ -47,10 +47,10 @@ export default async function ShippingSchedulePage() {
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>
         <div className="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600 font-mono">
           <p className="font-sans font-semibold text-slate-500 mb-1.5">{t('shipping.csvFormat', lang)}</p>
-          <p className="text-slate-400">出荷予定日,商品名,数量[,ロット番号][,賞味期限][,備考]</p>
-          <p>2026-05-20,牛乳1L,10,L001,2026-12-31,A店向け</p>
-          <p>2026-05-20,食パン,5</p>
-          <p>2026-05-21,卵（10個入）,20,,,B店向け</p>
+          <p className="text-slate-400">出荷予定日,伝票番号,商品名,数量[,ロット番号][,賞味期限][,備考][,納品先名][,運送会社名]</p>
+          <p>2026-05-20,SHP-20260520-XYZ789,牛乳1L,10,L001,2026-12-31,A店向け,得意先A,ヤマト</p>
+          <p>2026-05-20,SHP-20260520-XYZ789,食パン,5</p>
+          <p>2026-05-21,,卵（10個入）,20,,,B店向け</p>
         </div>
         <div className="text-xs text-slate-400 space-y-0.5 mb-4">
           <p>· {t('shipping.csvHint1', lang)}</p>

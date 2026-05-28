@@ -1247,89 +1247,7 @@ export async function importOutgoingCsv(
   _prev: OutgoingCsvImportResult | null,
   formData: FormData
 ): Promise<OutgoingCsvImportResult> {
-  const file = formData.get('file') as File | null;
-  if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
-
-  const supabase = await createClient();
-  const ownerId = await getOwnerId(supabase);
-  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
-
-  const text = await file.text();
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
-  if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
-
-  const firstField = lines[0].split(',')[0].trim().replace(/^"|"$/g, '');
-  const dataLines = DATE_RE.test(firstField) ? lines : lines.slice(1);
-
-  const { data: products } = await supabase.from('products').select('id, name');
-  const productMap = new Map(
-    (products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id])
-  );
-  const productNameMap = new Map(
-    (products ?? []).map((p) => [p.id, p.name])
-  );
-
-  type OutgoingRow = { product_id: number; product_name: string; quantity: number; scheduled_date: string; lot_number: string | null; expiry_date: string | null; note: string | null };
-  const rows: OutgoingRow[] = [];
-  const skipped: string[] = [];
-
-  for (const line of dataLines) {
-    if (!line.trim()) continue;
-    const parts = line.split(',');
-    if (parts.length < 3) { skipped.push(`列数不足: ${line.trim()}`); continue; }
-    const [rawDate, rawName, rawQty, rawLot, rawExpiry, rawNote] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
-    const quantity = parseInt(rawQty, 10);
-    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
-    if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
-    if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
-    const productId = productMap.get(rawName.toLowerCase());
-    if (!productId) { skipped.push(`商品マスタに存在しない: ${rawName}`); continue; }
-    rows.push({
-      product_id: productId,
-      product_name: productNameMap.get(productId) ?? rawName,
-      quantity,
-      scheduled_date: rawDate,
-      lot_number: rawLot?.trim() || null,
-      expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
-      note: rawNote?.trim() || null,
-    });
-  }
-
-  if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
-
-  const localToday = await getLocalDate();
-  let imported = 0;
-  for (const row of rows) {
-    const shipmentNo = `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
-    const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
-      shipment_no: shipmentNo, scheduled_date: row.scheduled_date,
-      note: row.note, user_id: ownerId,
-    }).select('id').single();
-    if (sErr || !shipment) { skipped.push(`伝票作成失敗: ${row.product_name}`); continue; }
-    const { error: lErr } = await supabase.from('shipment_lines').insert({
-      shipment_id: shipment.id, product_id: row.product_id, product_name: row.product_name,
-      quantity: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
-      user_id: ownerId,
-    });
-    if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
-    imported++;
-  }
-
-  revalidatePath('/shipping/schedule');
-  revalidatePath('/shipping/confirm');
-  return { imported, skipped };
-}
-
-export interface IncomingCsvImportResult {
-  imported: number;
-  skipped: string[];
-  error?: string;
-}
-
-export async function importIncomingCsv(
-  _prev: IncomingCsvImportResult | null,
-  formData: FormData
-): Promise<IncomingCsvImportResult> {
+  // Format: 出荷予定日,伝票番号,商品名,数量[,ロット番号][,賞味期限][,備考][,納品先名][,運送会社名]
   const file = formData.get('file') as File | null;
   if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
 
@@ -1348,48 +1266,209 @@ export async function importIncomingCsv(
   const productMap = new Map((products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id]));
   const productNameMap = new Map((products ?? []).map((p) => [p.id, p.name]));
 
-  type IncomingRow = { product_id: number; product_name: string; quantity: number; expected_date: string; lot_number: string | null; expiry_date: string | null };
-  const rows: IncomingRow[] = [];
+  const { data: destinations } = await supabase.from('delivery_destinations').select('id, name');
+  const destinationMap = new Map((destinations ?? []).map((d) => [d.name.toLowerCase().trim(), { id: d.id, name: d.name }]));
+  const { data: carriers } = await supabase.from('carriers').select('id, name');
+  const carrierMap = new Map((carriers ?? []).map((c) => [c.name.toLowerCase().trim(), { id: c.id, name: c.name }]));
+
+  type OutgoingRow = {
+    product_id: number; product_name: string; quantity: number;
+    scheduled_date: string; shipment_no: string;
+    lot_number: string | null; expiry_date: string | null; note: string | null;
+    destination_id: number | null; destination_name: string | null;
+    carrier_id: number | null; carrier_name: string | null;
+  };
+  const rows: OutgoingRow[] = [];
   const skipped: string[] = [];
 
   for (const line of dataLines) {
     if (!line.trim()) continue;
     const parts = line.split(',');
-    if (parts.length < 3) { skipped.push(`列数不足: ${line.trim()}`); continue; }
-    const [rawDate, rawName, rawQty, rawLot, rawExpiry] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    if (parts.length < 4) { skipped.push(`列数不足 (4列以上必要): ${line.trim()}`); continue; }
+    const [rawDate, rawShipmentNo, rawName, rawQty, rawLot, rawExpiry, rawNote, rawDest, rawCarrier] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
     const quantity = parseInt(rawQty, 10);
     if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
     if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
     if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
     const productId = productMap.get(rawName.toLowerCase());
     if (!productId) { skipped.push(`商品マスタに存在しない: ${rawName}`); continue; }
+    const dest = rawDest ? destinationMap.get(rawDest.toLowerCase()) ?? null : null;
+    const carrier = rawCarrier ? carrierMap.get(rawCarrier.toLowerCase()) ?? null : null;
     rows.push({
-      product_id: productId,
-      product_name: productNameMap.get(productId) ?? rawName,
-      quantity,
-      expected_date: rawDate,
+      product_id: productId, product_name: productNameMap.get(productId) ?? rawName,
+      quantity, scheduled_date: rawDate, shipment_no: rawShipmentNo?.trim() || '',
       lot_number: rawLot?.trim() || null,
       expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
+      note: rawNote?.trim() || null,
+      destination_id: dest?.id ?? null, destination_name: dest?.name ?? null,
+      carrier_id: carrier?.id ?? null, carrier_name: carrier?.name ?? null,
+    });
+  }
+
+  if (rows.length === 0) return { imported: 0, skipped, error: 'No valid rows found' };
+
+  const localToday = await getLocalDate();
+
+  type ShipmentGroup = {
+    scheduled_date: string; shipment_no: string;
+    destination_id: number | null; destination_name: string | null;
+    carrier_id: number | null; carrier_name: string | null;
+    lines: OutgoingRow[];
+  };
+  const groupMap = new Map<string, ShipmentGroup>();
+  for (const row of rows) {
+    const key = row.shipment_no
+      ? `${row.scheduled_date}::${row.shipment_no}`
+      : `auto::${crypto.randomUUID()}`;
+    if (!groupMap.has(key)) {
+      const autoNo = row.shipment_no || `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+      groupMap.set(key, {
+        scheduled_date: row.scheduled_date, shipment_no: autoNo,
+        destination_id: row.destination_id, destination_name: row.destination_name,
+        carrier_id: row.carrier_id, carrier_name: row.carrier_name,
+        lines: [],
+      });
+    }
+    groupMap.get(key)!.lines.push(row);
+  }
+
+  let imported = 0;
+  for (const group of groupMap.values()) {
+    const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
+      shipment_no: group.shipment_no, scheduled_date: group.scheduled_date,
+      destination_id: group.destination_id, destination_name: group.destination_name,
+      carrier_id: group.carrier_id, carrier_name: group.carrier_name,
+      user_id: ownerId,
+    }).select('id').single();
+    if (sErr || !shipment) { group.lines.forEach(l => skipped.push(`伝票作成失敗: ${l.product_name}`)); continue; }
+    for (const row of group.lines) {
+      const { error: lErr } = await supabase.from('shipment_lines').insert({
+        shipment_id: shipment.id, product_id: row.product_id, product_name: row.product_name,
+        quantity: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
+        note: row.note, user_id: ownerId,
+      });
+      if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
+      imported++;
+    }
+  }
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return { imported, skipped };
+}
+
+export interface IncomingCsvImportResult {
+  imported: number;
+  skipped: string[];
+  error?: string;
+}
+
+export async function importIncomingCsv(
+  _prev: IncomingCsvImportResult | null,
+  formData: FormData
+): Promise<IncomingCsvImportResult> {
+  // Format: 入荷予定日,伝票番号,商品名,数量[,ロット番号][,賞味期限][,仕入先名][,倉庫名]
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { imported: 0, skipped: [], error: 'No file provided' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { imported: 0, skipped: [], error: 'Not authenticated' };
+
+  const text = await file.text();
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length === 0) return { imported: 0, skipped: [], error: 'File is empty' };
+
+  const firstField = lines[0].split(',')[0].trim().replace(/^"|"$/g, '');
+  const dataLines = DATE_RE.test(firstField) ? lines : lines.slice(1);
+
+  const { data: products } = await supabase.from('products').select('id, name');
+  const productMap = new Map((products ?? []).map((p) => [p.name.toLowerCase().trim(), p.id]));
+  const productNameMap = new Map((products ?? []).map((p) => [p.id, p.name]));
+
+  const { data: suppliers } = await supabase.from('suppliers').select('id, name');
+  const supplierMap = new Map((suppliers ?? []).map((s) => [s.name.toLowerCase().trim(), { id: s.id, name: s.name }]));
+  const { data: warehouses } = await supabase.from('warehouses').select('id, name');
+  const warehouseMap = new Map((warehouses ?? []).map((w) => [w.name.toLowerCase().trim(), { id: w.id, name: w.name }]));
+
+  type IncomingRow = {
+    product_id: number; product_name: string; quantity: number;
+    expected_date: string; receipt_no: string;
+    lot_number: string | null; expiry_date: string | null;
+    supplier_id: number | null; supplier_name: string | null;
+    warehouse_id: number | null; warehouse_name: string | null;
+  };
+  const rows: IncomingRow[] = [];
+  const skipped: string[] = [];
+
+  for (const line of dataLines) {
+    if (!line.trim()) continue;
+    const parts = line.split(',');
+    if (parts.length < 4) { skipped.push(`列数不足 (4列以上必要): ${line.trim()}`); continue; }
+    const [rawDate, rawReceiptNo, rawName, rawQty, rawLot, rawExpiry, rawSupplier, rawWarehouse] = parts.map((s) => s.trim().replace(/^"|"$/g, ''));
+    const quantity = parseInt(rawQty, 10);
+    if (!rawDate || !DATE_RE.test(rawDate)) { skipped.push(`日付形式が不正 (YYYY-MM-DD): ${rawDate || '空'}`); continue; }
+    if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
+    if (isNaN(quantity) || quantity < 1) { skipped.push(`数量が不正: ${line.trim()}`); continue; }
+    const productId = productMap.get(rawName.toLowerCase());
+    if (!productId) { skipped.push(`商品マスタに存在しない: ${rawName}`); continue; }
+    const supplier = rawSupplier ? supplierMap.get(rawSupplier.toLowerCase()) ?? null : null;
+    const warehouse = rawWarehouse ? warehouseMap.get(rawWarehouse.toLowerCase()) ?? null : null;
+    rows.push({
+      product_id: productId, product_name: productNameMap.get(productId) ?? rawName,
+      quantity, expected_date: rawDate, receipt_no: rawReceiptNo?.trim() || '',
+      lot_number: rawLot?.trim() || null,
+      expiry_date: rawExpiry?.trim() && DATE_RE.test(rawExpiry.trim()) ? rawExpiry.trim() : null,
+      supplier_id: supplier?.id ?? null, supplier_name: supplier?.name ?? null,
+      warehouse_id: warehouse?.id ?? null, warehouse_name: warehouse?.name ?? null,
     });
   }
 
   if (rows.length === 0) return { imported: 0, skipped, error: 'インポートできる行がありません' };
 
   const localToday = await getLocalDate();
-  let imported = 0;
+
+  type ReceiptGroup = {
+    expected_date: string; receipt_no: string;
+    supplier_id: number | null; supplier_name: string | null;
+    warehouse_id: number | null; warehouse_name: string | null;
+    lines: IncomingRow[];
+  };
+  const groupMap = new Map<string, ReceiptGroup>();
   for (const row of rows) {
-    const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const key = row.receipt_no
+      ? `${row.expected_date}::${row.receipt_no}`
+      : `auto::${crypto.randomUUID()}`;
+    if (!groupMap.has(key)) {
+      const autoNo = row.receipt_no || `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+      groupMap.set(key, {
+        expected_date: row.expected_date, receipt_no: autoNo,
+        supplier_id: row.supplier_id, supplier_name: row.supplier_name,
+        warehouse_id: row.warehouse_id, warehouse_name: row.warehouse_name,
+        lines: [],
+      });
+    }
+    groupMap.get(key)!.lines.push(row);
+  }
+
+  let imported = 0;
+  for (const group of groupMap.values()) {
     const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
-      receipt_no: receiptNo, expected_date: row.expected_date, user_id: ownerId,
-    }).select('id').single();
-    if (rErr || !receipt) { skipped.push(`伝票作成失敗: ${row.product_name}`); continue; }
-    const { error: lErr } = await supabase.from('receipt_lines').insert({
-      receipt_id: receipt.id, product_id: row.product_id, product_name: row.product_name,
-      expected_qty: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
+      receipt_no: group.receipt_no, expected_date: group.expected_date,
+      supplier_id: group.supplier_id, supplier_name: group.supplier_name,
+      warehouse_id: group.warehouse_id, warehouse_name: group.warehouse_name,
       user_id: ownerId,
-    });
-    if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
-    imported++;
+    }).select('id').single();
+    if (rErr || !receipt) { group.lines.forEach(l => skipped.push(`伝票作成失敗: ${l.product_name}`)); continue; }
+    for (const row of group.lines) {
+      const { error: lErr } = await supabase.from('receipt_lines').insert({
+        receipt_id: receipt.id, product_id: row.product_id, product_name: row.product_name,
+        expected_qty: row.quantity, lot_number: row.lot_number, expiry_date: row.expiry_date,
+        user_id: ownerId,
+      });
+      if (lErr) { skipped.push(`明細追加失敗: ${row.product_name}`); continue; }
+      imported++;
+    }
   }
 
   revalidatePath('/incoming/schedule');
