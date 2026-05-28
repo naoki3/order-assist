@@ -133,7 +133,7 @@ function ReceiptCard({
   expiryTypeMap: Record<number, string | null>;
   locations: LocationOption[];
 }) {
-  const { t } = useT();
+  const { t, tf } = useT();
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
 
@@ -146,7 +146,7 @@ function ReceiptCard({
           {receipt.receipt_no}
         </span>
         {receipt.supplier_name && (
-          <span className="text-xs text-slate-600">{receipt.supplier_name}</span>
+          <span className="text-xs text-slate-600">{t('incoming.supplier')}: {receipt.supplier_name}</span>
         )}
         {receipt.warehouse_name && (
           <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {receipt.warehouse_name}</span>
@@ -174,7 +174,7 @@ function ReceiptCard({
             <input type="hidden" name="ids" value={JSON.stringify(receipt.receipt_lines.map((l) => l.id))} />
             <button type="submit"
               className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              {t('common.bulkConfirm') ?? `一括入荷 (${receipt.receipt_lines.length}件)`}
+              {tf<string>('common.bulkConfirm', receipt.receipt_lines.length)}
             </button>
           </form>
         </div>

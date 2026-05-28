@@ -92,24 +92,20 @@ function ReceiptCard({
   const totalQty = receipt.receipt_lines.reduce((s, l) => s + (l.received_qty ?? l.expected_qty), 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-100 transition-colors bg-white border-b border-slate-100"
       >
         <div className="flex items-center gap-2 flex-wrap">
-          {isOpen
-            ? <ChevronDown size={15} className="text-slate-400" />
-            : <ChevronRight size={15} className="text-slate-400" />}
+          {isOpen ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+          <span className="text-xs text-slate-500">{t('incoming.receiptNo')}:</span>
           <span className="font-mono text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded">
             {receipt.receipt_no}
           </span>
           {receipt.supplier_name && (
-            <span className="text-xs text-slate-600">{receipt.supplier_name}</span>
-          )}
-          {receipt.received_at && (
-            <span className="text-xs text-slate-400">{formatDisplayDate(receipt.received_at.slice(0, 10))}</span>
+            <span className="text-xs text-slate-600">{t('incoming.supplier')}: {receipt.supplier_name}</span>
           )}
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
@@ -134,6 +130,68 @@ function ReceiptCard({
   );
 }
 
+function DateGroup({
+  date,
+  receipts,
+  unitMap,
+  today,
+  defaultOpen,
+}: {
+  date: string;
+  receipts: ReceiptWithLines[];
+  unitMap: Record<number, UnitConfig>;
+  today: string;
+  defaultOpen: boolean;
+}) {
+  const { t, tf } = useT();
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const totalLines = receipts.reduce((s, r) => s + r.receipt_lines.length, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <button type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-2">
+          {isOpen ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
+          <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
+        </div>
+        <div className="text-xs text-slate-400 flex items-center gap-1.5">
+          <span>{tf<string>('common.itemCount', receipts.length)}</span>
+          <span>·</span>
+          <span>{tf<string>('common.totalUnits', totalLines)}</span>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-3 pt-1">
+          {receipts.map((receipt) => (
+            <ReceiptCard
+              key={receipt.id}
+              receipt={receipt}
+              unitMap={unitMap}
+              today={today}
+              defaultOpen={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function groupByDate(receipts: ReceiptWithLines[]): { date: string; receipts: ReceiptWithLines[] }[] {
+  const map = new Map<string, ReceiptWithLines[]>();
+  for (const r of receipts) {
+    const date = r.received_at?.slice(0, 10) ?? r.expected_date;
+    const arr = map.get(date) ?? [];
+    arr.push(r);
+    map.set(date, arr);
+  }
+  return Array.from(map.entries())
+    .map(([date, rs]) => ({ date, receipts: rs }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export default function ReceivedHistoryList({
   receipts,
   emptyText,
@@ -145,38 +203,27 @@ export default function ReceivedHistoryList({
 }) {
   const { localDate } = useT();
   const [today] = useState(() => localDate());
-
-  const [threshold] = useState(() => {
-    const now = new Date();
-    return new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-  });
-
-  // Sort receipts by received_at desc
-  const sorted = [...receipts].sort((a, b) => {
-    const aDate = a.received_at ?? '';
-    const bDate = b.received_at ?? '';
-    return bDate.localeCompare(aDate);
-  });
+  const [threshold] = useState(() => new Date(Date.now() - 10 * 60 * 1000).toISOString());
 
   if (receipts.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
 
+  const groups = groupByDate(receipts);
+  const recentDate = receipts.some(r => r.received_at && r.received_at > threshold)
+    ? receipts.find(r => r.received_at && r.received_at > threshold)?.received_at?.slice(0, 10)
+    : null;
+
   return (
     <div className="space-y-2">
-      {sorted.map((receipt) => {
-        const recentlyConfirmed = receipt.receipt_lines.some(
-          (l) => l.status === 'received' && receipt.received_at && receipt.received_at > threshold
-        );
-        const isDefaultOpen = recentlyConfirmed || sorted.indexOf(receipt) < 2;
-        return (
-          <ReceiptCard
-            key={receipt.id}
-            receipt={receipt}
-            unitMap={unitMap}
-            today={today}
-            defaultOpen={isDefaultOpen}
-          />
-        );
-      })}
+      {groups.map(({ date, receipts: dateReceipts }, i) => (
+        <DateGroup
+          key={date}
+          date={date}
+          receipts={dateReceipts}
+          unitMap={unitMap}
+          today={today}
+          defaultOpen={date === recentDate || i === 0}
+        />
+      ))}
     </div>
   );
 }

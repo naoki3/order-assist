@@ -112,27 +112,23 @@ function ShipmentCard({
   const totalQty = shipment.shipment_lines.reduce((s, l) => s + l.quantity, 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-100 transition-colors bg-white border-b border-slate-100"
       >
         <div className="flex items-center gap-2 flex-wrap">
-          {isOpen
-            ? <ChevronDown size={15} className="text-slate-400" />
-            : <ChevronRight size={15} className="text-slate-400" />}
+          {isOpen ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+          <span className="text-xs text-slate-500">{t('shipping.shipmentNo')}:</span>
           <span className="font-mono text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
             {shipment.shipment_no}
           </span>
           {shipment.destination_name && (
-            <span className="text-xs text-slate-600">{shipment.destination_name}</span>
+            <span className="text-xs text-slate-600">{t('shipping.destination')}: {shipment.destination_name}</span>
           )}
           {shipment.carrier_name && (
             <span className="text-xs text-slate-400">{t('shipping.carrier')}: {shipment.carrier_name}</span>
-          )}
-          {shipment.shipped_at && (
-            <span className="text-xs text-slate-400">{formatDisplayDate(shipment.shipped_at.slice(0, 10))}</span>
           )}
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
@@ -153,7 +149,6 @@ function ShipmentCard({
               />
             ))}
           </div>
-          {/* Undo at shipment level */}
           {undoError && <p className="text-red-600 text-xs pt-1">{undoError}</p>}
           <div className="pt-2 flex items-center gap-2">
             <span className="text-xs text-blue-600 font-medium">{t('shipping.confirmed')}</span>
@@ -184,6 +179,55 @@ function ShipmentCard({
   );
 }
 
+function DateGroup({
+  date,
+  shipments,
+  unitMap,
+  today,
+  defaultOpen,
+}: {
+  date: string;
+  shipments: ShipmentWithLines[];
+  unitMap: Record<number, UnitConfig>;
+  today: string;
+  defaultOpen: boolean;
+}) {
+  const { tf } = useT();
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const totalLines = shipments.reduce((s, sh) => s + sh.shipment_lines.length, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <button type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-2">
+          {isOpen ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
+          <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
+        </div>
+        <div className="text-xs text-slate-400 flex items-center gap-1.5">
+          <span>{tf<string>('common.itemCount', shipments.length)}</span>
+          <span>·</span>
+          <span>{tf<string>('common.totalUnits', totalLines)}</span>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-3 pt-1">
+          {shipments.map((shipment) => (
+            <ShipmentCard
+              key={shipment.id}
+              shipment={shipment}
+              unitMap={unitMap}
+              today={today}
+              defaultOpen={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DeliveryGroup {
   date: string;
   destination: string | null;
@@ -204,6 +248,19 @@ function buildDeliveryGroups(shipments: ShipmentWithLines[]): DeliveryGroup[] {
   return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+function groupByDate(shipments: ShipmentWithLines[]): { date: string; shipments: ShipmentWithLines[] }[] {
+  const map = new Map<string, ShipmentWithLines[]>();
+  for (const s of shipments) {
+    const date = s.shipped_at?.slice(0, 10) ?? s.scheduled_date;
+    const arr = map.get(date) ?? [];
+    arr.push(s);
+    map.set(date, arr);
+  }
+  return Array.from(map.entries())
+    .map(([date, ss]) => ({ date, shipments: ss }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export default function ShippedHistoryList({
   shipments,
   emptyText,
@@ -218,22 +275,16 @@ export default function ShippedHistoryList({
   const { t } = useT();
   const { localDate } = useT();
   const [today] = useState(() => localDate());
-
-  const [threshold] = useState(() => {
-    const now = new Date();
-    return new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-  });
-
-  // Sort shipments by shipped_at desc
-  const sorted = [...shipments].sort((a, b) => {
-    const aDate = a.shipped_at ?? '';
-    const bDate = b.shipped_at ?? '';
-    return bDate.localeCompare(aDate);
-  });
-
-  const deliveryGroups = buildDeliveryGroups(shipments);
+  const [threshold] = useState(() => new Date(Date.now() - 10 * 60 * 1000).toISOString());
 
   if (shipments.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
+
+  const groups = groupByDate(shipments);
+  const deliveryGroups = buildDeliveryGroups(shipments);
+
+  const recentDate = shipments.some(s => s.shipped_at && s.shipped_at > threshold)
+    ? shipments.find(s => s.shipped_at && s.shipped_at > threshold)?.shipped_at?.slice(0, 10)
+    : null;
 
   return (
     <div>
@@ -246,24 +297,20 @@ export default function ShippedHistoryList({
         </div>
       )}
 
-      {/* Regular shipped list — hidden when printing */}
       <div className="print:hidden space-y-2">
-        {sorted.map((shipment) => {
-          const recentlyConfirmed = shipment.shipped_at && shipment.shipped_at > threshold;
-          const isDefaultOpen = recentlyConfirmed || sorted.indexOf(shipment) < 2;
-          return (
-            <ShipmentCard
-              key={shipment.id}
-              shipment={shipment}
-              unitMap={unitMap}
-              today={today}
-              defaultOpen={!!isDefaultOpen}
-            />
-          );
-        })}
+        {groups.map(({ date, shipments: dateShipments }, i) => (
+          <DateGroup
+            key={date}
+            date={date}
+            shipments={dateShipments}
+            unitMap={unitMap}
+            today={today}
+            defaultOpen={date === recentDate || i === 0}
+          />
+        ))}
       </div>
 
-      {/* Delivery note — print only, history page only */}
+      {/* Delivery note — print only */}
       <div className={showDeliveryNote ? 'hidden print:block text-sm' : 'hidden'}>
         <h1 className="text-xl font-bold text-slate-800 mb-6">{t('shipping.deliveryNote')}</h1>
         {deliveryGroups.map((group, gi) => (

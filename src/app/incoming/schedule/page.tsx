@@ -43,9 +43,10 @@ export default async function IncomingSchedulePage() {
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('incoming.importCsv', lang)}</h2>
         <div className="bg-slate-50 rounded-lg p-3 mb-4 text-xs text-slate-600 font-mono">
           <p className="font-sans font-semibold text-slate-500 mb-1.5">{t('incoming.csvFormat', lang)}</p>
-          <p className="text-slate-400">入荷予定日,商品名,数量[,ロット番号][,賞味期限]</p>
-          <p>2026-05-20,牛乳1L,10</p>
-          <p>2026-05-21,食パン,5,L001,2026-12-31</p>
+          <p className="text-slate-400">入荷予定日,伝票番号,商品名,数量[,ロット番号][,賞味期限][,仕入先名][,倉庫名]</p>
+          <p>2026-05-20,RCV-20260520-ABC123,牛乳1L,10</p>
+          <p>2026-05-20,RCV-20260520-ABC123,食パン,5,L001,2026-12-31</p>
+          <p>2026-05-21,,卵（10個入）,20,,,ABC仕入先,東京倉庫</p>
         </div>
         <div className="text-xs text-slate-400 space-y-0.5 mb-4">
           <p>· {t('incoming.csvHint1', lang)}</p>
