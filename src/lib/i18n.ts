@@ -356,6 +356,11 @@ export const translations = {
     'incoming.location': 'ロケーション',
     'incoming.selectLocation': 'ロケーションを選択',
     'incoming.bulkAll': '全件',
+    'incoming.resolveDiscrepancy': '差異を解決',
+    'incoming.writeOff': '欠品で締める',
+    'incoming.reorder': '再入荷予定を作成',
+    'incoming.discrepancyResolved': '差異を解決しました',
+    'incoming.discrepancyBadge': '数量差異',
     'shipping.shipmentNo': '伝票番号',
     'shipping.createShipment': '新規伝票を作成',
     'shipping.addLine': '商品を追加',
@@ -450,6 +455,19 @@ export const translations = {
     'shipping.returned': '返品済',
     'shipping.returnedQty': (n: number) => `${n}個返品済`,
     'shipping.returnMaxError': (n: number) => `返品数量は${n}個以下にしてください`,
+    'shipping.returnStatus': '品質ステータス',
+    'shipping.returnStatusPlaceholder': '良品（デフォルト）',
+
+    // Picking workflow
+    'shipping.startPicking': 'ピッキング開始',
+    'shipping.completePicking': 'ピッキング完了',
+    'shipping.pickingStatus': 'ピッキング中',
+    'shipping.pickedStatus': 'ピッキング完了',
+    'shipping.onHold': '保留',
+    'shipping.onHoldReason': '保留理由（任意）',
+    'shipping.putOnHold': '保留にする',
+    'shipping.releaseHold': '保留解除',
+    'shipping.holdBadge': '保留中',
 
     // Shipping tabs / allocation
     'shipping.tabAllocation': '引当確認',
@@ -1001,6 +1019,11 @@ export const translations = {
     'incoming.receiptNoPlaceholder': 'RCV-YYYYMMDD-XXXXXX',
     'incoming.selectLocation': 'Select Location',
     'incoming.bulkAll': 'all',
+    'incoming.resolveDiscrepancy': 'Resolve discrepancy',
+    'incoming.writeOff': 'Write off shortage',
+    'incoming.reorder': 'Create follow-up receipt',
+    'incoming.discrepancyResolved': 'Discrepancy resolved',
+    'incoming.discrepancyBadge': 'Qty discrepancy',
     'shipping.shipmentNo': 'Voucher No.',
     'shipping.createShipment': 'Create New Voucher',
     'shipping.addLine': 'Add Product',
@@ -1095,6 +1118,19 @@ export const translations = {
     'shipping.returned': 'Returned',
     'shipping.returnedQty': (n: number) => `${n} returned`,
     'shipping.returnMaxError': (n: number) => `Return qty must be ≤ ${n}`,
+    'shipping.returnStatus': 'Quality status',
+    'shipping.returnStatusPlaceholder': 'Good quality (default)',
+
+    // Picking workflow
+    'shipping.startPicking': 'Start Picking',
+    'shipping.completePicking': 'Complete Picking',
+    'shipping.pickingStatus': 'Picking',
+    'shipping.pickedStatus': 'Picked',
+    'shipping.onHold': 'On Hold',
+    'shipping.onHoldReason': 'Hold reason (optional)',
+    'shipping.putOnHold': 'Put on Hold',
+    'shipping.releaseHold': 'Release Hold',
+    'shipping.holdBadge': 'On Hold',
 
     // Shipping tabs / allocation
     'shipping.tabAllocation': 'Allocation Review',

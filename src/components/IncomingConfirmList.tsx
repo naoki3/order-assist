@@ -3,7 +3,7 @@
 import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
-import { receiveIncoming, deleteIncomingSchedule, receiveBulkIncoming } from '@/lib/actions';
+import { receiveIncoming, deleteIncomingSchedule, receiveBulkIncoming, resolveReceiptDiscrepancy } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
@@ -21,6 +21,69 @@ export interface StatusOption {
   id: number;
   name: string;
   color: string;
+}
+
+function DiscrepancyRow({ line }: { line: ReceiptLine }) {
+  const { t } = useT();
+  const [resolving, setResolving] = useState(false);
+  const [resolveState, resolveAction] = useActionState(resolveReceiptDiscrepancy, null);
+  const { successMsg, errorMsg } = useActionFeedback(resolveState, t('incoming.discrepancyResolved'));
+
+  const isResolved = !!line.resolution;
+
+  return (
+    <div className="py-2.5 space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-2">
+          <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
+          <span className="text-xs text-slate-500">
+            {t('incoming.receivedQtyLabel')}: {line.received_qty ?? 0} / {line.expected_qty}
+          </span>
+          {isResolved ? (
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+              {line.resolution === 'written_off' ? t('incoming.writeOff') : t('incoming.reorder')}
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded-full">
+              {t('incoming.discrepancyBadge')}
+            </span>
+          )}
+        </div>
+        {!isResolved && !resolving && (
+          <button type="button" onClick={() => setResolving(true)}
+            className="text-xs text-orange-600 hover:text-orange-700 px-2 py-1.5 rounded-lg hover:bg-orange-50 transition-colors flex-shrink-0">
+            {t('incoming.resolveDiscrepancy')}
+          </button>
+        )}
+      </div>
+      {resolving && !isResolved && (
+        <div className="flex flex-wrap gap-2">
+          <form action={resolveAction} className="flex items-center gap-1.5">
+            <input type="hidden" name="receipt_line_id" value={line.id} />
+            <input type="hidden" name="resolution" value="written_off" />
+            <button type="submit"
+              className="text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg font-medium transition-colors">
+              {t('incoming.writeOff')}
+            </button>
+          </form>
+          <form action={resolveAction} className="flex items-center gap-1.5">
+            <input type="hidden" name="receipt_line_id" value={line.id} />
+            <input type="hidden" name="resolution" value="reordered" />
+            <button type="submit"
+              className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2.5 py-1 rounded-lg font-medium transition-colors">
+              {t('incoming.reorder')}
+            </button>
+          </form>
+          <button type="button" onClick={() => setResolving(false)}
+            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
+      {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+      {successMsg && <p className="text-green-600 text-xs">{successMsg}</p>}
+    </div>
+  );
 }
 
 function ReceiptLineItem({
@@ -191,17 +254,21 @@ function ReceiptCard({
       </div>
       {/* Card body - lines */}
       <div className="px-3 divide-y divide-slate-100">
-        {receipt.receipt_lines.map((line) => (
-          <ReceiptLineItem
-            key={line.id}
-            line={line}
-            receipt={receipt}
-            unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
-            expiryType={expiryTypeMap[line.product_id] ?? null}
-            locations={locations}
-            statuses={statuses}
-          />
-        ))}
+        {receipt.receipt_lines.map((line) =>
+          line.status === 'discrepancy' ? (
+            <DiscrepancyRow key={line.id} line={line} />
+          ) : (
+            <ReceiptLineItem
+              key={line.id}
+              line={line}
+              receipt={receipt}
+              unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+              expiryType={expiryTypeMap[line.product_id] ?? null}
+              locations={locations}
+              statuses={statuses}
+            />
+          )
+        )}
       </div>
       {/* Bulk receive footer */}
       {receipt.receipt_lines.length >= 1 && (
@@ -238,7 +305,7 @@ function DateGroup({
   locations: LocationOption[];
   statuses: StatusOption[];
 }) {
-  const { t, tf } = useT();
+  const { tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
   const totalLines = receipts.reduce((s, r) => s + r.receipt_lines.length, 0);
 

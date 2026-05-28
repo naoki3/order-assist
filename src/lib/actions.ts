@@ -2396,6 +2396,9 @@ export async function returnOutgoing(
 ): Promise<ActionResult> {
   const id = Number(formData.get('id'));
   const returnQty = Number(formData.get('return_qty'));
+  const statusId = Number(formData.get('status_id')) || null;
+  const statusName = String(formData.get('status_name') ?? '').trim() || null;
+  const statusColor = String(formData.get('status_color') ?? '').trim() || null;
 
   if (!id || isNaN(returnQty) || returnQty < 1) return { error: '入力値が不正です' };
 
@@ -2409,6 +2412,9 @@ export async function returnOutgoing(
     p_return_qty:   returnQty,
     p_operation_id: crypto.randomUUID(),
     p_local_today:  localToday,
+    p_status_id:    statusId,
+    p_status_name:  statusName,
+    p_status_color: statusColor,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
@@ -2416,6 +2422,130 @@ export async function returnOutgoing(
 
   revalidatePath('/shipping/history');
   revalidatePath('/inventory');
+  return { success: 'ok' };
+}
+
+export async function resolveReceiptDiscrepancy(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const receiptLineId = Number(formData.get('receipt_line_id'));
+  const resolution = String(formData.get('resolution') ?? '');
+
+  if (!receiptLineId || !['written_off', 'reordered'].includes(resolution)) {
+    return { error: '入力値が不正です' };
+  }
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_resolve_receipt_discrepancy', {
+    p_receipt_line_id: receiptLineId,
+    p_resolution:      resolution,
+    p_owner_id:        ownerId,
+    p_operation_id:    crypto.randomUUID(),
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/incoming');
+  revalidatePath('/incoming/history');
+  return { success: 'ok' };
+}
+
+export async function startPicking(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const shipmentId = Number(formData.get('id'));
+  if (!shipmentId) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_start_picking', {
+    p_shipment_id: shipmentId,
+    p_owner_id:    ownerId,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  return { success: 'ok' };
+}
+
+export async function completePicking(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const shipmentId = Number(formData.get('id'));
+  if (!shipmentId) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_complete_picking', {
+    p_shipment_id: shipmentId,
+    p_owner_id:    ownerId,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  return { success: 'ok' };
+}
+
+export async function putShipmentOnHold(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const shipmentId = Number(formData.get('id'));
+  const reason = String(formData.get('reason') ?? '').trim() || null;
+  if (!shipmentId) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_put_shipment_on_hold', {
+    p_shipment_id: shipmentId,
+    p_owner_id:    ownerId,
+    p_reason:      reason,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
+  return { success: 'ok' };
+}
+
+export async function releaseShipmentHold(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const shipmentId = Number(formData.get('id'));
+  if (!shipmentId) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data, error } = await supabase.rpc('fn_release_shipment_hold', {
+    p_shipment_id: shipmentId,
+    p_owner_id:    ownerId,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (result?.error) return { error: result.error };
+
+  revalidatePath('/shipping/confirm');
   return { success: 'ok' };
 }
 
@@ -2434,10 +2564,18 @@ export async function transferStock(
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
+  // 棚卸しロックチェック
+  const { data: locked } = await supabase.rpc('fn_has_active_cycle_count', {
+    p_owner_id: ownerId,
+    p_warehouse_id: null,
+  });
+  if (locked) return { error: '棚卸し中は在庫移動ができません。棚卸しを完了または破棄してから操作してください' };
+
   const { data: lot } = await supabase
     .from('lots')
-    .select('id, lot_number, product_id, product_name, quantity, received_at, expiry_date, receipt_line_id, location_id, location_name, warehouse_id')
+    .select('id, lot_number, product_id, product_name, quantity, received_at, expiry_date, receipt_line_id, location_id, location_name, warehouse_id, user_id')
     .eq('id', lotId)
+    .eq('user_id', ownerId)
     .single();
   if (!lot) return { error: 'ロットが見つかりません' };
   if (lot.quantity < quantity) return { error: `在庫が不足しています（残 ${lot.quantity} 個）` };
