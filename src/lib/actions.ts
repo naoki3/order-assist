@@ -744,6 +744,187 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   return { success: 'ok', newId: line.id };
 }
 
+export type CreateVoucherResult = { error: string } | { success: 'ok'; id: number; receipt_no: string };
+export type CreateShipmentResult = { error: string } | { success: 'ok'; id: number; shipment_no: string };
+
+export async function createIncomingReceipt(formData: FormData): Promise<CreateVoucherResult> {
+  const expectedDate = String(formData.get('expected_date') ?? '').trim();
+  const receiptNo = String(formData.get('receipt_no') ?? '').trim();
+  const supplierId = Number(formData.get('supplier_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
+
+  if (!expectedDate || !receiptNo) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  let supplierName: string | null = null;
+  let warehouseName: string | null = null;
+  if (supplierId) {
+    const { data: s } = await supabase.from('suppliers').select('name').eq('id', supplierId).single();
+    supplierName = s?.name ?? null;
+  }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
+
+  const { data: receipt, error } = await supabase.from('receipts').insert({
+    receipt_no: receiptNo,
+    expected_date: expectedDate,
+    supplier_id: supplierId,
+    supplier_name: supplierName,
+    warehouse_id: warehouseId,
+    warehouse_name: warehouseName,
+    user_id: ownerId,
+  }).select('id').single();
+  if (error || !receipt) return { error: error?.message ?? '作成失敗' };
+
+  revalidatePath('/incoming/schedule');
+  return { success: 'ok', id: receipt.id, receipt_no: receiptNo };
+}
+
+export async function addReceiptLine(formData: FormData): Promise<ItemAddResult> {
+  const receiptId = Number(formData.get('receipt_id'));
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const lotNumber = String(formData.get('lot_number') ?? '').trim() || null;
+  const expiryDate = String(formData.get('expiry_date') ?? '').trim() || null;
+
+  if (!receiptId || !productId || isNaN(quantity) || quantity < 1) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data: product } = await supabase.from('products').select('name').eq('id', productId).single();
+  if (!product) return { error: '商品が見つかりません' };
+
+  const { data: line, error } = await supabase.from('receipt_lines').insert({
+    receipt_id: receiptId,
+    product_id: productId,
+    product_name: product.name,
+    expected_qty: quantity,
+    lot_number: lotNumber,
+    expiry_date: expiryDate,
+    user_id: ownerId,
+  }).select('id').single();
+  if (error || !line) return { error: error?.message ?? '追加失敗' };
+
+  revalidatePath('/incoming');
+  revalidatePath('/incoming/schedule');
+  revalidatePath('/dashboard');
+  return { success: 'ok', newId: line.id };
+}
+
+export async function createOutgoingShipment(formData: FormData): Promise<CreateShipmentResult> {
+  const scheduledDate = String(formData.get('scheduled_date') ?? '').trim();
+  const shipmentNo = String(formData.get('shipment_no') ?? '').trim();
+  const destinationId = Number(formData.get('destination_id')) || null;
+  const carrierId = Number(formData.get('carrier_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
+
+  if (!scheduledDate || !shipmentNo) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  let destinationName: string | null = null;
+  let carrierName: string | null = null;
+  let warehouseName: string | null = null;
+  if (destinationId) {
+    const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
+    destinationName = d?.name ?? null;
+  }
+  if (carrierId) {
+    const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
+    carrierName = c?.name ?? null;
+  }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
+
+  const { data: shipment, error } = await supabase.from('shipments').insert({
+    shipment_no: shipmentNo,
+    scheduled_date: scheduledDate,
+    destination_id: destinationId,
+    destination_name: destinationName,
+    carrier_id: carrierId,
+    carrier_name: carrierName,
+    warehouse_id: warehouseId,
+    warehouse_name: warehouseName,
+    user_id: ownerId,
+  }).select('id').single();
+  if (error || !shipment) return { error: error?.message ?? '作成失敗' };
+
+  revalidatePath('/shipping/schedule');
+  return { success: 'ok', id: shipment.id, shipment_no: shipmentNo };
+}
+
+export async function addShipmentLine(formData: FormData): Promise<ItemAddResult> {
+  const shipmentId = Number(formData.get('shipment_id'));
+  const productId = Number(formData.get('product_id'));
+  const quantity = Number(formData.get('quantity'));
+  const note = String(formData.get('note') ?? '').trim() || null;
+  const lotIdRaw = formData.get('lot_id');
+  const lotId = lotIdRaw && String(lotIdRaw).trim() ? Number(lotIdRaw) : null;
+  const lotNumber = lotId ? String(formData.get('lot_number') ?? '').trim() || null : null;
+  const locationId = Number(formData.get('location_id')) || null;
+  const warehouseId = Number(formData.get('warehouse_id')) || null;
+
+  if (!shipmentId || !productId || isNaN(quantity) || quantity < 1) return { error: '入力値が不正です' };
+
+  const supabase = await createClient();
+  const ownerId = await getOwnerId(supabase);
+  if (!ownerId) return { error: 'Not authenticated' };
+
+  const { data: product } = await supabase.from('products').select('name').eq('id', productId).single();
+  if (!product) return { error: '商品が見つかりません' };
+
+  if (lotId) {
+    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', lotId).single();
+    const { data: reserved } = await supabase
+      .from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled');
+    const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
+    const available = (lot?.quantity ?? 0) - reservedQty;
+    if (quantity > available) return { error: `ロット在庫不足: 引当可能 ${available} 個` };
+  }
+
+  let locationName: string | null = null;
+  let warehouseName: string | null = null;
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('name').eq('id', locationId).single();
+    locationName = loc?.name ?? null;
+  }
+  if (warehouseId) {
+    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
+    warehouseName = w?.name ?? null;
+  }
+
+  const { data: line, error } = await supabase.from('shipment_lines').insert({
+    shipment_id: shipmentId,
+    product_id: productId,
+    product_name: product.name,
+    quantity,
+    lot_id: lotId,
+    lot_number: lotNumber,
+    location_id: locationId,
+    location_name: locationName,
+    warehouse_id: warehouseId,
+    warehouse_name: warehouseName,
+    note,
+    user_id: ownerId,
+  }).select('id').single();
+  if (error || !line) return { error: error?.message ?? '追加失敗' };
+
+  revalidatePath('/shipping/schedule');
+  revalidatePath('/shipping/confirm');
+  return { success: 'ok', newId: line.id };
+}
+
 export async function unreceiveIncoming(
   _prev: ActionResult,
   formData: FormData
