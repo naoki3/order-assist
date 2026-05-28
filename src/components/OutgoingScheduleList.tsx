@@ -32,6 +32,11 @@ interface CarrierOption {
   name: string;
 }
 
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
 interface LocationOption {
   id: number;
   name: string;
@@ -291,12 +296,16 @@ function CreateShipmentForm({
   date,
   destinations,
   carriers,
+  warehouses,
+  defaultWarehouseId,
   onCreated,
   onCancel,
 }: {
   date: string;
   destinations: DestinationOption[];
   carriers: CarrierOption[];
+  warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
   onCreated: () => void;
   onCancel: () => void;
 }) {
@@ -334,6 +343,15 @@ function CreateShipmentForm({
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+      {warehouses.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-slate-500">{t('incoming.selectWarehouse')} *</span>
+          <select name="warehouse_id" required defaultValue={defaultWarehouseId ?? ''} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">{t('incoming.selectWarehouse')}</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+      )}
       {destinations.length > 0 && (
         <select name="destination_id" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">{t('shipping.selectDestination')}</option>
@@ -456,7 +474,7 @@ function ShipmentCard({
 }
 
 function DateGroup({
-  date, shipments, newLineIds, products, lots, destinations, carriers, locations, unitMap, onAdded, onVoucherCreated, defaultOpen = true,
+  date, shipments, newLineIds, products, lots, destinations, carriers, locations, warehouses, defaultWarehouseId, unitMap, onAdded, onVoucherCreated, defaultOpen = true,
 }: {
   date: string;
   shipments: ShipmentWithLines[];
@@ -466,6 +484,8 @@ function DateGroup({
   destinations: DestinationOption[];
   carriers: CarrierOption[];
   locations: LocationOption[];
+  warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
   unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   onVoucherCreated?: () => void;
@@ -516,6 +536,8 @@ function DateGroup({
               date={date}
               destinations={destinations}
               carriers={carriers}
+              warehouses={warehouses}
+              defaultWarehouseId={defaultWarehouseId}
               onCreated={() => { setShowCreateForm(false); onVoucherCreated?.(); }}
               onCancel={() => { if (shipments.length > 0) setShowCreateForm(false); }}
             />
@@ -549,10 +571,12 @@ interface Props {
   destinations?: DestinationOption[];
   carriers?: CarrierOption[];
   locations?: LocationOption[];
+  warehouses?: WarehouseOption[];
+  defaultWarehouseId?: number | null;
   today?: string;
 }
 
-export default function OutgoingScheduleList({ shipments, emptyText, products, lots, destinations = [], carriers = [], locations = [], today = '' }: Props) {
+export default function OutgoingScheduleList({ shipments, emptyText, products, lots, destinations = [], carriers = [], locations = [], warehouses = [], defaultWarehouseId = null, today = '' }: Props) {
   const [newLineIds, setNewLineIds] = useState<Set<number>>(new Set());
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     products.map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
@@ -603,6 +627,7 @@ export default function OutgoingScheduleList({ shipments, emptyText, products, l
         {pendingDate && !pendingDateInGroups && (
           <DateGroup key={`pending-${pendingDate}`} date={pendingDate} shipments={[]} newLineIds={newLineIds}
             products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations}
+            warehouses={warehouses} defaultWarehouseId={defaultWarehouseId}
             onAdded={handleAdded} onVoucherCreated={() => setPendingDate(null)} defaultOpen={true} />
         )}
 
@@ -611,6 +636,7 @@ export default function OutgoingScheduleList({ shipments, emptyText, products, l
           : groups.map(({ date, shipments: dateShipments }) => (
             <DateGroup key={date} date={date} shipments={dateShipments} newLineIds={newLineIds}
               products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations}
+              warehouses={warehouses} defaultWarehouseId={defaultWarehouseId}
               onAdded={handleAdded} defaultOpen={date === today} />
           ))
         }

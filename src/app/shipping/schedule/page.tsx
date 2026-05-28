@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
 export default async function ShippingSchedulePage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }, { data: destinationsData }, { data: carriersData }, { data: locationsData }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: pendingData }, { data: productsData }, { data: lotsData }, { data: inventoryData }, { data: destinationsData }, { data: carriersData }, { data: locationsData }, { data: warehousesData }, { data: profileData }] = await Promise.all([
     supabase
       .from('shipments')
       .select('*, shipment_lines(*)')
@@ -25,6 +26,10 @@ export default async function ShippingSchedulePage() {
     supabase.from('delivery_destinations').select('id, name').order('name'),
     supabase.from('carriers').select('id, name').order('name'),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
+    supabase.from('warehouses').select('id, name').order('name'),
+    user
+      ? supabase.from('user_profiles').select('warehouse_id').eq('auth_user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const shipments = (pendingData ?? []) as ShipmentWithLines[];
   const stockMap = Object.fromEntries((inventoryData ?? []).map((i) => [i.product_id, i.current_stock]));
@@ -33,6 +38,8 @@ export default async function ShippingSchedulePage() {
   const destinations = (destinationsData ?? []) as { id: number; name: string }[];
   const carriers = (carriersData ?? []) as { id: number; name: string }[];
   const locations = (locationsData ?? []) as { id: number; name: string; warehouse_id: number | null }[];
+  const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
+  const defaultWarehouseId = (profileData as { warehouse_id: number | null } | null)?.warehouse_id ?? null;
 
   return (
     <div className="space-y-6">
@@ -41,7 +48,7 @@ export default async function ShippingSchedulePage() {
         <p className="text-sm text-slate-500">{t('shipping.scheduleSubtitle', lang)}</p>
       </div>
 
-      <OutgoingScheduleList shipments={shipments} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} destinations={destinations} carriers={carriers} locations={locations} today={today} />
+      <OutgoingScheduleList shipments={shipments} emptyText={t('shipping.noScheduled', lang)} products={products} lots={lots} destinations={destinations} carriers={carriers} locations={locations} warehouses={warehouses} defaultWarehouseId={defaultWarehouseId} today={today} />
 
       <div className="print:hidden bg-white rounded-xl border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('shipping.importCsv', lang)}</h2>

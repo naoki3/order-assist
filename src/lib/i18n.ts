@@ -39,6 +39,9 @@ export const translations = {
     'settings.currencyUSD': '$ 米ドル',
     'settings.currencyEUR': '€ ユーロ',
     'settings.currencyGBP': '£ 英ポンド',
+    'settings.defaultWarehouse': 'デフォルト倉庫',
+    'settings.defaultWarehouseDesc': '入荷・出荷予定の伝票作成時に初期選択される倉庫',
+    'settings.noWarehouse': '指定なし',
 
     // OrderBoard
     'order.placed': '発注完了！',
@@ -702,6 +705,9 @@ export const translations = {
     'settings.currencyUSD': '$ US Dollar',
     'settings.currencyEUR': '€ Euro',
     'settings.currencyGBP': '£ British Pound',
+    'settings.defaultWarehouse': 'Default warehouse',
+    'settings.defaultWarehouseDesc': 'Pre-selected when creating incoming/outgoing schedules',
+    'settings.noWarehouse': 'None',
 
     // OrderBoard
     'order.placed': 'Order placed!',
