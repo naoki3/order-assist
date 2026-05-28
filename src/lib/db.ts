@@ -137,6 +137,8 @@ export interface ShipmentLine {
   note: string | null;
   user_id: string;
   created_at: string;
+  lot_status_name: string | null;
+  lot_status_color: string | null;
 }
 
 /** Shipment with its lines embedded (for page-level queries). */

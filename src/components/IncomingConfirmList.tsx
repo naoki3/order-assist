@@ -86,6 +86,34 @@ function DiscrepancyRow({ line }: { line: ReceiptLine }) {
   );
 }
 
+function ReceivedRow({ line, unitConfig }: { line: ReceiptLine; unitConfig: UnitConfig }) {
+  const { t, lang } = useT();
+  return (
+    <div className="py-2.5 flex items-center gap-3 opacity-70">
+      <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-2">
+        <span className="text-sm font-medium text-slate-700">{line.product_name}</span>
+        <span className="text-xs text-slate-500">
+          {unitConfig.pieces_per_ball
+            ? formatQty(line.received_qty ?? line.expected_qty, unitConfig, lang)
+            : `${line.received_qty ?? line.expected_qty} ${t('incoming.units')}`}
+        </span>
+        {line.lot_number && (
+          <span className="text-xs text-slate-400">#{line.lot_number}</span>
+        )}
+        {line.expiry_date && (
+          <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {formatDisplayDate(line.expiry_date)}</span>
+        )}
+        {line.location_name && (
+          <span className="text-xs text-slate-400">{t('incoming.location')}: {line.location_name}</span>
+        )}
+      </div>
+      <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+        {t('incoming.receivedLabel')}
+      </span>
+    </div>
+  );
+}
+
 function ReceiptLineItem({
   line,
   receipt,
@@ -255,7 +283,13 @@ function ReceiptCard({
       {/* Card body - lines */}
       <div className="px-3 divide-y divide-slate-100">
         {receipt.receipt_lines.map((line) =>
-          line.status === 'discrepancy' ? (
+          line.status === 'received' ? (
+            <ReceivedRow
+              key={line.id}
+              line={line}
+              unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+            />
+          ) : line.status === 'discrepancy' ? (
             <DiscrepancyRow key={line.id} line={line} />
           ) : (
             <ReceiptLineItem
@@ -270,20 +304,24 @@ function ReceiptCard({
           )
         )}
       </div>
-      {/* Bulk receive footer */}
-      {receipt.receipt_lines.length >= 1 && (
-        <div className="px-3 pb-3 pt-1">
-          {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
-          {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
-          <form action={bulkAction}>
-            <input type="hidden" name="ids" value={JSON.stringify(receipt.receipt_lines.map((l) => l.id))} />
-            <button type="submit"
-              className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-              {tf<string>('common.bulkConfirm', receipt.receipt_lines.length)}
-            </button>
-          </form>
-        </div>
-      )}
+      {/* Bulk receive footer — only pending lines */}
+      {(() => {
+        const pendingLines = receipt.receipt_lines.filter((l) => l.status !== 'received' && l.status !== 'discrepancy');
+        if (pendingLines.length === 0) return null;
+        return (
+          <div className="px-3 pb-3 pt-1">
+            {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
+            {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
+            <form action={bulkAction}>
+              <input type="hidden" name="ids" value={JSON.stringify(pendingLines.map((l) => l.id))} />
+              <button type="submit"
+                className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                {tf<string>('common.bulkConfirm', pendingLines.length)}
+              </button>
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 }
