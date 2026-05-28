@@ -38,7 +38,7 @@ export default async function SalesPage() {
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   // Group by date → product, summing quantities and revenue
-  const byDate: Record<string, { productId: number; productName: string; totalPieces: number; snapshotRevenue: number | null }[]> = {};
+  const byDate: Record<string, { productId: number; productName: string; totalPieces: number; snapshotRevenue: number | null; unitPrice: number | null }[]> = {};
   for (const o of outgoing) {
     if (!o.shipped_at) continue;
     const dateStr = toLocalDateStr(tz, new Date(o.shipped_at));
@@ -48,8 +48,9 @@ export default async function SalesPage() {
     if (existing) {
       existing.totalPieces += o.quantity;
       if (lineRevenue != null) existing.snapshotRevenue = (existing.snapshotRevenue ?? 0) + lineRevenue;
+      if (existing.unitPrice !== o.unit_price) existing.unitPrice = null; // 同日同商品で単価が違う場合は非表示
     } else {
-      byDate[dateStr].push({ productId: o.product_id, productName: o.product_name, totalPieces: o.quantity, snapshotRevenue: lineRevenue });
+      byDate[dateStr].push({ productId: o.product_id, productName: o.product_name, totalPieces: o.quantity, snapshotRevenue: lineRevenue, unitPrice: o.unit_price });
     }
   }
   const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
@@ -100,6 +101,9 @@ export default async function SalesPage() {
                         <span className="text-slate-700">{r.productName}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-600">{qtyLabel}</span>
+                          {r.unitPrice != null && (
+                            <span className="text-xs text-slate-400">@{currencySymbol}{r.unitPrice.toLocaleString()}</span>
+                          )}
                           {(r.snapshotRevenue != null || p?.price != null) && (
                             <span className="text-slate-500">
                               {currencySymbol}{(r.snapshotRevenue ?? (p!.price! * r.totalPieces)).toLocaleString()}
