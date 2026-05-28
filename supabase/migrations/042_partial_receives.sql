@@ -4,6 +4,8 @@
 -- Receipt header becomes 'discrepancy' when at least one line is discrepancy
 -- and no lines are still pending.
 
+DROP FUNCTION IF EXISTS fn_receive_receipt_line(bigint, text, date, bigint, text, bigint, text, text, uuid, text, bigint, text, text);
+
 CREATE OR REPLACE FUNCTION fn_receive_receipt_line(
   p_receipt_line_id bigint,
   p_lot_number      text,
@@ -128,4 +130,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION fn_receive_receipt_line TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION fn_receive_receipt_line(bigint, text, date, bigint, text, bigint, text, text, uuid, text, bigint, text, text, integer) TO authenticated, anon;
