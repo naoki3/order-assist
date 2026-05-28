@@ -131,8 +131,9 @@ END;
 $$;
 
 -- 5. Fix fn_confirm_shipment
---    - Guard: all non-shipped/cancelled lines must be allocated (when no partial qtys)
---    - Support optional per-line ship qty (p_ship_qtys jsonb: {line_id: qty})
+--    Drop old 3-param version first so CREATE OR REPLACE replaces cleanly
+DROP FUNCTION IF EXISTS fn_confirm_shipment(bigint, text, text);
+
 CREATE OR REPLACE FUNCTION fn_confirm_shipment(
   p_shipment_id  bigint,
   p_operation_id text,
@@ -433,7 +434,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION fn_allocate_shipment_line  TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION fn_confirm_shipment        TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION fn_unreceive_receipt_line  TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION fn_adjust_lot_quantity     TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION fn_allocate_shipment_line(bigint, text, text)           TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION fn_confirm_shipment(bigint, text, text, jsonb)          TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION fn_unreceive_receipt_line(bigint, text, text)           TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION fn_adjust_lot_quantity(bigint, integer, text, text)     TO authenticated, anon;
