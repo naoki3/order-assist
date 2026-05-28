@@ -151,6 +151,7 @@ DECLARE
   v_lot_row       record;
   v_ship_qty      integer;
   v_all_shipped   boolean;
+  v_line_key      text;
 BEGIN
   SELECT id, status, shipped_at INTO v_ship
     FROM shipments WHERE id = p_shipment_id
@@ -186,8 +187,9 @@ BEGIN
       FOR UPDATE
   LOOP
     -- 出荷数量の決定 (部分出荷指定がある場合はそちらを優先)
-    IF p_ship_qtys IS NOT NULL AND (p_ship_qtys->>(v_line.id::text)) IS NOT NULL THEN
-      v_ship_qty := (p_ship_qtys->>(v_line.id::text))::integer;
+    v_line_key := v_line.id::text;
+    IF p_ship_qtys IS NOT NULL AND p_ship_qtys->>v_line_key IS NOT NULL THEN
+      v_ship_qty := (p_ship_qtys->>v_line_key)::integer;
       IF v_ship_qty <= 0 OR v_ship_qty > (v_line.quantity - v_line.shipped_qty) THEN
         RETURN jsonb_build_object('error',
           format('出荷数量が不正です (明細ID: %s, 指定: %s, 残: %s)',
@@ -275,7 +277,7 @@ BEGIN
       (v_line.product_id,
        COALESCE(v_line.lot_id, v_first_lot_id),
        'outgoing', -v_ship_qty, v_stock_after,
-       v_line.id, 'shipment_lines', p_operation_id || '-' || v_line.id::text)
+       v_line.id, 'shipment_lines', p_operation_id || '-' || v_line_key)
     ON CONFLICT (operation_id) WHERE operation_id IS NOT NULL DO NOTHING;
 
   END LOOP;
