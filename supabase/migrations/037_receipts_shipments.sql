@@ -154,7 +154,7 @@ SELECT
   expected_date,
   received_at,
   COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = incoming_stock.order_history_id)),
-  created_at
+  now()
 FROM incoming_stock
 WHERE COALESCE(user_id, (SELECT user_id FROM order_history WHERE id = incoming_stock.order_history_id)) IS NOT NULL;
 
@@ -179,7 +179,7 @@ SELECT
   s.location_id, s.location_name,
   CASE WHEN s.received_at IS NOT NULL THEN 'received' ELSE 'pending' END,
   r.user_id,
-  s.created_at
+  now()
 FROM incoming_stock s
 JOIN receipts r ON r.id = s.id;
 
@@ -226,7 +226,7 @@ SELECT
   warehouse_id, warehouse_name,
   'manual',
   scheduled_date, shipped_at,
-  note, user_id, created_at
+  note, user_id, now()
 FROM outgoing_stock
 WHERE user_id IS NOT NULL;
 
@@ -256,7 +256,7 @@ SELECT
   END,
   o.note,
   s.user_id,
-  o.created_at
+  now()
 FROM outgoing_stock o
 JOIN shipments s ON s.id = o.id;
 
