@@ -440,7 +440,7 @@ function groupByDate(receipts: ReceiptWithLines[]) {
     arr.push(r);
     map.set(r.expected_date, arr);
   }
-  return Array.from(map.entries()).map(([date, rs]) => ({ date, receipts: rs }));
+  return Array.from(map.entries()).map(([date, rs]) => ({ date, receipts: rs })).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 interface Props {

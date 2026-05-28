@@ -69,6 +69,7 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
       {/* Card header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 justify-between flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-500">{t('shipping.shipmentNo')}:</span>
           <span className="font-mono text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
             {shipment.shipment_no}
           </span>
@@ -178,7 +179,7 @@ function groupByDate(shipments: ShipmentWithLines[]) {
     arr.push(s);
     map.set(s.scheduled_date, arr);
   }
-  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss }));
+  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss })).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export default function OutgoingConfirmList({

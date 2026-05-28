@@ -141,6 +141,7 @@ function ReceiptCard({
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
       {/* Card header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100">
+        <span className="text-xs text-slate-500">{t('incoming.receiptNo')}:</span>
         <span className="font-mono text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded">
           {receipt.receipt_no}
         </span>
@@ -165,7 +166,7 @@ function ReceiptCard({
         ))}
       </div>
       {/* Bulk receive footer */}
-      {receipt.receipt_lines.length > 1 && (
+      {receipt.receipt_lines.length >= 1 && (
         <div className="px-3 pb-3 pt-1">
           {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
           {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
@@ -244,7 +245,7 @@ function groupByDate(receipts: ReceiptWithLines[]) {
   }
   return Array.from(map.entries())
     .map(([date, rs]) => ({ date, receipts: rs }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export default function IncomingConfirmList({
