@@ -203,6 +203,10 @@ export async function receiveIncoming(
   const formExpiry = String(formData.get('expiry_date') ?? '').trim() || null;
   const locationIdRaw = formData.get('location_id');
   const locationId = locationIdRaw && String(locationIdRaw).trim() !== '' ? Number(locationIdRaw) : null;
+  const statusIdRaw = formData.get('status_id');
+  const statusId = statusIdRaw && String(statusIdRaw).trim() !== '' ? Number(statusIdRaw) : null;
+  const statusName = (formData.get('status_name') as string | null) || null;
+  const statusColor = (formData.get('status_color') as string | null) || null;
 
   if (!locationId) return { error: 'ロケーションは必須です' };
 
@@ -247,6 +251,9 @@ export async function receiveIncoming(
     p_local_today:     localToday,
     p_owner_id:        ownerId,
     p_operation_id:    crypto.randomUUID(),
+    p_status_id:       statusId,
+    p_status_name:     statusName,
+    p_status_color:    statusColor,
   });
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
