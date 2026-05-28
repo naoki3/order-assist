@@ -197,12 +197,14 @@ function CreateReceiptForm({
   date,
   suppliers,
   warehouses,
+  defaultWarehouseId,
   onCreated,
   onCancel,
 }: {
   date: string;
   suppliers: SupplierOption[];
   warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
   onCreated: () => void;
   onCancel: () => void;
 }) {
@@ -243,7 +245,7 @@ function CreateReceiptForm({
       {warehouses.length > 0 && (
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-slate-500">{t('incoming.selectWarehouse')} *</span>
-          <select name="warehouse_id" required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <select name="warehouse_id" required defaultValue={defaultWarehouseId ?? ''} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
             <option value="">{t('incoming.selectWarehouse')}</option>
             {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
@@ -362,6 +364,7 @@ function DateGroup({
   products,
   suppliers,
   warehouses,
+  defaultWarehouseId,
   unitMap,
   onAdded,
   onVoucherCreated,
@@ -373,6 +376,7 @@ function DateGroup({
   products: ProductOption[];
   suppliers: SupplierOption[];
   warehouses: WarehouseOption[];
+  defaultWarehouseId: number | null;
   unitMap: Record<number, UnitConfig>;
   onAdded: (id: number) => void;
   onVoucherCreated?: () => void;
@@ -421,6 +425,7 @@ function DateGroup({
               date={date}
               suppliers={suppliers}
               warehouses={warehouses}
+              defaultWarehouseId={defaultWarehouseId}
               onCreated={() => { setShowCreateForm(false); onVoucherCreated?.(); }}
               onCancel={() => { if (receipts.length > 0) setShowCreateForm(false); }}
             />
@@ -453,9 +458,10 @@ interface Props {
   suppliers?: SupplierOption[];
   warehouses?: WarehouseOption[];
   today?: string;
+  defaultWarehouseId?: number | null;
 }
 
-export default function IncomingScheduleList({ receipts, emptyText, products, suppliers = [], warehouses = [], today = '' }: Props) {
+export default function IncomingScheduleList({ receipts, emptyText, products, suppliers = [], warehouses = [], today = '', defaultWarehouseId = null }: Props) {
   const { t } = useT();
   const [newLineIds, setNewLineIds] = useState<Set<number>>(new Set());
   const [pendingDate, setPendingDate] = useState<string | null>(null);
@@ -519,6 +525,7 @@ export default function IncomingScheduleList({ receipts, emptyText, products, su
           products={products}
           suppliers={suppliers}
           warehouses={warehouses}
+          defaultWarehouseId={defaultWarehouseId}
           unitMap={unitMap}
           onAdded={handleAdded}
           onVoucherCreated={() => setPendingDate(null)}
@@ -529,7 +536,7 @@ export default function IncomingScheduleList({ receipts, emptyText, products, su
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
         : groups.map(({ date, receipts: dateReceipts }) => (
-          <DateGroup key={date} date={date} receipts={dateReceipts} newLineIds={newLineIds} products={products} suppliers={suppliers} warehouses={warehouses} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
+          <DateGroup key={date} date={date} receipts={dateReceipts} newLineIds={newLineIds} products={products} suppliers={suppliers} warehouses={warehouses} defaultWarehouseId={defaultWarehouseId} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>
