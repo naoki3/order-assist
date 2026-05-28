@@ -3,32 +3,12 @@ import { getLang } from '@/lib/lang';
 import { translations } from '@/lib/i18n';
 import IncomingConfirmList from '@/components/IncomingConfirmList';
 import ReceivedHistoryList from '@/components/ReceivedHistoryList';
-import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
+import type { ReceiptWithLines } from '@/lib/db';
 import type { UnitConfig } from '@/lib/units';
 import { cookies } from 'next/headers';
 import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
-
-/** Flatten receipt+lines into a list of IncomingStock-shaped objects for existing components. */
-function flattenReceipts(receipts: ReceiptWithLines[]) {
-  return receipts.flatMap((r) =>
-    r.receipt_lines.map((line: ReceiptLine) => ({
-      ...line,
-      quantity: line.expected_qty,
-      receipt_no: r.receipt_no,
-      receipt_type: r.receipt_type,
-      receipt_status: r.status,
-      supplier_id: r.supplier_id,
-      supplier_name: r.supplier_name,
-      warehouse_id: r.warehouse_id,
-      warehouse_name: r.warehouse_name,
-      order_history_id: r.order_history_id,
-      expected_date: r.expected_date,
-      received_at: r.received_at,
-    }))
-  );
-}
 
 export default async function IncomingPage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
@@ -39,7 +19,7 @@ export default async function IncomingPage() {
     supabase.from('receipts')
       .select('*, receipt_lines(*)')
       .eq('status', 'expected')
-      .order('expected_date', { ascending: false })
+      .order('expected_date', { ascending: true })
       .order('id'),
     supabase.from('receipts')
       .select('*, receipt_lines(*)')
@@ -50,8 +30,8 @@ export default async function IncomingPage() {
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
   ]);
 
-  const pending = flattenReceipts((pendingData ?? []) as ReceiptWithLines[]);
-  const received = flattenReceipts((receivedData ?? []) as ReceiptWithLines[]);
+  const pending = (pendingData ?? []) as ReceiptWithLines[];
+  const received = (receivedData ?? []) as ReceiptWithLines[];
 
   type ProductRow = { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null };
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
@@ -71,12 +51,12 @@ export default async function IncomingPage() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
-        <IncomingConfirmList items={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
+        <IncomingConfirmList receipts={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} />
       </div>
 
       <div>
         <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.received']}</h2>
-        <ReceivedHistoryList items={received} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} />
+        <ReceivedHistoryList receipts={received} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useActionState } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import type { IncomingStock } from '@/lib/db';
+import type { ReceiptWithLines, ReceiptLine } from '@/lib/db';
 import { deleteIncomingSchedule, addIncomingItem, updateIncomingSchedule } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
@@ -32,14 +32,11 @@ interface WarehouseOption {
   name: string;
 }
 
-function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean; unitConfig: UnitConfig; }) {
+function LineItem({ line, isNew, unitConfig }: { line: ReceiptLine; isNew: boolean; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
-  const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [editError, setEditError] = useState<string | null>(null);
-  const [state, action] = useActionState(deleteIncomingSchedule, null);
-  const { errorMsg } = useActionFeedback(state, t('common.deleted'));
 
   function handleEdit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -53,68 +50,41 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
   }
 
   return (
-    <div className={`py-2.5 space-y-2 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
+    <div className={`py-2.5 space-y-1 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
+            <span className="text-xs text-slate-500">{formatQty(line.expected_qty, unitConfig, lang)}</span>
           ) : (
-            <span className="text-xs text-slate-500">{item.quantity} {t('incoming.units')}</span>
+            <span className="text-xs text-slate-500">{line.expected_qty} {t('incoming.units')}</span>
           )}
           {isNew && (
             <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
           )}
-          {item.lot_number && (
-            <span className="text-xs text-slate-400">#{item.lot_number}</span>
+          {line.lot_number && (
+            <span className="text-xs text-slate-400">#{line.lot_number}</span>
           )}
-          {item.expiry_date && (
-            <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {formatDisplayDate(item.expiry_date)}</span>
+          {line.expiry_date && (
+            <span className="text-xs text-slate-400">{t('incoming.expiryDate')}: {formatDisplayDate(line.expiry_date)}</span>
           )}
-          {item.supplier_name && (
-            <span className="text-xs text-slate-400">{t('incoming.supplier')}: {item.supplier_name}</span>
-          )}
-          {item.warehouse_name && (
-            <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>
-          )}
-          {errorMsg && <p className="text-red-600 text-xs w-full">{errorMsg}</p>}
         </div>
-        {confirming ? (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
-            <button type="button" onClick={() => setConfirming(false)}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
-              {t('common.cancel')}
-            </button>
-            <form action={action}>
-              <input type="hidden" name="id" value={item.id} />
-              <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
-                {t('incoming.delete')}
-              </button>
-            </form>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button type="button" onClick={() => { setEditing(!editing); setEditError(null); }}
-              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-              {t('incoming.editButton')}
-            </button>
-            <button type="button" onClick={() => setConfirming(true)}
-              className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-              {t('incoming.delete')}
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button type="button" onClick={() => { setEditing(!editing); setEditError(null); }}
+            className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+            {t('incoming.editButton')}
+          </button>
+        </div>
       </div>
       {editing && (
         <form onSubmit={handleEdit} className="flex flex-wrap gap-2 pb-1">
-          <input type="hidden" name="id" value={item.id} />
-          <input type="text" name="lot_number" defaultValue={item.lot_number ?? ''}
+          <input type="hidden" name="id" value={line.id} />
+          <input type="text" name="lot_number" defaultValue={line.lot_number ?? ''}
             placeholder={t('incoming.lotPlaceholder')}
             className="flex-1 min-w-32 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
           <label className="flex-1 min-w-32 flex flex-col gap-0.5">
             <span className="text-xs text-slate-500">{t('incoming.expiryDate')}</span>
-            <DateInput name="expiry_date" defaultValue={item.expiry_date ?? ''} className="w-full text-xs" />
+            <DateInput name="expiry_date" defaultValue={line.expiry_date ?? ''} className="w-full text-xs" />
           </label>
           {editError && <p className="text-red-600 text-xs w-full">{editError}</p>}
           <div className="flex gap-2">
@@ -129,6 +99,73 @@ function Item({ item, isNew, unitConfig }: { item: IncomingStock; isNew: boolean
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+function ReceiptCard({
+  receipt,
+  newLineIds,
+  unitMap,
+}: {
+  receipt: ReceiptWithLines;
+  newLineIds: Set<number>;
+  unitMap: Record<number, UnitConfig>;
+}) {
+  const { t } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [delState, delAction] = useActionState(deleteIncomingSchedule, null);
+  const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+
+  return (
+    <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded">
+            {receipt.receipt_no}
+          </span>
+          {receipt.supplier_name && (
+            <span className="text-xs text-slate-600">{receipt.supplier_name}</span>
+          )}
+          {receipt.warehouse_name && (
+            <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {receipt.warehouse_name}</span>
+          )}
+        </div>
+        {/* Delete button at receipt level */}
+        {confirming ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
+            <button type="button" onClick={() => setConfirming(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+            <form action={delAction}>
+              <input type="hidden" name="id" value={receipt.id} />
+              <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+                {t('incoming.delete')}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)}
+            className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
+            {t('incoming.delete')}
+          </button>
+        )}
+      </div>
+      {delError && <p className="text-red-600 text-xs px-3 pt-1">{delError}</p>}
+      {/* Card body - lines */}
+      <div className="px-3 divide-y divide-slate-100">
+        {receipt.receipt_lines.map((line) => (
+          <LineItem
+            key={line.id}
+            line={line}
+            isNew={newLineIds.has(line.id)}
+            unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -240,8 +277,8 @@ function AddProductForm({
 
 function DateGroup({
   date,
-  items,
-  newIds,
+  receipts,
+  newLineIds,
   products,
   suppliers,
   warehouses,
@@ -250,8 +287,8 @@ function DateGroup({
   defaultOpen = true,
 }: {
   date: string;
-  items: IncomingStock[];
-  newIds: Set<number>;
+  receipts: ReceiptWithLines[];
+  newLineIds: Set<number>;
   products: ProductOption[];
   suppliers: SupplierOption[];
   warehouses: WarehouseOption[];
@@ -261,8 +298,8 @@ function DateGroup({
 }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [showAddForm, setShowAddForm] = useState(items.length === 0);
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  const [showAddForm, setShowAddForm] = useState(receipts.length === 0);
+  const totalQty = receipts.reduce((s, r) => s + r.receipt_lines.reduce((ls, l) => ls + l.expected_qty, 0), 0);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -274,8 +311,8 @@ function DateGroup({
           <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
-          {items.length > 0 && <>
-            <span>{tf<string>('common.itemCount', items.length)}</span>
+          {receipts.length > 0 && <>
+            <span>{tf<string>('common.itemCount', receipts.length)}</span>
             <span>·</span>
             <span>{tf<string>('common.totalUnits', totalQty)}</span>
           </>}
@@ -283,9 +320,16 @@ function DateGroup({
       </button>
       {isOpen && (
         <div className="px-4 pb-3">
-          {items.length > 0 && (
-            <div className="divide-y divide-slate-100">
-              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
+          {receipts.length > 0 && (
+            <div className="mt-1">
+              {receipts.map((receipt) => (
+                <ReceiptCard
+                  key={receipt.id}
+                  receipt={receipt}
+                  newLineIds={newLineIds}
+                  unitMap={unitMap}
+                />
+              ))}
             </div>
           )}
           {showAddForm ? (
@@ -295,7 +339,7 @@ function DateGroup({
               suppliers={suppliers}
               warehouses={warehouses}
               onAdded={onAdded}
-              onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
+              onCancel={() => { if (receipts.length > 0) setShowAddForm(false); }}
             />
           ) : (
             <button type="button" onClick={() => setShowAddForm(true)}
@@ -309,18 +353,18 @@ function DateGroup({
   );
 }
 
-function groupByDate(items: IncomingStock[]) {
-  const map = new Map<string, IncomingStock[]>();
-  for (const item of items) {
-    const arr = map.get(item.expected_date) ?? [];
-    arr.push(item);
-    map.set(item.expected_date, arr);
+function groupByDate(receipts: ReceiptWithLines[]) {
+  const map = new Map<string, ReceiptWithLines[]>();
+  for (const r of receipts) {
+    const arr = map.get(r.expected_date) ?? [];
+    arr.push(r);
+    map.set(r.expected_date, arr);
   }
-  return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
+  return Array.from(map.entries()).map(([date, rs]) => ({ date, receipts: rs }));
 }
 
 interface Props {
-  items: IncomingStock[];
+  receipts: ReceiptWithLines[];
   emptyText: string;
   products: ProductOption[];
   suppliers?: SupplierOption[];
@@ -328,9 +372,9 @@ interface Props {
   today?: string;
 }
 
-export default function IncomingScheduleList({ items, emptyText, products, suppliers = [], warehouses = [], today = '' }: Props) {
+export default function IncomingScheduleList({ receipts, emptyText, products, suppliers = [], warehouses = [], today = '' }: Props) {
   const { t } = useT();
-  const [newIds, setNewIds] = useState<Set<number>>(new Set());
+  const [newLineIds, setNewLineIds] = useState<Set<number>>(new Set());
   const [pendingDate, setPendingDate] = useState<string | null>(null);
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputValue, setDateInputValue] = useState('');
@@ -339,11 +383,11 @@ export default function IncomingScheduleList({ items, emptyText, products, suppl
     products.map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
 
-  const groups = groupByDate(items);
+  const groups = groupByDate(receipts);
   const pendingDateInGroups = pendingDate ? groups.some(g => g.date === pendingDate) : false;
 
   function handleAdded(id: number) {
-    setNewIds((prev) => new Set([...prev, id]));
+    setNewLineIds((prev) => new Set([...prev, id]));
   }
 
   function handleDateSubmit(e: React.FormEvent) {
@@ -387,8 +431,8 @@ export default function IncomingScheduleList({ items, emptyText, products, suppl
         <DateGroup
           key={`pending-${pendingDate}`}
           date={pendingDate}
-          items={[]}
-          newIds={newIds}
+          receipts={[]}
+          newLineIds={newLineIds}
           products={products}
           suppliers={suppliers}
           warehouses={warehouses}
@@ -400,8 +444,8 @@ export default function IncomingScheduleList({ items, emptyText, products, suppl
 
       {groups.length === 0 && !pendingDate
         ? <p className="text-slate-400 text-sm">{emptyText}</p>
-        : groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} newIds={newIds} products={products} suppliers={suppliers} warehouses={warehouses} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
+        : groups.map(({ date, receipts: dateReceipts }) => (
+          <DateGroup key={date} date={date} receipts={dateReceipts} newLineIds={newLineIds} products={products} suppliers={suppliers} warehouses={warehouses} unitMap={unitMap} onAdded={handleAdded} defaultOpen={date === today} />
         ))
       }
     </div>

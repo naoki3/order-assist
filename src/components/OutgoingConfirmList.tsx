@@ -2,102 +2,144 @@
 
 import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { OutgoingStock } from '@/lib/db';
-import { confirmShipment, deleteOutgoingSchedule, confirmBulkShipment, deallocateOutgoing } from '@/lib/actions';
+import type { ShipmentWithLines, ShipmentLine } from '@/lib/db';
+import { confirmShipment, deleteOutgoingSchedule, deallocateOutgoing } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
 import type { UnitConfig } from '@/lib/units';
 import { formatDisplayDate } from '@/lib/tz';
 
-function Item({ item, unitConfig }: { item: OutgoingStock; unitConfig: UnitConfig }) {
+function ShipmentLineRow({ line, unitConfig }: { line: ShipmentLine; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
-  const [confirming, setConfirming] = useState(false);
-  const [shipState, shipAction] = useActionState(confirmShipment, null);
-  const [delState, delAction] = useActionState(deleteOutgoingSchedule, null);
   const [deallocState, deallocAction] = useActionState(deallocateOutgoing, null);
-
-  const { successMsg: shipSuccess, errorMsg: shipError } = useActionFeedback(shipState, t('common.confirmed'));
-  const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
   const { errorMsg: deallocError } = useActionFeedback(deallocState, '');
 
   return (
-    <div className="py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-1 flex-wrap">
-            <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
-            {unitConfig.pieces_per_ball ? (
-              <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
-            ) : (
-              <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
-            )}
-            {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
-          </div>
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-            {item.lot_number && (
-              <span className="text-xs font-mono text-slate-600">{t('shipping.pickingLot')}: {item.lot_number}</span>
-            )}
-            {item.expiry_date && (
-              <span className="text-xs text-slate-500">{t('inventory.lotExpiry')}: {formatDisplayDate(item.expiry_date)}</span>
-            )}
-            {item.warehouse_name && <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>}
-            {item.location_name && <span className="text-xs text-slate-400">{t('inventory.location')}: {item.location_name}</span>}
-            {item.destination_name && <span className="text-xs text-slate-400">{t('shipping.destination')}: {item.destination_name}</span>}
-            {item.carrier_name && <span className="text-xs text-slate-400">{t('shipping.carrier')}: {item.carrier_name}</span>}
-          </div>
-          {shipError && <p className="text-red-600 text-xs mt-0.5">{shipError}</p>}
-          {delError && <p className="text-red-600 text-xs mt-0.5">{delError}</p>}
-          {deallocError && <p className="text-red-600 text-xs mt-0.5">{deallocError}</p>}
-          {shipSuccess && <p className="text-green-600 text-xs mt-0.5">{shipSuccess}</p>}
+    <div className="py-2 flex items-center justify-between gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-1 flex-wrap">
+          <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
+          {unitConfig.pieces_per_ball ? (
+            <span className="text-xs text-slate-500">{formatQty(line.quantity, unitConfig, lang)}</span>
+          ) : (
+            <span className="text-xs text-slate-500">{line.quantity} {t('shipping.units')}</span>
+          )}
+          {line.note && <span className="text-xs text-slate-400">· {line.note}</span>}
         </div>
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+          {line.lot_number && (
+            <span className="text-xs font-mono text-slate-600">{t('shipping.pickingLot')}: {line.lot_number}</span>
+          )}
+          {line.expiry_date && (
+            <span className="text-xs text-slate-500">{t('inventory.lotExpiry')}: {formatDisplayDate(line.expiry_date)}</span>
+          )}
+          {line.warehouse_name && <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {line.warehouse_name}</span>}
+          {line.location_name && <span className="text-xs text-slate-400">{t('inventory.location')}: {line.location_name}</span>}
+        </div>
+        {deallocError && <p className="text-red-600 text-xs mt-0.5">{deallocError}</p>}
+      </div>
+      {line.allocated_at && (
+        <form action={deallocAction} className="flex-shrink-0">
+          <input type="hidden" name="id" value={line.id} />
+          <button type="submit"
+            className="text-amber-600 text-xs hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
+            {t('shipping.btnDeallocate')}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLines; unitMap: Record<number, UnitConfig>; today: string }) {
+  const { t } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [shipState, shipAction] = useActionState(confirmShipment, null);
+  const [delState, delAction] = useActionState(deleteOutgoingSchedule, null);
+
+  const { successMsg: shipSuccess, errorMsg: shipError } = useActionFeedback(shipState, t('common.confirmed'));
+  const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+
+  const hasAllocated = shipment.shipment_lines.some((l) => l.allocated_at !== null);
+  const isToday = shipment.scheduled_date === today;
+
+  return (
+    <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 justify-between flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+            {shipment.shipment_no}
+          </span>
+          {shipment.destination_name && (
+            <span className="text-xs text-slate-600">{shipment.destination_name}</span>
+          )}
+          {shipment.carrier_name && (
+            <span className="text-xs text-slate-400">{t('shipping.carrier')}: {shipment.carrier_name}</span>
+          )}
+          <span className="text-xs text-slate-400">{formatDisplayDate(shipment.scheduled_date)}{isToday && ' (今日)'}</span>
+          {/* Allocation status badge */}
+          {hasAllocated ? (
+            <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">引当済</span>
+          ) : (
+            <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">未引当</span>
+          )}
+        </div>
+      </div>
+      {/* Card body - lines */}
+      <div className="px-3 divide-y divide-slate-100">
+        {shipment.shipment_lines.map((line) => (
+          <ShipmentLineRow
+            key={line.id}
+            line={line}
+            unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+          />
+        ))}
+      </div>
+      {/* Footer */}
+      {shipError && <p className="text-red-600 text-xs px-3 pt-1">{shipError}</p>}
+      {delError && <p className="text-red-600 text-xs px-3">{delError}</p>}
+      {shipSuccess && <p className="text-green-600 text-xs px-3 pt-1">{shipSuccess}</p>}
+      <div className="px-3 pb-3 pt-2 flex items-center gap-2">
         {confirming ? (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5">
             <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
             <button type="button" onClick={() => setConfirming(false)}
               className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
               {t('common.cancel')}
             </button>
             <form action={delAction}>
-              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="id" value={shipment.id} />
               <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
                 {t('shipping.delete')}
               </button>
             </form>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <>
             <form action={shipAction}>
-              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="id" value={shipment.id} />
               <button type="submit"
                 className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
                 {t('shipping.confirm')}
-              </button>
-            </form>
-            <form action={deallocAction}>
-              <input type="hidden" name="id" value={item.id} />
-              <button type="submit"
-                className="text-amber-600 text-xs hover:text-amber-700 px-2 py-1.5 rounded-lg hover:bg-amber-50 transition-colors">
-                {t('shipping.btnDeallocate')}
               </button>
             </form>
             <button type="button" onClick={() => setConfirming(true)}
               className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
               {t('shipping.delete')}
             </button>
-          </div>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function DateGroup({ date, items, unitMap, today }: { date: string; items: OutgoingStock[]; unitMap: Record<number, UnitConfig>; today: string }) {
+function DateGroup({ date, shipments, unitMap, today }: { date: string; shipments: ShipmentWithLines[]; unitMap: Record<number, UnitConfig>; today: string }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
-  const [bulkState, bulkAction] = useActionState(confirmBulkShipment, null);
-  const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.confirmed'));
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  const totalLines = shipments.reduce((s, sh) => s + sh.shipment_lines.length, 0);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -111,46 +153,54 @@ function DateGroup({ date, items, unitMap, today }: { date: string; items: Outgo
           <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
-          <span>{tf<string>('common.itemCount', items.length)}</span>
+          <span>{tf<string>('common.itemCount', shipments.length)}</span>
           <span>·</span>
-          <span>{tf<string>('common.totalUnits', totalQty)}</span>
+          <span>{tf<string>('common.totalUnits', totalLines)}</span>
         </div>
       </button>
       {isOpen && (
         <div className="px-4 pb-3">
-          <div className="divide-y divide-slate-100">
-            {items.map(item => <Item key={item.id} item={item} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
+          <div className="mt-1">
+            {shipments.map(shipment => (
+              <ShipmentCard key={shipment.id} shipment={shipment} unitMap={unitMap} today={today} />
+            ))}
           </div>
-          {errorMsg && <p className="text-red-600 text-xs pt-2">{errorMsg}</p>}
-          {successMsg && <p className="text-green-600 text-xs pt-2">{successMsg}</p>}
-          <form action={bulkAction} className="pt-2">
-            <input type="hidden" name="ids" value={JSON.stringify(items.map(i => i.id))} />
-            <button type="submit"
-              className="w-full py-2 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-              {tf<string>('common.bulkConfirm', items.length)}
-            </button>
-          </form>
         </div>
       )}
     </div>
   );
 }
 
-function groupByDate(items: OutgoingStock[]) {
-  const map = new Map<string, OutgoingStock[]>();
-  for (const item of items) {
-    const arr = map.get(item.scheduled_date) ?? [];
-    arr.push(item);
-    map.set(item.scheduled_date, arr);
+function groupByDate(shipments: ShipmentWithLines[]) {
+  const map = new Map<string, ShipmentWithLines[]>();
+  for (const s of shipments) {
+    const arr = map.get(s.scheduled_date) ?? [];
+    arr.push(s);
+    map.set(s.scheduled_date, arr);
   }
-  return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
+  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss }));
 }
 
-export default function OutgoingConfirmList({ items, emptyText, unitMap = {}, today = '' }: { items: OutgoingStock[]; emptyText: string; unitMap?: Record<number, UnitConfig>; today?: string }) {
+export default function OutgoingConfirmList({
+  shipments,
+  emptyText,
+  unitMap = {},
+  today = '',
+}: {
+  shipments: ShipmentWithLines[];
+  emptyText: string;
+  unitMap?: Record<number, UnitConfig>;
+  today?: string;
+}) {
   const { t } = useT();
-  const groups = groupByDate(items);
+  const groups = groupByDate(shipments);
 
-  if (items.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
+  if (shipments.length === 0) return <p className="text-slate-400 text-sm">{emptyText}</p>;
+
+  // Flatten all lines for the print picking list
+  const allLines = shipments.flatMap((s) =>
+    s.shipment_lines.map((l) => ({ ...l, scheduled_date: s.scheduled_date, destination_name: s.destination_name }))
+  );
 
   return (
     <div>
@@ -164,8 +214,8 @@ export default function OutgoingConfirmList({ items, emptyText, unitMap = {}, to
 
       {/* 画面表示: 日付グループ */}
       <div className="print:hidden space-y-2">
-        {groups.map(({ date, items: dateItems }) => (
-          <DateGroup key={date} date={date} items={dateItems} unitMap={unitMap} today={today} />
+        {groups.map(({ date, shipments: dateShipments }) => (
+          <DateGroup key={date} date={date} shipments={dateShipments} unitMap={unitMap} today={today} />
         ))}
       </div>
 
@@ -185,17 +235,17 @@ export default function OutgoingConfirmList({ items, emptyText, unitMap = {}, to
             </tr>
           </thead>
           <tbody>
-            {items.map((item, i) => (
+            {allLines.map((line, i) => (
               <tr key={i} className="border-b border-slate-200">
-                <td className="border border-slate-300 px-2 py-1">{formatDisplayDate(item.scheduled_date)}</td>
-                <td className="border border-slate-300 px-2 py-1">{item.product_name}</td>
-                <td className="border border-slate-300 px-2 py-1 font-mono">{item.lot_number ?? '—'}</td>
-                <td className="border border-slate-300 px-2 py-1">{item.expiry_date ? formatDisplayDate(item.expiry_date) : '—'}</td>
+                <td className="border border-slate-300 px-2 py-1">{formatDisplayDate(line.scheduled_date)}</td>
+                <td className="border border-slate-300 px-2 py-1">{line.product_name}</td>
+                <td className="border border-slate-300 px-2 py-1 font-mono">{line.lot_number ?? '—'}</td>
+                <td className="border border-slate-300 px-2 py-1">{line.expiry_date ? formatDisplayDate(line.expiry_date) : '—'}</td>
                 <td className="border border-slate-300 px-2 py-1">
-                  {[item.warehouse_name, item.location_name].filter(Boolean).join(' / ') || '—'}
+                  {[line.warehouse_name, line.location_name].filter(Boolean).join(' / ') || '—'}
                 </td>
-                <td className="border border-slate-300 px-2 py-1 text-right tabular-nums">{item.quantity}</td>
-                <td className="border border-slate-300 px-2 py-1">{item.destination_name ?? '—'}</td>
+                <td className="border border-slate-300 px-2 py-1 text-right tabular-nums">{line.quantity}</td>
+                <td className="border border-slate-300 px-2 py-1">{line.destination_name ?? '—'}</td>
               </tr>
             ))}
           </tbody>

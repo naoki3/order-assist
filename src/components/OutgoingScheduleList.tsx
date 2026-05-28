@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useActionState } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import type { OutgoingStock, Lot } from '@/lib/db';
+import type { ShipmentWithLines, ShipmentLine, Lot } from '@/lib/db';
 import { deleteOutgoingSchedule, addOutgoingItem } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
@@ -38,56 +38,95 @@ interface LocationOption {
   warehouse_id: number | null;
 }
 
-function Item({ item, isNew, unitConfig }: { item: OutgoingStock; isNew: boolean; unitConfig: UnitConfig }) {
+function ShipmentLineItem({ line, unitConfig }: { line: ShipmentLine; unitConfig: UnitConfig }) {
   const { t, lang } = useT();
-  const [confirming, setConfirming] = useState(false);
-  const [state, action] = useActionState(deleteOutgoingSchedule, null);
-  const { errorMsg } = useActionFeedback(state, t('common.deleted'));
 
   return (
-    <div className={`flex items-center justify-between gap-3 py-2.5 ${isNew ? 'pl-2 border-l-2 border-green-400' : ''}`}>
+    <div className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-slate-800">{item.product_name}</span>
+          <span className="text-sm font-medium text-slate-800">{line.product_name}</span>
           {unitConfig.pieces_per_ball ? (
-            <span className="text-xs text-slate-500">{formatQty(item.quantity, unitConfig, lang)}</span>
+            <span className="text-xs text-slate-500">{formatQty(line.quantity, unitConfig, lang)}</span>
           ) : (
-            <span className="text-xs text-slate-500">{item.quantity} {t('shipping.units')}</span>
+            <span className="text-xs text-slate-500">{line.quantity} {t('shipping.units')}</span>
           )}
-          {item.note && <span className="text-xs text-slate-400">· {item.note}</span>}
-          {item.warehouse_name && <span className="text-xs text-slate-400">· {t('incoming.warehouseScheduled')}: {item.warehouse_name}</span>}
-          {item.location_name && <span className="text-xs text-slate-400">· {t('inventory.location')}: {item.location_name}</span>}
-          {item.destination_name && <span className="text-xs text-slate-400">· {t('shipping.destination')}: {item.destination_name}</span>}
-          {item.carrier_name && <span className="text-xs text-slate-400">· {t('shipping.carrier')}: {item.carrier_name}</span>}
+          {line.note && <span className="text-xs text-slate-400">· {line.note}</span>}
+          {line.warehouse_name && <span className="text-xs text-slate-400">· {t('incoming.warehouseScheduled')}: {line.warehouse_name}</span>}
+          {line.location_name && <span className="text-xs text-slate-400">· {t('inventory.location')}: {line.location_name}</span>}
         </div>
-        {item.lot_number && <LotTag lotNumber={item.lot_number} />}
-        {(isNew || errorMsg) && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {isNew && <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>}
-            {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+        {line.lot_number && <LotTag lotNumber={line.lot_number} />}
+      </div>
+    </div>
+  );
+}
+
+function ShipmentCard({
+  shipment,
+  newShipmentIds,
+  unitMap,
+}: {
+  shipment: ShipmentWithLines;
+  newShipmentIds: Set<number>;
+  unitMap: Record<number, UnitConfig>;
+}) {
+  const { t } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [delState, delAction] = useActionState(deleteOutgoingSchedule, null);
+  const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+  const isNew = newShipmentIds.has(shipment.id);
+
+  return (
+    <div className={`bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden ${isNew ? 'border-l-2 border-l-green-400' : ''}`}>
+      {/* Card header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+            {shipment.shipment_no}
+          </span>
+          {shipment.destination_name && (
+            <span className="text-xs text-slate-600">{shipment.destination_name}</span>
+          )}
+          {shipment.carrier_name && (
+            <span className="text-xs text-slate-400">{t('shipping.carrier')}: {shipment.carrier_name}</span>
+          )}
+          {isNew && (
+            <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">NEW</span>
+          )}
+        </div>
+        {/* Delete button at shipment level */}
+        {confirming ? (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
+            <button type="button" onClick={() => setConfirming(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+            <form action={delAction}>
+              <input type="hidden" name="id" value={shipment.id} />
+              <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
+                {t('shipping.delete')}
+              </button>
+            </form>
           </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)}
+            className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
+            {t('shipping.delete')}
+          </button>
         )}
       </div>
-      {confirming ? (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
-          <button type="button" onClick={() => setConfirming(false)}
-            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
-            {t('common.cancel')}
-          </button>
-          <form action={action}>
-            <input type="hidden" name="id" value={item.id} />
-            <button type="submit" className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded">
-              {t('shipping.delete')}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setConfirming(true)}
-          className="text-red-400 text-xs hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
-          {t('shipping.delete')}
-        </button>
-      )}
+      {delError && <p className="text-red-600 text-xs px-3 pt-1">{delError}</p>}
+      {/* Card body - lines */}
+      <div className="px-3 divide-y divide-slate-100">
+        {shipment.shipment_lines.map((line) => (
+          <ShipmentLineItem
+            key={line.id}
+            line={line}
+            unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -101,7 +140,7 @@ function AddProductForm({
   destinations: DestinationOption[];
   carriers: CarrierOption[];
   locations: LocationOption[];
-  onAdded: (id: number) => void;
+  onAdded: (shipmentId: number) => void;
   onCancel: () => void;
 }) {
   const { t } = useT();
@@ -156,7 +195,6 @@ function AddProductForm({
     return true;
   });
 
-  // Derive available warehouses from lots for selected product
   const productWarehouses = (() => {
     const seen = new Set<number>();
     const result: { id: number; name: string }[] = [];
@@ -182,6 +220,9 @@ function AddProductForm({
       if ('error' in result) {
         setError(result.error);
       } else {
+        // addOutgoingItem returns newId which is the shipment_line.id
+        // We need the shipment id — pass the line id and let the parent re-fetch
+        // For now, call onAdded with the line id (we mark new shipments by line id later)
         onAdded(result.newId);
         formRef.current?.reset();
         setSelectedProductId('');
@@ -320,11 +361,11 @@ function AddProductForm({
 }
 
 function DateGroup({
-  date, items, newIds, products, lots, destinations, carriers, locations, unitMap, onAdded, defaultOpen = true,
+  date, shipments, newShipmentIds, products, lots, destinations, carriers, locations, unitMap, onAdded, defaultOpen = true,
 }: {
   date: string;
-  items: OutgoingStock[];
-  newIds: Set<number>;
+  shipments: ShipmentWithLines[];
+  newShipmentIds: Set<number>;
   products: ProductOption[];
   lots: Lot[];
   destinations: DestinationOption[];
@@ -336,8 +377,8 @@ function DateGroup({
 }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [showAddForm, setShowAddForm] = useState(items.length === 0);
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  const [showAddForm, setShowAddForm] = useState(shipments.length === 0);
+  const totalQty = shipments.reduce((s, sh) => s + sh.shipment_lines.reduce((ls, l) => ls + l.quantity, 0), 0);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -349,8 +390,8 @@ function DateGroup({
           <span className="font-semibold text-slate-800">{formatDisplayDate(date)}</span>
         </div>
         <div className="text-xs text-slate-400 flex items-center gap-1.5">
-          {items.length > 0 && <>
-            <span>{tf<string>('common.itemCount', items.length)}</span>
+          {shipments.length > 0 && <>
+            <span>{tf<string>('common.itemCount', shipments.length)}</span>
             <span>·</span>
             <span>{tf<string>('common.totalUnits', totalQty)}</span>
           </>}
@@ -358,9 +399,16 @@ function DateGroup({
       </button>
       {isOpen && (
         <div className="px-4 pb-3">
-          {items.length > 0 && (
-            <div className="divide-y divide-slate-100">
-              {items.map((item) => <Item key={item.id} item={item} isNew={newIds.has(item.id)} unitConfig={unitMap[item.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }} />)}
+          {shipments.length > 0 && (
+            <div className="mt-1">
+              {shipments.map((shipment) => (
+                <ShipmentCard
+                  key={shipment.id}
+                  shipment={shipment}
+                  newShipmentIds={newShipmentIds}
+                  unitMap={unitMap}
+                />
+              ))}
             </div>
           )}
           {showAddForm ? (
@@ -372,7 +420,7 @@ function DateGroup({
               carriers={carriers}
               locations={locations}
               onAdded={onAdded}
-              onCancel={() => { if (items.length > 0) setShowAddForm(false); }}
+              onCancel={() => { if (shipments.length > 0) setShowAddForm(false); }}
             />
           ) : (
             <button type="button" onClick={() => setShowAddForm(true)}
@@ -386,18 +434,18 @@ function DateGroup({
   );
 }
 
-function groupByDate(items: OutgoingStock[]) {
-  const map = new Map<string, OutgoingStock[]>();
-  for (const item of items) {
-    const arr = map.get(item.scheduled_date) ?? [];
-    arr.push(item);
-    map.set(item.scheduled_date, arr);
+function groupByDate(shipments: ShipmentWithLines[]) {
+  const map = new Map<string, ShipmentWithLines[]>();
+  for (const s of shipments) {
+    const arr = map.get(s.scheduled_date) ?? [];
+    arr.push(s);
+    map.set(s.scheduled_date, arr);
   }
-  return Array.from(map.entries()).map(([date, its]) => ({ date, items: its }));
+  return Array.from(map.entries()).map(([date, ss]) => ({ date, shipments: ss }));
 }
 
 interface Props {
-  items: OutgoingStock[];
+  shipments: ShipmentWithLines[];
   emptyText: string;
   products: ProductOption[];
   lots: Lot[];
@@ -407,10 +455,12 @@ interface Props {
   today?: string;
 }
 
-
-export default function OutgoingScheduleList({ items, emptyText, products, lots, destinations = [], carriers = [], locations = [], today = '' }: Props) {
+export default function OutgoingScheduleList({ shipments, emptyText, products, lots, destinations = [], carriers = [], locations = [], today = '' }: Props) {
   const { t } = useT();
-  const [newIds, setNewIds] = useState<Set<number>>(new Set());
+  // newShipmentIds tracks line.id values returned from addOutgoingItem
+  // Since we can't easily get the shipment id, we track the new line id instead
+  // and highlight by checking if any line in the shipment is new
+  const [newLineIds, setNewLineIds] = useState<Set<number>>(new Set());
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     products.map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
@@ -418,10 +468,19 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
   const [showDateInput, setShowDateInput] = useState(false);
   const [dateInputValue, setDateInputValue] = useState('');
 
-  const groups = groupByDate(items);
+  const groups = groupByDate(shipments);
   const pendingDateInGroups = pendingDate ? groups.some(g => g.date === pendingDate) : false;
 
-  function handleAdded(id: number) { setNewIds((prev) => new Set([...prev, id])); }
+  // Build a set of shipment IDs where any line is newly added
+  // Since addOutgoingItem returns line.id, and new shipments appear after revalidation,
+  // we track newly-added line ids and mark any shipment containing them
+  const newShipmentIds = new Set<number>(
+    shipments
+      .filter(s => s.shipment_lines.some(l => newLineIds.has(l.id)))
+      .map(s => s.id)
+  );
+
+  function handleAdded(id: number) { setNewLineIds((prev) => new Set([...prev, id])); }
 
   function handleDateSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -457,14 +516,14 @@ export default function OutgoingScheduleList({ items, emptyText, products, lots,
         )}
 
         {pendingDate && !pendingDateInGroups && (
-          <DateGroup key={`pending-${pendingDate}`} date={pendingDate} items={[]} newIds={newIds}
+          <DateGroup key={`pending-${pendingDate}`} date={pendingDate} shipments={[]} newShipmentIds={newShipmentIds}
             products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={(id) => { handleAdded(id); setPendingDate(null); }} defaultOpen={true} />
         )}
 
         {groups.length === 0 && !pendingDate
           ? <p className="text-slate-400 text-sm">{emptyText}</p>
-          : groups.map(({ date, items: dateItems }) => (
-            <DateGroup key={date} date={date} items={dateItems} newIds={newIds}
+          : groups.map(({ date, shipments: dateShipments }) => (
+            <DateGroup key={date} date={date} shipments={dateShipments} newShipmentIds={newShipmentIds}
               products={products} lots={lots} destinations={destinations} carriers={carriers} unitMap={unitMap} locations={locations} onAdded={handleAdded} defaultOpen={date === today} />
           ))
         }

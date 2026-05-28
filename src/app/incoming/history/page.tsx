@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getLang } from '@/lib/lang';
 import { t } from '@/lib/i18n';
-import type { IncomingStock } from '@/lib/db';
+import type { ReceiptWithLines } from '@/lib/db';
 import ReceivedHistoryList from '@/components/ReceivedHistoryList';
 import type { UnitConfig } from '@/lib/units';
 
@@ -15,22 +15,23 @@ export default async function IncomingHistoryPage({
   const { date } = await searchParams;
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
 
-  let query = supabase.from('incoming_stock').select('*').not('received_at', 'is', null);
+  // eslint-disable-next-line prefer-const
+  let shipmentsQuery = supabase.from('receipts').select('*, receipt_lines(*)').eq('status', 'received');
 
   if (date) {
     const next = new Date(date);
     next.setDate(next.getDate() + 1);
     const nextStr = next.toISOString().split('T')[0];
-    query = query.gte('received_at', date).lt('received_at', nextStr).order('received_at', { ascending: false });
+    shipmentsQuery = shipmentsQuery.gte('received_at', date).lt('received_at', nextStr).order('received_at', { ascending: false });
   } else {
-    query = query.order('received_at', { ascending: false }).limit(60);
+    shipmentsQuery = shipmentsQuery.order('received_at', { ascending: false }).limit(60);
   }
 
   const [{ data }, { data: productsData }] = await Promise.all([
-    query,
+    shipmentsQuery,
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
-  const items = (data ?? []) as IncomingStock[];
+  const receipts = (data ?? []) as ReceiptWithLines[];
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
@@ -65,7 +66,7 @@ export default async function IncomingHistoryPage({
         <p className="text-xs text-slate-400 mb-2">
           {date ? `${t('incoming.receivedDate', lang)}: ${date}` : t('incoming.recentReceived', lang)}
         </p>
-        <ReceivedHistoryList items={items} emptyText={t('incoming.historyEmpty', lang)} unitMap={unitMap} />
+        <ReceivedHistoryList receipts={receipts} emptyText={t('incoming.historyEmpty', lang)} unitMap={unitMap} />
       </div>
     </div>
   );
