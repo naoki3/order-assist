@@ -59,11 +59,28 @@ function ShipmentLineRow({
             )}
             {line.note && <span className="text-xs text-slate-400">· {line.note}</span>}
           </div>
-          {line.lot_number && (
-            <div className="mt-0.5">
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+            {line.lot_number && (
               <LotTag lotNumber={line.lot_number} expiryDate={null} today={today} />
-            </div>
-          )}
+            )}
+            {line.expiry_date && (
+              <span className="text-xs text-slate-500">{t('inventory.lotExpiry')}: {formatDisplayDate(line.expiry_date)}</span>
+            )}
+            {line.warehouse_name && (
+              <span className="text-xs text-slate-400">{t('incoming.warehouseScheduled')}: {line.warehouse_name}</span>
+            )}
+            {line.location_name && (
+              <span className="text-xs text-slate-400">{t('inventory.location')}: {line.location_name}</span>
+            )}
+            {line.lot_status_name && (
+              <span
+                className="text-xs font-medium px-1.5 py-0.5 rounded-full"
+                style={{ background: line.lot_status_color ? `${line.lot_status_color}22` : '#f1f5f9', color: line.lot_status_color ?? '#475569' }}
+              >
+                {line.lot_status_name}
+              </span>
+            )}
+          </div>
           {returnError && <p className="text-red-600 text-xs mt-0.5">{returnError}</p>}
           {mode === 'return' && (
             <div className="mt-2 flex flex-col gap-2">
