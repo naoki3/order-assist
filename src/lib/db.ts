@@ -69,6 +69,7 @@ export interface ReceiptLine {
   location_id: number | null;
   location_name: string | null;
   status: string;
+  resolution: string | null;
   note: string | null;
   user_id: string;
   created_at: string;
@@ -110,6 +111,7 @@ export interface Shipment {
   source_system: string;
   scheduled_date: string;
   shipped_at: string | null;
+  on_hold_reason: string | null;
   note: string | null;
   user_id: string;
   created_at: string;

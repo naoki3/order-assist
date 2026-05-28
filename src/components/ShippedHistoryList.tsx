@@ -11,25 +11,35 @@ import { unshipOutgoing, returnOutgoing } from '@/lib/actions';
 import { formatDisplayDate } from '@/lib/tz';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
+interface StatusOption {
+  id: number;
+  name: string;
+  color: string;
+}
+
 type LineMode = 'none' | 'return';
 
 function ShipmentLineRow({
   line,
   today,
   unitConfig,
+  statuses,
 }: {
   line: ShipmentLine;
   today: string;
   unitConfig: UnitConfig;
+  statuses: StatusOption[];
 }) {
   const { t, tf, lang } = useT();
   const [mode, setMode] = useState<LineMode>('none');
   const [returnQtyStr, setReturnQtyStr] = useState('');
+  const [returnStatusId, setReturnStatusId] = useState('');
   const [returnState, returnAction] = useActionState(returnOutgoing, null);
   const { errorMsg: returnError } = useActionFeedback(returnState, '');
 
   const alreadyReturned = line.returned_qty ?? 0;
   const maxReturn = line.quantity - alreadyReturned;
+  const selectedStatus = statuses.find((s) => s.id === Number(returnStatusId)) ?? null;
 
   return (
     <div className="py-2.5">
@@ -56,28 +66,51 @@ function ShipmentLineRow({
           )}
           {returnError && <p className="text-red-600 text-xs mt-0.5">{returnError}</p>}
           {mode === 'return' && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <input
-                type="number"
-                min={1}
-                max={maxReturn}
-                value={returnQtyStr}
-                onChange={(e) => setReturnQtyStr(e.target.value)}
-                placeholder={String(maxReturn)}
-                className="w-20 border border-slate-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-              <form action={returnAction} className="flex items-center gap-1.5">
-                <input type="hidden" name="id" value={line.id} />
-                <input type="hidden" name="return_qty" value={returnQtyStr || maxReturn} />
-                <button type="submit"
-                  className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-2.5 py-1 rounded-lg font-medium transition-colors">
-                  {t('shipping.returnSubmit')}
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="number"
+                  min={1}
+                  max={maxReturn}
+                  step={1}
+                  value={returnQtyStr}
+                  onChange={(e) => setReturnQtyStr(e.target.value)}
+                  placeholder={String(maxReturn)}
+                  className="w-20 border border-slate-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                {statuses.length > 0 && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-slate-500">{t('shipping.returnStatus')}</span>
+                    <select
+                      value={returnStatusId}
+                      onChange={(e) => setReturnStatusId(e.target.value)}
+                      className="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">{t('shipping.returnStatusPlaceholder')}</option>
+                      {statuses.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <form action={returnAction} className="flex items-center gap-1.5">
+                  <input type="hidden" name="id" value={line.id} />
+                  <input type="hidden" name="return_qty" value={returnQtyStr || maxReturn} />
+                  <input type="hidden" name="status_id" value={selectedStatus?.id ?? ''} />
+                  <input type="hidden" name="status_name" value={selectedStatus?.name ?? ''} />
+                  <input type="hidden" name="status_color" value={selectedStatus?.color ?? ''} />
+                  <button type="submit"
+                    className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-2.5 py-1 rounded-lg font-medium transition-colors">
+                    {t('shipping.returnSubmit')}
+                  </button>
+                </form>
+                <button type="button" onClick={() => setMode('none')}
+                  className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+                  {t('common.cancel')}
                 </button>
-              </form>
-              <button type="button" onClick={() => setMode('none')}
-                className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
-                {t('common.cancel')}
-              </button>
+              </div>
             </div>
           )}
         </div>
@@ -97,11 +130,13 @@ function ShipmentCard({
   unitMap,
   today,
   defaultOpen,
+  statuses,
 }: {
   shipment: ShipmentWithLines;
   unitMap: Record<number, UnitConfig>;
   today: string;
   defaultOpen: boolean;
+  statuses: StatusOption[];
 }) {
   const { t, tf } = useT();
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -146,6 +181,7 @@ function ShipmentCard({
                 line={line}
                 today={today}
                 unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
+                statuses={statuses}
               />
             ))}
           </div>
@@ -185,12 +221,14 @@ function DateGroup({
   unitMap,
   today,
   defaultOpen,
+  statuses,
 }: {
   date: string;
   shipments: ShipmentWithLines[];
   unitMap: Record<number, UnitConfig>;
   today: string;
   defaultOpen: boolean;
+  statuses: StatusOption[];
 }) {
   const { tf } = useT();
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -220,6 +258,7 @@ function DateGroup({
               unitMap={unitMap}
               today={today}
               defaultOpen={false}
+              statuses={statuses}
             />
           ))}
         </div>
@@ -266,11 +305,13 @@ export default function ShippedHistoryList({
   emptyText,
   unitMap = {},
   showDeliveryNote = true,
+  statuses = [],
 }: {
   shipments: ShipmentWithLines[];
   emptyText: string;
   unitMap?: Record<number, UnitConfig>;
   showDeliveryNote?: boolean;
+  statuses?: StatusOption[];
 }) {
   const { t } = useT();
   const { localDate } = useT();
@@ -306,6 +347,7 @@ export default function ShippedHistoryList({
             unitMap={unitMap}
             today={today}
             defaultOpen={date === recentDate || i === 0}
+            statuses={statuses}
           />
         ))}
       </div>

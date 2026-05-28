@@ -3,7 +3,7 @@
 import { useState, useActionState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ShipmentWithLines, ShipmentLine } from '@/lib/db';
-import { confirmShipment, deleteOutgoingSchedule, deallocateOutgoing } from '@/lib/actions';
+import { confirmShipment, deleteOutgoingSchedule, deallocateOutgoing, startPicking, completePicking, putShipmentOnHold, releaseShipmentHold } from '@/lib/actions';
 import { useT } from './LanguageProvider';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 import { formatQty } from '@/lib/units';
@@ -83,8 +83,14 @@ function ShipmentLineRow({
 function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLines; unitMap: Record<number, UnitConfig>; today: string }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
+  const [holdMode, setHoldMode] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
   const [shipState, shipAction] = useActionState(confirmShipment, null);
   const [delState, delAction] = useActionState(deleteOutgoingSchedule, null);
+  const [pickStartState, pickStartAction] = useActionState(startPicking, null);
+  const [pickDoneState, pickDoneAction] = useActionState(completePicking, null);
+  const [holdState, holdAction] = useActionState(putShipmentOnHold, null);
+  const [releaseState, releaseAction] = useActionState(releaseShipmentHold, null);
 
   const allocatedLines = shipment.shipment_lines.filter((l) => l.allocated_at !== null && l.status === 'allocated');
   const [lineQtys, setLineQtys] = useState<Record<number, string>>(() =>
@@ -93,7 +99,12 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
 
   const { successMsg: shipSuccess, errorMsg: shipError } = useActionFeedback(shipState, t('common.confirmed'));
   const { errorMsg: delError } = useActionFeedback(delState, t('common.deleted'));
+  const { errorMsg: pickStartError } = useActionFeedback(pickStartState, '');
+  const { errorMsg: pickDoneError } = useActionFeedback(pickDoneState, '');
+  const { errorMsg: holdError } = useActionFeedback(holdState, '');
+  const { errorMsg: releaseError } = useActionFeedback(releaseState, '');
 
+  const status = shipment.status;
   const hasAllocated = shipment.shipment_lines.some((l) => l.allocated_at !== null);
   const isToday = shipment.scheduled_date === today;
 
@@ -102,6 +113,14 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
       allocatedLines.map((l) => [String(l.id), Number(lineQtys[l.id] ?? (l.quantity - (l.shipped_qty ?? 0)))])
     )
   );
+
+  const statusBadge = () => {
+    if (status === 'on_hold') return <span className="text-xs font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded-full">{t('shipping.holdBadge')}</span>;
+    if (status === 'picking') return <span className="text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full">{t('shipping.pickingStatus')}</span>;
+    if (status === 'picked') return <span className="text-xs font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full">{t('shipping.pickedStatus')}</span>;
+    if (hasAllocated) return <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">引当済</span>;
+    return <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">未引当</span>;
+  };
 
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
@@ -119,11 +138,7 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
             <span className="text-xs text-slate-400">{t('shipping.carrier')}: {shipment.carrier_name}</span>
           )}
           <span className="text-xs text-slate-400">{formatDisplayDate(shipment.scheduled_date)}{isToday && ' (今日)'}</span>
-          {hasAllocated ? (
-            <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">引当済</span>
-          ) : (
-            <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">未引当</span>
-          )}
+          {statusBadge()}
         </div>
       </div>
       {/* Card body - lines */}
@@ -141,9 +156,21 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
       {/* Footer */}
       {shipError && <p className="text-red-600 text-xs px-3 pt-1">{shipError}</p>}
       {delError && <p className="text-red-600 text-xs px-3">{delError}</p>}
+      {pickStartError && <p className="text-red-600 text-xs px-3 pt-1">{pickStartError}</p>}
+      {pickDoneError && <p className="text-red-600 text-xs px-3 pt-1">{pickDoneError}</p>}
+      {holdError && <p className="text-red-600 text-xs px-3 pt-1">{holdError}</p>}
+      {releaseError && <p className="text-red-600 text-xs px-3 pt-1">{releaseError}</p>}
       {shipSuccess && <p className="text-green-600 text-xs px-3 pt-1">{shipSuccess}</p>}
-      <div className="px-3 pb-3 pt-2 flex items-center gap-2">
-        {confirming ? (
+      <div className="px-3 pb-3 pt-2 flex flex-wrap items-center gap-2">
+        {status === 'on_hold' ? (
+          <form action={releaseAction} className="flex items-center gap-2">
+            <input type="hidden" name="id" value={shipment.id} />
+            <button type="submit"
+              className="px-3 py-1.5 bg-slate-600 text-white text-xs font-medium rounded-lg hover:bg-slate-700 transition-colors">
+              {t('shipping.releaseHold')}
+            </button>
+          </form>
+        ) : confirming ? (
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-slate-500">{t('common.confirmQuestion')}</span>
             <button type="button" onClick={() => setConfirming(false)}
@@ -157,6 +184,28 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
               </button>
             </form>
           </div>
+        ) : holdMode ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <input
+              type="text"
+              value={holdReason}
+              onChange={(e) => setHoldReason(e.target.value)}
+              placeholder={t('shipping.onHoldReason')}
+              className="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-red-400 w-40"
+            />
+            <form action={holdAction} className="flex items-center gap-1.5">
+              <input type="hidden" name="id" value={shipment.id} />
+              <input type="hidden" name="reason" value={holdReason} />
+              <button type="submit"
+                className="text-xs bg-red-100 text-red-700 hover:bg-red-200 px-2.5 py-1 rounded-lg font-medium transition-colors">
+                {t('shipping.putOnHold')}
+              </button>
+            </form>
+            <button type="button" onClick={() => setHoldMode(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded">
+              {t('common.cancel')}
+            </button>
+          </div>
         ) : (
           <>
             <form action={shipAction}>
@@ -167,6 +216,30 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
                 {t('shipping.confirm')}
               </button>
             </form>
+            {status === 'allocated' && (
+              <form action={pickStartAction}>
+                <input type="hidden" name="id" value={shipment.id} />
+                <button type="submit"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-600 text-xs rounded-lg hover:bg-slate-50 transition-colors">
+                  {t('shipping.startPicking')}
+                </button>
+              </form>
+            )}
+            {status === 'picking' && (
+              <form action={pickDoneAction}>
+                <input type="hidden" name="id" value={shipment.id} />
+                <button type="submit"
+                  className="px-3 py-1.5 border border-indigo-300 text-indigo-600 text-xs rounded-lg hover:bg-indigo-50 transition-colors">
+                  {t('shipping.completePicking')}
+                </button>
+              </form>
+            )}
+            {status !== 'shipped' && (
+              <button type="button" onClick={() => setHoldMode(true)}
+                className="text-slate-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                {t('shipping.onHold')}
+              </button>
+            )}
             <button type="button" onClick={() => setConfirming(true)}
               className="text-red-400 text-xs hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
               {t('shipping.delete')}
@@ -179,7 +252,7 @@ function ShipmentCard({ shipment, unitMap, today }: { shipment: ShipmentWithLine
 }
 
 function DateGroup({ date, shipments, unitMap, today }: { date: string; shipments: ShipmentWithLines[]; unitMap: Record<number, UnitConfig>; today: string }) {
-  const { t, tf } = useT();
+  const { tf } = useT();
   const [isOpen, setIsOpen] = useState(date === today);
   const totalLines = shipments.reduce((s, sh) => s + sh.shipment_lines.length, 0);
 

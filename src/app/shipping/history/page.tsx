@@ -27,14 +27,16 @@ export default async function ShippingHistoryPage({
     shipmentsQuery = shipmentsQuery.order('shipped_at', { ascending: false }).limit(60);
   }
 
-  const [{ data }, { data: productsData }] = await Promise.all([
+  const [{ data }, { data: productsData }, { data: statusesData }] = await Promise.all([
     shipmentsQuery,
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
+    supabase.from('inventory_statuses').select('id, name, color').order('name'),
   ]);
   const shipments = (data ?? []) as ShipmentWithLines[];
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     (productsData ?? []).map((p: { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
+  const statuses = (statusesData ?? []) as { id: number; name: string; color: string }[];
 
   return (
     <div className="space-y-6">
@@ -66,7 +68,7 @@ export default async function ShippingHistoryPage({
         <p className="text-xs text-slate-400 mb-2 print:hidden">
           {date ? `${t('shipping.shippedDate', lang)}: ${date}` : t('shipping.recentShippedLabel', lang)}
         </p>
-        <ShippedHistoryList shipments={shipments} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} />
+        <ShippedHistoryList shipments={shipments} emptyText={t('shipping.historyEmpty', lang)} unitMap={unitMap} statuses={statuses} />
       </div>
     </div>
   );
