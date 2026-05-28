@@ -19,7 +19,7 @@ export default async function SalesPage() {
   const [{ data: outgoingData }, { data: productsData }] = await Promise.all([
     supabase
       .from('shipments')
-      .select('shipped_at, shipment_lines!inner(product_id, product_name, quantity, shipped_qty, status)')
+      .select('shipped_at, shipment_lines!inner(product_id, product_name, quantity, shipped_qty, unit_price, status)')
       .eq('status', 'shipped')
       .not('shipped_at', 'is', null)
       .gte('shipped_at', startStr + 'T00:00:00')
@@ -27,27 +27,29 @@ export default async function SalesPage() {
     supabase.from('products').select('*').order('id'),
   ]);
 
-  type RawShipment = { shipped_at: string; shipment_lines: { product_id: number; product_name: string; quantity: number; shipped_qty: number; status: string }[] };
-  type FlatLine = { product_id: number; product_name: string; quantity: number; shipped_at: string | null };
+  type RawShipment = { shipped_at: string; shipment_lines: { product_id: number; product_name: string; quantity: number; shipped_qty: number; unit_price: number | null; status: string }[] };
+  type FlatLine = { product_id: number; product_name: string; quantity: number; shipped_at: string | null; unit_price: number | null };
   const outgoing = ((outgoingData ?? []) as RawShipment[]).flatMap((s): FlatLine[] =>
     s.shipment_lines
       .filter((l) => l.status === 'shipped')
-      .map((l) => ({ product_id: l.product_id, product_name: l.product_name, quantity: l.shipped_qty ?? l.quantity, shipped_at: s.shipped_at }))
+      .map((l) => ({ product_id: l.product_id, product_name: l.product_name, quantity: l.shipped_qty ?? l.quantity, shipped_at: s.shipped_at, unit_price: l.unit_price }))
   );
   const products = (productsData ?? []) as Product[];
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  // Group by date → product, summing quantities
-  const byDate: Record<string, { productId: number; productName: string; totalPieces: number }[]> = {};
+  // Group by date → product, summing quantities and revenue
+  const byDate: Record<string, { productId: number; productName: string; totalPieces: number; snapshotRevenue: number | null }[]> = {};
   for (const o of outgoing) {
     if (!o.shipped_at) continue;
     const dateStr = toLocalDateStr(tz, new Date(o.shipped_at));
     if (!byDate[dateStr]) byDate[dateStr] = [];
     const existing = byDate[dateStr].find((r) => r.productId === o.product_id);
+    const lineRevenue = o.unit_price != null ? o.unit_price * o.quantity : null;
     if (existing) {
       existing.totalPieces += o.quantity;
+      if (lineRevenue != null) existing.snapshotRevenue = (existing.snapshotRevenue ?? 0) + lineRevenue;
     } else {
-      byDate[dateStr].push({ productId: o.product_id, productName: o.product_name, totalPieces: o.quantity });
+      byDate[dateStr].push({ productId: o.product_id, productName: o.product_name, totalPieces: o.quantity, snapshotRevenue: lineRevenue });
     }
   }
   const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
@@ -77,6 +79,7 @@ export default async function SalesPage() {
           {dates.map((date) => {
             const rows = byDate[date];
             const totalRevenue = rows.reduce((sum, r) => {
+              if (r.snapshotRevenue != null) return sum + r.snapshotRevenue;
               const p = productMap.get(r.productId);
               return sum + (p?.price ? p.price * r.totalPieces : 0);
             }, 0);
@@ -97,9 +100,9 @@ export default async function SalesPage() {
                         <span className="text-slate-700">{r.productName}</span>
                         <div className="flex items-center gap-3">
                           <span className="text-slate-600">{qtyLabel}</span>
-                          {p?.price != null && (
+                          {(r.snapshotRevenue != null || p?.price != null) && (
                             <span className="text-slate-500">
-                              {currencySymbol}{(p.price * r.totalPieces).toLocaleString()}
+                              {currencySymbol}{(r.snapshotRevenue ?? (p!.price! * r.totalPieces)).toLocaleString()}
                             </span>
                           )}
                         </div>
