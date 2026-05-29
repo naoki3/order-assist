@@ -12,9 +12,10 @@ export default async function InventoryPage() {
     supabase.from('products').select('*').order('name'),
     supabase.from('inventory').select('*'),
   ]);
-  const products = (productsData ?? []) as Product[];
+  const allProducts = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
+  const products = allProducts.filter((p) => (stockMap[p.id] ?? 0) > 0);
 
   return (
     <div>
