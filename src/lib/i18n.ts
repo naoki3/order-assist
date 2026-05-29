@@ -525,6 +525,10 @@ export const translations = {
     'common.undo': '取り消し',
     'common.undoQuestion': '取り消しますか？',
     'common.bulkConfirm': (n: number) => `${n}件を一括確認`,
+    'common.pageOf': (cur: number, total: number) => `${cur} / ${total} ページ`,
+    'common.prevPage': '← 前へ',
+    'common.nextPage': '次へ →',
+    'common.totalCount': (n: number) => `全 ${n} 件`,
     'common.saved': '保存しました',
 
     // Units
@@ -1194,6 +1198,10 @@ export const translations = {
     'common.undo': 'Undo',
     'common.undoQuestion': 'Undo this?',
     'common.bulkConfirm': (n: number) => `Confirm all ${n} items`,
+    'common.pageOf': (cur: number, total: number) => `${cur} / ${total}`,
+    'common.prevPage': '← Prev',
+    'common.nextPage': 'Next →',
+    'common.totalCount': (n: number) => `${n} total`,
     'common.saved': 'Saved',
 
     // Units
@@ -1347,6 +1355,13 @@ export function t(key: TranslationKey, lang: Lang): string {
   const val = (translations[lang] as Record<string, unknown>)[key];
   if (typeof val === 'string') return val;
   return key;
+}
+
+export function tf<T>(key: TranslationKey, lang: Lang, ...args: unknown[]): T {
+  const val = (translations[lang] as Record<string, unknown>)[key];
+  if (typeof val === 'function') return (val as (...a: unknown[]) => T)(...args);
+  if (typeof val === 'string') return val as unknown as T;
+  return key as unknown as T;
 }
 
 export function getLangFromCookie(cookieHeader: string | null): Lang {
