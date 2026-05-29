@@ -149,7 +149,7 @@ flowchart TD
     PROD_LIST --> |新規追加| PROD_FORM["AddProductForm\n（名称・リードタイム・安全在庫日数・価格・棚番等）"]
     PROD_LIST --> |CSV取込| PROD_CSV["ProductCsvImport"]
     PROD_LIST --> |商品クリック| PROD_DETAIL["/products/[id]\n商品詳細"]
-    PROD_FORM --> |保存 (addProduct)| PROD_LIST
+    PROD_FORM --> |保存 addProduct| PROD_LIST
     PROD_DETAIL --> |編集| PROD_EDIT_FORM["updateProduct Server Action"]
     PROD_DETAIL --> |削除| PROD_DELETE["deleteProduct Server Action"]
     PROD_DELETE --> PROD_LIST
@@ -168,8 +168,8 @@ flowchart TD
     SALES_TOP --> SALES_REPORT["/sales/report\n売上レポート\n(SalesReportCharts)"]
     SALES_TOP --> DAILY_REPORT["/report/daily\n日次レポート\n(DailyReportClient)"]
 
-    SALES_ENTRY --> |保存 (upsertProductSales)| SALES_ENTRY
-    SALES_IMPORT --> |CSV アップロード (importSalesCsv)| SALES_ENTRY
+    SALES_ENTRY --> |保存 upsertProductSales| SALES_ENTRY
+    SALES_IMPORT --> |CSV アップロード importSalesCsv| SALES_ENTRY
 
     SALES_REPORT --> |期間・商品フィルタ| SALES_REPORT
     DAILY_REPORT --> |日付選択| DAILY_REPORT
