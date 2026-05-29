@@ -1,8 +1,8 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import Image from 'next/image';
 import { login } from '@/app/actions/auth';
+import { LOGO_BASE64 } from '@/lib/logoBase64';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 export default function LoginPage() {
@@ -16,7 +16,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
-            <Image src="/logo-small.png" alt="OrderAssist" width={56} height={56} priority />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO_BASE64} alt="OrderAssist" width={56} height={56} />
           </div>
           <h1 className="text-2xl font-extrabold bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
             OrderAssist
