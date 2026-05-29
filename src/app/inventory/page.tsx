@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export default async function InventoryPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data: productsData }, { data: inventoriesData }] = await Promise.all([
-    supabase.from('products').select('*').order('name'),
-    supabase.from('inventory').select('*'),
+    supabase.from('products').select('*').order('name').limit(1000),
+    supabase.from('inventory').select('*').limit(1000),
   ]);
   const allProducts = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];

@@ -17,9 +17,10 @@ export default async function CycleCountPage() {
       .gt('quantity', 0)
       .order('product_name', { ascending: true })
       .order('expiry_date', { ascending: true, nullsFirst: false })
-      .order('received_at', { ascending: false }),
-    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
-    supabase.from('warehouses').select('id, name').order('name'),
+      .order('received_at', { ascending: false })
+      .limit(2000),
+    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet').limit(1000),
+    supabase.from('warehouses').select('id, name').order('name').limit(500),
   ]);
 
   const lots = (lotsData ?? []) as Lot[];

@@ -10,9 +10,9 @@ export const dynamic = 'force-dynamic';
 export default async function InventoryAdjustPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data: productsData }, { data: inventoriesData }, { data: lotsData }] = await Promise.all([
-    supabase.from('products').select('*').order('id'),
-    supabase.from('inventory').select('*'),
-    supabase.from('lots').select('*').order('expiry_date', { ascending: true, nullsFirst: false }),
+    supabase.from('products').select('*').order('id').limit(1000),
+    supabase.from('inventory').select('*').limit(1000),
+    supabase.from('lots').select('*').order('expiry_date', { ascending: true, nullsFirst: false }).limit(2000),
   ]);
   const products = (productsData ?? []) as Product[];
   const inventories = (inventoriesData ?? []) as Inventory[];

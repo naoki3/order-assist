@@ -11,8 +11,8 @@ export const dynamic = 'force-dynamic';
 export default async function UsersPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data }, { data: warehousesData }] = await Promise.all([
-    supabase.from('user_profiles').select('id, name, role, worker_code, warehouse_id, is_active, email, phone, note, auth_user_id').order('name'),
-    supabase.from('warehouses').select('id, name').order('name'),
+    supabase.from('user_profiles').select('id, name, role, worker_code, warehouse_id, is_active, email, phone, note, auth_user_id').order('name').limit(500),
+    supabase.from('warehouses').select('id, name').order('name').limit(500),
   ]);
   const items = (data ?? []) as unknown as MasterRecord[];
   const warehouses = (warehousesData ?? []) as { id: number; name: string }[];

@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export default async function InventoryCorrectionPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
   const [{ data: lotsData }, { data: productsData }] = await Promise.all([
-    supabase.from('lots').select('*').order('product_id').order('received_at', { ascending: false }),
-    supabase.from('products').select('*').order('id'),
+    supabase.from('lots').select('*').order('product_id').order('received_at', { ascending: false }).limit(2000),
+    supabase.from('products').select('*').order('id').limit(1000),
   ]);
   const lots = (lotsData ?? []) as Lot[];
   const products = (productsData ?? []) as Product[];

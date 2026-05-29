@@ -99,7 +99,8 @@ export default async function ExpiryAlertPage() {
     .select('*')
     .not('expiry_date', 'is', null)
     .gt('quantity', 0)
-    .order('expiry_date', { ascending: true });
+    .order('expiry_date', { ascending: true })
+    .limit(2000);
 
   const lots = ((data ?? []) as Lot[]).map((l) => ({
     ...l,
