@@ -42,6 +42,7 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
 
   const product = productData as Product;
   const currentStock = (inventoryData as Inventory | null)?.current_stock ?? 0;
+  if (currentStock === 0) notFound();
   const lots = (lotsData ?? []) as Lot[];
   const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
   const statuses = (statusesData ?? []) as { id: number; name: string; color: string }[];
