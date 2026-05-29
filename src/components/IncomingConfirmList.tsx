@@ -119,17 +119,19 @@ function ReceiptLineItem({
   receipt,
   unitConfig,
   expiryType,
+  locations,
   statuses,
   locationId,
-  locationName,
+  setLocationId,
 }: {
   line: ReceiptLine;
   receipt: ReceiptWithLines;
   unitConfig: UnitConfig;
   expiryType: string | null;
+  locations: LocationOption[];
   statuses: StatusOption[];
   locationId: string;
-  locationName: string;
+  setLocationId: (v: string) => void;
 }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
@@ -138,6 +140,10 @@ function ReceiptLineItem({
   const defaultStatus = statuses.find((s) => s.name === '良品') ?? statuses[0] ?? null;
   const [statusId, setStatusId] = useState(() => String(defaultStatus?.id ?? ''));
 
+  const filteredLocations = receipt.warehouse_id
+    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
+    : locations;
+  const selectedLocation = locations.find((l) => l.id === Number(locationId));
   const selectedStatus = statuses.find((s) => s.id === Number(statusId)) ?? defaultStatus;
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
@@ -185,7 +191,7 @@ function ReceiptLineItem({
         <form action={receiveAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="id" value={line.id} />
           <input type="hidden" name="location_id" value={locationId} />
-          <input type="hidden" name="location_name" value={locationName} />
+          <input type="hidden" name="location_name" value={selectedLocation?.name ?? ''} />
           <input type="hidden" name="status_id" value={selectedStatus?.id ?? ''} />
           <input type="hidden" name="status_name" value={selectedStatus?.name ?? ''} />
           <input type="hidden" name="status_color" value={selectedStatus?.color ?? ''} />
@@ -245,12 +251,11 @@ function ReceiptCard({
   const { t, tf } = useT();
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
-  const [locationId, setLocationId] = useState('');
+  // Per-line location map: lineId → locationId string
+  const [locationMap, setLocationMap] = useState<Record<number, string>>({});
 
-  const filteredLocations = receipt.warehouse_id
-    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
-    : locations;
-  const locationName = locations.find((l) => l.id === Number(locationId))?.name ?? '';
+  const setLineLocation = (lineId: number, v: string) =>
+    setLocationMap(prev => ({ ...prev, [lineId]: v }));
 
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
@@ -285,9 +290,10 @@ function ReceiptCard({
               receipt={receipt}
               unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
               expiryType={expiryTypeMap[line.product_id] ?? null}
+              locations={locations}
               statuses={statuses}
-              locationId={locationId}
-              locationName={locationName}
+              locationId={locationMap[line.id] ?? ''}
+              setLocationId={(v) => setLineLocation(line.id, v)}
             />
           )
         )}
@@ -296,28 +302,18 @@ function ReceiptCard({
       {(() => {
         const pendingLines = receipt.receipt_lines.filter((l) => l.status !== 'received' && l.status !== 'discrepancy');
         if (pendingLines.length === 0) return null;
+        const lineLocations = Object.fromEntries(pendingLines.map(l => {
+          const locId = locationMap[l.id] ?? '';
+          const locName = locations.find(loc => loc.id === Number(locId))?.name ?? '';
+          return [l.id, { location_id: Number(locId) || null, location_name: locName }];
+        }));
         return (
-          <div className="px-3 pb-3 pt-2 space-y-2 border-t border-slate-100">
-            {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
-            {successMsg && <p className="text-green-600 text-xs">{successMsg}</p>}
-            {locations.length > 0 && (
-              <label className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 shrink-0">{t('incoming.location')}</span>
-                <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">—</option>
-                  {filteredLocations.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </label>
-            )}
+          <div className="px-3 pb-3 pt-2 border-t border-slate-100">
+            {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
+            {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
             <form action={bulkAction}>
               <input type="hidden" name="ids" value={JSON.stringify(pendingLines.map((l) => l.id))} />
-              <input type="hidden" name="location_id" value={locationId} />
+              <input type="hidden" name="line_locations" value={JSON.stringify(lineLocations)} />
               <button type="submit"
                 className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                 {tf<string>('common.bulkConfirm', pendingLines.length)}
