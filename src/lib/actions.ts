@@ -617,22 +617,15 @@ export async function addIncomingItem(formData: FormData): Promise<ItemAddResult
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  const { data: product } = await supabase
-    .from('products').select('name').eq('id', productId).single();
+  const [{ data: product }, { data: supplierData }, { data: warehouseData }, localToday] = await Promise.all([
+    supabase.from('products').select('name').eq('id', productId).single(),
+    supplierId ? supabase.from('suppliers').select('name').eq('id', supplierId).single() : Promise.resolve({ data: null }),
+    warehouseId ? supabase.from('warehouses').select('name').eq('id', warehouseId).single() : Promise.resolve({ data: null }),
+    getLocalDate(),
+  ]);
   if (!product) return { error: '商品が見つかりません' };
-
-  let supplierName: string | null = null;
-  let warehouseName: string | null = null;
-  if (supplierId) {
-    const { data: s } = await supabase.from('suppliers').select('name').eq('id', supplierId).single();
-    supplierName = s?.name ?? null;
-  }
-  if (warehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
-    warehouseName = w?.name ?? null;
-  }
-
-  const localToday = await getLocalDate();
+  const supplierName = supplierData?.name ?? null;
+  const warehouseName = warehouseData?.name ?? null;
   const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
   const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
@@ -680,47 +673,36 @@ export async function addOutgoingItem(formData: FormData): Promise<ItemAddResult
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  const { data: product } = await supabase
-    .from('products').select('name').eq('id', productId).single();
-  if (!product) return { error: '商品が見つかりません' };
-
-  if (lotId) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', lotId).single();
-    const { data: reserved } = await supabase
-      .from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled');
-    const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
-    const available = (lot?.quantity ?? 0) - reservedQty;
-    if (quantity > available) {
-      return { error: `ロット在庫不足: 引当可能 ${available} 個` };
-    }
-  }
-
   const destinationId = Number(formData.get('destination_id')) || null;
   const carrierId = Number(formData.get('carrier_id')) || null;
   const locationId = Number(formData.get('location_id')) || null;
   const warehouseId = Number(formData.get('warehouse_id')) || null;
-  let destinationName: string | null = null;
-  let carrierName: string | null = null;
-  let locationName: string | null = null;
-  let warehouseName: string | null = null;
-  if (destinationId) {
-    const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
-    destinationName = d?.name ?? null;
-  }
-  if (carrierId) {
-    const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
-    carrierName = c?.name ?? null;
-  }
-  if (locationId) {
-    const { data: loc } = await supabase.from('locations').select('name').eq('id', locationId).single();
-    locationName = loc?.name ?? null;
-  }
-  if (warehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
-    warehouseName = w?.name ?? null;
+
+  const [{ data: product }, lotValidation, { data: destData }, { data: carrierData }, { data: locData }, { data: warehouseData }, localToday] = await Promise.all([
+    supabase.from('products').select('name').eq('id', productId).single(),
+    lotId ? Promise.all([
+      supabase.from('lots').select('quantity').eq('id', lotId).single(),
+      supabase.from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled'),
+    ]) : Promise.resolve(null),
+    destinationId ? supabase.from('delivery_destinations').select('name').eq('id', destinationId).single() : Promise.resolve({ data: null }),
+    carrierId ? supabase.from('carriers').select('name').eq('id', carrierId).single() : Promise.resolve({ data: null }),
+    locationId ? supabase.from('locations').select('name').eq('id', locationId).single() : Promise.resolve({ data: null }),
+    warehouseId ? supabase.from('warehouses').select('name').eq('id', warehouseId).single() : Promise.resolve({ data: null }),
+    getLocalDate(),
+  ]);
+  if (!product) return { error: '商品が見つかりません' };
+
+  if (lotId && lotValidation) {
+    const [{ data: lot }, { data: reserved }] = lotValidation;
+    const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
+    const available = (lot?.quantity ?? 0) - reservedQty;
+    if (quantity > available) return { error: `ロット在庫不足: 引当可能 ${available} 個` };
   }
 
-  const localToday = await getLocalDate();
+  const destinationName = destData?.name ?? null;
+  const carrierName = carrierData?.name ?? null;
+  const locationName = locData?.name ?? null;
+  const warehouseName = warehouseData?.name ?? null;
   const shipmentNo = `SHP-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
   const { data: shipment, error: sErr } = await supabase.from('shipments').insert({
@@ -772,16 +754,12 @@ export async function createIncomingReceipt(formData: FormData): Promise<CreateV
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  let supplierName: string | null = null;
-  let warehouseName: string | null = null;
-  if (supplierId) {
-    const { data: s } = await supabase.from('suppliers').select('name').eq('id', supplierId).single();
-    supplierName = s?.name ?? null;
-  }
-  if (warehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
-    warehouseName = w?.name ?? null;
-  }
+  const [{ data: supplierData }, { data: warehouseData }] = await Promise.all([
+    supplierId ? supabase.from('suppliers').select('name').eq('id', supplierId).single() : Promise.resolve({ data: null }),
+    warehouseId ? supabase.from('warehouses').select('name').eq('id', warehouseId).single() : Promise.resolve({ data: null }),
+  ]);
+  const supplierName = supplierData?.name ?? null;
+  const warehouseName = warehouseData?.name ?? null;
 
   const { data: receipt, error } = await supabase.from('receipts').insert({
     receipt_no: receiptNo,
@@ -844,21 +822,14 @@ export async function createOutgoingShipment(formData: FormData): Promise<Create
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  let destinationName: string | null = null;
-  let carrierName: string | null = null;
-  let warehouseName: string | null = null;
-  if (destinationId) {
-    const { data: d } = await supabase.from('delivery_destinations').select('name').eq('id', destinationId).single();
-    destinationName = d?.name ?? null;
-  }
-  if (carrierId) {
-    const { data: c } = await supabase.from('carriers').select('name').eq('id', carrierId).single();
-    carrierName = c?.name ?? null;
-  }
-  if (warehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
-    warehouseName = w?.name ?? null;
-  }
+  const [{ data: destData }, { data: carrierData }, { data: warehouseData }] = await Promise.all([
+    destinationId ? supabase.from('delivery_destinations').select('name').eq('id', destinationId).single() : Promise.resolve({ data: null }),
+    carrierId ? supabase.from('carriers').select('name').eq('id', carrierId).single() : Promise.resolve({ data: null }),
+    warehouseId ? supabase.from('warehouses').select('name').eq('id', warehouseId).single() : Promise.resolve({ data: null }),
+  ]);
+  const destinationName = destData?.name ?? null;
+  const carrierName = carrierData?.name ?? null;
+  const warehouseName = warehouseData?.name ?? null;
 
   const { data: shipment, error } = await supabase.from('shipments').insert({
     shipment_no: shipmentNo,
@@ -894,28 +865,26 @@ export async function addShipmentLine(formData: FormData): Promise<ItemAddResult
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  const { data: product } = await supabase.from('products').select('name').eq('id', productId).single();
+  const [{ data: product }, lotValidation, { data: locData }, { data: warehouseData }] = await Promise.all([
+    supabase.from('products').select('name').eq('id', productId).single(),
+    lotId ? Promise.all([
+      supabase.from('lots').select('quantity').eq('id', lotId).single(),
+      supabase.from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled'),
+    ]) : Promise.resolve(null),
+    locationId ? supabase.from('locations').select('name').eq('id', locationId).single() : Promise.resolve({ data: null }),
+    warehouseId ? supabase.from('warehouses').select('name').eq('id', warehouseId).single() : Promise.resolve({ data: null }),
+  ]);
   if (!product) return { error: '商品が見つかりません' };
 
-  if (lotId) {
-    const { data: lot } = await supabase.from('lots').select('quantity').eq('id', lotId).single();
-    const { data: reserved } = await supabase
-      .from('shipment_lines').select('quantity').eq('lot_id', lotId).eq('shipped_qty', 0).neq('status', 'cancelled');
-    const reservedQty = (reserved ?? []).reduce((s, r) => s + r.quantity, 0);
+  if (lotId && lotValidation) {
+    const [{ data: lot }, { data: reserved }] = lotValidation;
+    const reservedQty = (reserved ?? []).reduce((s: number, r: { quantity: number }) => s + r.quantity, 0);
     const available = (lot?.quantity ?? 0) - reservedQty;
     if (quantity > available) return { error: `ロット在庫不足: 引当可能 ${available} 個` };
   }
 
-  let locationName: string | null = null;
-  let warehouseName: string | null = null;
-  if (locationId) {
-    const { data: loc } = await supabase.from('locations').select('name').eq('id', locationId).single();
-    locationName = loc?.name ?? null;
-  }
-  if (warehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', warehouseId).single();
-    warehouseName = w?.name ?? null;
-  }
+  const locationName = locData?.name ?? null;
+  const warehouseName = warehouseData?.name ?? null;
 
   const { data: line, error } = await supabase.from('shipment_lines').insert({
     shipment_id: shipmentId,
