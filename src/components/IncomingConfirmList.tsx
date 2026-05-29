@@ -264,6 +264,10 @@ function ReceiptCard({
   const { t, tf } = useT();
   const [bulkState, bulkAction] = useActionState(receiveBulkIncoming, null);
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
+  const [bulkLocationId, setBulkLocationId] = useState('');
+  const filteredLocations = receipt.warehouse_id
+    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
+    : locations;
 
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
@@ -312,8 +316,24 @@ function ReceiptCard({
           <div className="px-3 pb-3 pt-1">
             {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
             {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
-            <form action={bulkAction}>
+            <form action={bulkAction} className="space-y-2">
               <input type="hidden" name="ids" value={JSON.stringify(pendingLines.map((l) => l.id))} />
+              <input type="hidden" name="location_id" value={bulkLocationId} />
+              {locations.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="shrink-0">{t('incoming.location')}</span>
+                  <select
+                    value={bulkLocationId}
+                    onChange={(e) => setBulkLocationId(e.target.value)}
+                    className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">—</option>
+                    {filteredLocations.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <button type="submit"
                 className="w-full py-2 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                 {tf<string>('common.bulkConfirm', pendingLines.length)}
