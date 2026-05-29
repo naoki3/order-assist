@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import Image from 'next/image';
 import { login } from '@/app/actions/auth';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
@@ -14,10 +15,12 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-700 rounded-2xl mb-4 shadow-lg">
-            <span className="text-white text-2xl font-bold">OA</span>
+          <div className="inline-flex items-center justify-center mb-4">
+            <Image src="/logo.png" alt="OrderAssist" width={56} height={56} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Order Assist</h1>
+          <h1 className="text-2xl font-extrabold bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
+            OrderAssist
+          </h1>
           <p className="text-sm text-slate-500 mt-1">Inventory &amp; Order Management</p>
         </div>
 
