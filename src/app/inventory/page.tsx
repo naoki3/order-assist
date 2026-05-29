@@ -137,10 +137,10 @@ export default async function InventoryPage({
             {t('common.search', lang)}
           </button>
           {hasFilter && (
-            <a href="/inventory"
+            <Link href="/inventory"
               className="px-4 py-2 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors shrink-0 flex items-center">
               {t('common.clearSearch', lang)}
-            </a>
+            </Link>
           )}
         </div>
       </form>
