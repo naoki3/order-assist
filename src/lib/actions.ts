@@ -1497,12 +1497,24 @@ export async function importProductsCsv(
   const skipped: string[] = [];
   let imported = 0;
 
-  const localToday = await getLocalDate();
+  const [localToday, { data: warehousesData }] = await Promise.all([
+    getLocalDate(),
+    supabase.from('warehouses').select('id, name').eq('user_id', ownerId),
+  ]);
+  const warehousesByName = Object.fromEntries(
+    (warehousesData ?? []).map((w: { id: number; name: string }) => [w.name.toLowerCase(), w])
+  );
 
   for (const line of dataLines) {
     if (!line.trim()) continue;
     const parts = line.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
-    const [rawName, rawLeadTime, rawSafetyStock, rawPrice, rawPpb, rawBpc, rawCpp] = parts;
+    const [
+      rawName, rawLeadTime, rawSafetyStock, rawPrice,
+      rawPpb, rawBpc, rawCpp,
+      rawExpiryType, rawShelfLifeDays,
+      rawIncomingFee, rawStorageFee, rawOutgoingFee,
+      rawWarehouseName,
+    ] = parts;
 
     if (!rawName) { skipped.push(`商品名が空: ${line.trim()}`); continue; }
     const leadTime = parseInt(rawLeadTime ?? '', 10);
@@ -1515,9 +1527,30 @@ export async function importProductsCsv(
     const balls_per_case = rawBpc && rawBpc.trim() !== '' ? parseInt(rawBpc, 10) : null;
     const cases_per_pallet = rawCpp && rawCpp.trim() !== '' ? parseInt(rawCpp, 10) : null;
 
+    // Expiry
+    const expiry_type = rawExpiryType && rawExpiryType.trim() !== '' ? rawExpiryType.trim() : null;
+    const shelf_life_days = rawShelfLifeDays && rawShelfLifeDays.trim() !== '' ? parseInt(rawShelfLifeDays, 10) : null;
+
+    // Fees (per piece)
+    const incoming_fee_per_piece = rawIncomingFee && rawIncomingFee.trim() !== '' ? Number(rawIncomingFee) : null;
+    const storage_fee_per_piece = rawStorageFee && rawStorageFee.trim() !== '' ? Number(rawStorageFee) : null;
+    const outgoing_fee_per_piece = rawOutgoingFee && rawOutgoingFee.trim() !== '' ? Number(rawOutgoingFee) : null;
+
+    // Warehouse
+    const warehouseMatch = rawWarehouseName ? warehousesByName[rawWarehouseName.trim().toLowerCase()] : null;
+    const default_warehouse_id = warehouseMatch?.id ?? null;
+    const default_warehouse_name = warehouseMatch?.name ?? null;
+
     const { data: product, error } = await supabase
       .from('products')
-      .insert({ name: rawName, lead_time_days: leadTime, safety_stock_days: safetyStock, price, pieces_per_ball, balls_per_case, cases_per_pallet, user_id: ownerId })
+      .insert({
+        name: rawName, lead_time_days: leadTime, safety_stock_days: safetyStock, price,
+        pieces_per_ball, balls_per_case, cases_per_pallet,
+        expiry_type, shelf_life_days,
+        incoming_fee_per_piece, storage_fee_per_piece, outgoing_fee_per_piece,
+        default_warehouse_id, default_warehouse_name,
+        user_id: ownerId,
+      })
       .select('id')
       .single();
 
