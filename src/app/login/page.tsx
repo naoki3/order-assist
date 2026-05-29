@@ -16,7 +16,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
-            <Image src="/logo.png" alt="OrderAssist" width={56} height={56} priority />
+            <Image src="/logo-small.png" alt="OrderAssist" width={56} height={56} priority />
           </div>
           <h1 className="text-2xl font-extrabold bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
             OrderAssist
