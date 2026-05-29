@@ -39,7 +39,7 @@ erDiagram
         int id PK
         uuid user_id FK
         string role
-        text_array sections
+        array sections
     }
 
     %% ─── 商品・在庫 ─────────────────────────────────────────
@@ -63,7 +63,7 @@ erDiagram
     }
 
     INVENTORY {
-        bigint product_id PK_FK
+        bigint product_id PK
         int current_stock
         int allocated_qty
         date updated_at
@@ -358,7 +358,7 @@ erDiagram
     }
 
     INVENTORY {
-        bigint product_id PK_FK
+        bigint product_id PK
         int current_stock "出荷可能な実在庫"
         int allocated_qty "引当済み未出荷数"
         date updated_at
@@ -562,7 +562,7 @@ erDiagram
         int id PK
         uuid user_id FK "テナントオーナーの UUID"
         string role "ロール名"
-        text_array sections "許可セクション一覧"
+        array sections
     }
 
     WAREHOUSES {
