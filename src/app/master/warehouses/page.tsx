@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function WarehousesPage() {
   const [supabase, lang] = await Promise.all([createClient(), getLang()]);
-  const { data } = await supabase.from('warehouses').select('*').order('name');
+  const { data } = await supabase.from('warehouses').select('*').order('name').limit(500);
   const items = (data ?? []) as unknown as MasterRecord[];
 
   const fields = [

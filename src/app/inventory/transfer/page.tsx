@@ -11,9 +11,10 @@ export default async function StockTransferPage() {
   const [{ data: lotsData }, { data: locationsData }, { data: productsData }] = await Promise.all([
     supabase.from('lots').select('*').gt('quantity', 0)
       .order('expiry_date', { ascending: true, nullsFirst: false })
-      .order('lot_number', { ascending: true }),
-    supabase.from('locations').select('id, name, warehouse_id').order('name'),
-    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id'),
+      .order('lot_number', { ascending: true })
+      .limit(2000),
+    supabase.from('locations').select('id, name, warehouse_id').order('name').limit(1000),
+    supabase.from('products').select('id, name, pieces_per_ball, balls_per_case, cases_per_pallet').order('id').limit(1000),
   ]);
 
   const lots = (lotsData ?? []) as Lot[];

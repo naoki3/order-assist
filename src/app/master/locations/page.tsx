@@ -15,8 +15,9 @@ export default async function LocationsPage() {
       .from('locations')
       .select('id, name, warehouse_id, note')
       .order('warehouse_id')
-      .order('name'),
-    supabase.from('warehouses').select('id, name').order('name'),
+      .order('name')
+      .limit(1000),
+    supabase.from('warehouses').select('id, name').order('name').limit(500),
   ]);
 
   const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
