@@ -9,25 +9,46 @@ import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
+const RECENT_DATES = 20;
+
 export default async function ShippingConfirmPage() {
   const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
   const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
-  const [{ data: pendingData }, { data: shippedData }, { data: productsData }] = await Promise.all([
+
+  const [{ data: pendingData }, { data: datesData }, { data: productsData }] = await Promise.all([
     supabase.from('shipments')
       .select('*, shipment_lines(*)')
       .in('status', ['requested', 'allocated'])
       .order('scheduled_date', { ascending: true })
       .order('id'),
     supabase.from('shipments')
-      .select('*, shipment_lines(*)')
+      .select('shipped_at')
       .eq('status', 'shipped')
-      .order('shipped_at', { ascending: false })
-      .limit(60),
+      .order('shipped_at', { ascending: false }),
     supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
   ]);
 
+  type DateRow = { shipped_at: string | null };
+  const recentDates = [...new Set(
+    (datesData ?? []).map((r: DateRow) => r.shipped_at?.split('T')[0]).filter((d): d is string => !!d)
+  )].slice(0, RECENT_DATES);
+
+  let shipped: ShipmentWithLines[] = [];
+  if (recentDates.length > 0) {
+    const fromDate = recentDates[recentDates.length - 1];
+    const toNext = new Date(recentDates[0]);
+    toNext.setDate(toNext.getDate() + 1);
+    const { data: shippedData } = await supabase
+      .from('shipments')
+      .select('*, shipment_lines(*)')
+      .eq('status', 'shipped')
+      .gte('shipped_at', fromDate)
+      .lt('shipped_at', toNext.toISOString().split('T')[0])
+      .order('shipped_at', { ascending: false });
+    shipped = (shippedData ?? []) as ShipmentWithLines[];
+  }
+
   const pending = (pendingData ?? []) as ShipmentWithLines[];
-  const shipped = (shippedData ?? []) as ShipmentWithLines[];
   const unitMap: Record<number, UnitConfig> = Object.fromEntries(
     ((productsData ?? []) as { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[])
       .map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
