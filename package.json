@@ -12,6 +12,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.99.3",
     "lucide-react": "^1.9.0",
