@@ -119,19 +119,17 @@ function ReceiptLineItem({
   receipt,
   unitConfig,
   expiryType,
-  locations,
   statuses,
   locationId,
-  setLocationId,
+  locationName,
 }: {
   line: ReceiptLine;
   receipt: ReceiptWithLines;
   unitConfig: UnitConfig;
   expiryType: string | null;
-  locations: LocationOption[];
   statuses: StatusOption[];
   locationId: string;
-  setLocationId: (v: string) => void;
+  locationName: string;
 }) {
   const { t, lang } = useT();
   const [confirming, setConfirming] = useState(false);
@@ -140,11 +138,6 @@ function ReceiptLineItem({
   const defaultStatus = statuses.find((s) => s.name === '良品') ?? statuses[0] ?? null;
   const [statusId, setStatusId] = useState(() => String(defaultStatus?.id ?? ''));
 
-  const filteredLocations = receipt.warehouse_id
-    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
-    : locations;
-
-  const selectedLocation = locations.find((l) => l.id === Number(locationId));
   const selectedStatus = statuses.find((s) => s.id === Number(statusId)) ?? defaultStatus;
 
   const { successMsg: receiveSuccess, errorMsg: receiveError } = useActionFeedback(receiveState, t('common.received'));
@@ -192,7 +185,7 @@ function ReceiptLineItem({
         <form action={receiveAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="id" value={line.id} />
           <input type="hidden" name="location_id" value={locationId} />
-          <input type="hidden" name="location_name" value={selectedLocation?.name ?? ''} />
+          <input type="hidden" name="location_name" value={locationName} />
           <input type="hidden" name="status_id" value={selectedStatus?.id ?? ''} />
           <input type="hidden" name="status_name" value={selectedStatus?.name ?? ''} />
           <input type="hidden" name="status_color" value={selectedStatus?.color ?? ''} />
@@ -209,21 +202,6 @@ function ReceiptLineItem({
             <span className={`text-xs ${expiryType && expiryType !== 'none' ? 'text-slate-500' : 'text-slate-300'}`}>{t('incoming.expiryDate')}</span>
             <DateInput name="expiry_date" defaultValue={line.expiry_date ?? ''} className="w-full text-xs" disabled={!expiryType || expiryType === 'none'} required={!!(expiryType && expiryType !== 'none')} />
           </label>
-          {locations.length > 0 && (
-            <label className="flex-1 min-w-32 flex flex-col gap-0.5">
-              <span className="text-xs text-slate-500">{t('incoming.location')}</span>
-              <select
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">—</option>
-                {filteredLocations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-            </label>
-          )}
           {statuses.length > 0 && (
             <label className="flex-1 min-w-32 flex flex-col gap-0.5">
               <span className="text-xs text-slate-500">{t('inventory.correctionStatus')}</span>
@@ -269,6 +247,11 @@ function ReceiptCard({
   const { successMsg, errorMsg } = useActionFeedback(bulkState, t('common.received'));
   const [locationId, setLocationId] = useState('');
 
+  const filteredLocations = receipt.warehouse_id
+    ? locations.filter((l) => l.warehouse_id === receipt.warehouse_id)
+    : locations;
+  const locationName = locations.find((l) => l.id === Number(locationId))?.name ?? '';
+
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
       {/* Card header */}
@@ -302,10 +285,9 @@ function ReceiptCard({
               receipt={receipt}
               unitConfig={unitMap[line.product_id] ?? { pieces_per_ball: null, balls_per_case: null, cases_per_pallet: null }}
               expiryType={expiryTypeMap[line.product_id] ?? null}
-              locations={locations}
               statuses={statuses}
               locationId={locationId}
-              setLocationId={setLocationId}
+              locationName={locationName}
             />
           )
         )}
@@ -315,9 +297,24 @@ function ReceiptCard({
         const pendingLines = receipt.receipt_lines.filter((l) => l.status !== 'received' && l.status !== 'discrepancy');
         if (pendingLines.length === 0) return null;
         return (
-          <div className="px-3 pb-3 pt-1">
-            {errorMsg && <p className="text-red-600 text-xs pb-1">{errorMsg}</p>}
-            {successMsg && <p className="text-green-600 text-xs pb-1">{successMsg}</p>}
+          <div className="px-3 pb-3 pt-2 space-y-2 border-t border-slate-100">
+            {errorMsg && <p className="text-red-600 text-xs">{errorMsg}</p>}
+            {successMsg && <p className="text-green-600 text-xs">{successMsg}</p>}
+            {locations.length > 0 && (
+              <label className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 shrink-0">{t('incoming.location')}</span>
+                <select
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">—</option>
+                  {filteredLocations.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <form action={bulkAction}>
               <input type="hidden" name="ids" value={JSON.stringify(pendingLines.map((l) => l.id))} />
               <input type="hidden" name="location_id" value={locationId} />
