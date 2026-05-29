@@ -95,12 +95,18 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
   try { ids = JSON.parse(String(formData.get('ids') ?? '[]')); } catch { return { error: 'Invalid input' }; }
   if (ids.length === 0) return { success: 'ok' };
 
+  // Per-line location map: { [lineId]: { location_id: number | null, location_name: string } }
+  type LineLocation = { location_id: number | null; location_name: string };
+  let lineLocations: Record<string, LineLocation> = {};
+  try { lineLocations = JSON.parse(String(formData.get('line_locations') ?? '{}')); } catch { /* ignore */ }
+
   const supabase = await createClient();
   const ownerId = await getOwnerId(supabase);
   if (!ownerId) return { error: 'Not authenticated' };
 
-  const locationId = Number(formData.get('location_id')) || null;
-  if (!locationId) return { error: 'ロケーションは必須です' };
+  // Validate all lines have a location
+  const missingLoc = ids.filter(id => !lineLocations[String(id)]?.location_id);
+  if (missingLoc.length > 0) return { error: 'ロケーションは必須です' };
 
   const { data: items, error: fetchError } = await supabase
     .from('receipt_lines')
@@ -122,30 +128,35 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
     return { error: `賞味期限未入力の商品があります: ${missingExpiry.map((i) => i.product_name).join(', ')}` };
   }
 
-  // ロケーション・倉庫名を解決
-  const { data: loc } = await supabase.from('locations').select('name, warehouse_id').eq('id', locationId).single();
-  const locationName = loc?.name ?? null;
-  const bulkWarehouseId = loc?.warehouse_id ?? null;
-  let bulkWarehouseName: string | null = null;
-  if (bulkWarehouseId) {
-    const { data: w } = await supabase.from('warehouses').select('name').eq('id', bulkWarehouseId).single();
-    bulkWarehouseName = w?.name ?? null;
-  }
+  // Resolve warehouse info for each unique location
+  const uniqueLocIds = [...new Set(
+    ids.map(id => lineLocations[String(id)]?.location_id).filter((v): v is number => !!v)
+  )];
+  const { data: locRows } = await supabase.from('locations').select('id, name, warehouse_id').in('id', uniqueLocIds);
+  const locInfoMap = Object.fromEntries((locRows ?? []).map(l => [l.id, l]));
+  const warehouseIds = [...new Set((locRows ?? []).map(l => l.warehouse_id).filter((v): v is number => !!v))];
+  const { data: warehouseRows } = await supabase.from('warehouses').select('id, name').in('id', warehouseIds);
+  const warehouseNameMap = Object.fromEntries((warehouseRows ?? []).map(w => [w.id, w.name]));
 
   const localToday = await getLocalDate();
   const todayStr = localToday.replace(/-/g, '');
   const errors: string[] = [];
 
   for (const item of items) {
+    const ll = lineLocations[String(item.id)];
+    const locInfo = ll?.location_id ? locInfoMap[ll.location_id] : null;
+    const warehouseId = locInfo?.warehouse_id ?? null;
+    const warehouseName = warehouseId ? warehouseNameMap[warehouseId] ?? null : null;
+
     const lotNumber = item.lot_number ?? `${todayStr}-${item.id}`;
     const { data, error } = await supabase.rpc('fn_receive_receipt_line', {
       p_receipt_line_id: item.id,
       p_lot_number:      lotNumber,
       p_expiry_date:     item.expiry_date ?? null,
-      p_location_id:     locationId,
-      p_location_name:   locationName,
-      p_warehouse_id:    bulkWarehouseId,
-      p_warehouse_name:  bulkWarehouseName,
+      p_location_id:     ll?.location_id ?? null,
+      p_location_name:   locInfo?.name ?? null,
+      p_warehouse_id:    warehouseId,
+      p_warehouse_name:  warehouseName,
       p_local_today:     localToday,
       p_owner_id:        ownerId,
       p_operation_id:    crypto.randomUUID(),
