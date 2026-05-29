@@ -303,11 +303,3 @@ supabase/
 
 棚卸し中（draft / pending_approval）は `fn_has_active_cycle_count` で入出荷を拒否。
 
----
-
-## 13. 未適用マイグレーション（要実行）
-
-以下のマイグレーションは Supabase SQL エディタで手動実行が必要です。
-
-- `049_shipment_line_lot_status.sql`
-- `050_shipment_line_unit_price.sql`
