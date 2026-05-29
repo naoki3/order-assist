@@ -275,7 +275,7 @@ function ReceiptCard({
   return (
     <div className="bg-slate-50 rounded-lg border border-slate-200 mb-2 overflow-hidden">
       {/* Card header */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 bg-white border-b border-slate-100">
         <span className="text-xs text-slate-500">{t('incoming.receiptNo')}:</span>
         <span className="font-mono text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded">
           {receipt.receipt_no}

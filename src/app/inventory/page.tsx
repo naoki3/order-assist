@@ -90,7 +90,7 @@ export default async function InventoryPage({
       <h1 className="text-xl font-bold text-slate-800">{t('inventory.title', lang)}</h1>
 
       <form method="GET" className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="block text-xs text-slate-500 mb-1">{t('dailyReport.warehouse', lang)}</label>
             <select name="warehouse" defaultValue={warehouse ?? ''}
