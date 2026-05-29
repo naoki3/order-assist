@@ -5,8 +5,6 @@
 ```mermaid
 erDiagram
 
-    %% ─── 認証・テナント ───────────────────────────────────────
-
     AUTH_USERS {
         uuid id PK
         string email
@@ -25,12 +23,10 @@ erDiagram
         uuid user_id FK
         string name
         string email
-        string phone
         string role
         string worker_code
         int warehouse_id FK
         boolean is_active
-        timestamptz last_login_at
         string login_id
         uuid auth_user_id FK
     }
@@ -42,8 +38,6 @@ erDiagram
         array sections
     }
 
-    %% ─── 商品・在庫 ─────────────────────────────────────────
-
     PRODUCTS {
         bigint id PK
         uuid user_id FK
@@ -53,12 +47,6 @@ erDiagram
         decimal price
         int shelf_life_days
         string expiry_type
-        int pieces_per_ball
-        int balls_per_case
-        int cases_per_pallet
-        decimal incoming_fee_per_piece
-        decimal storage_fee_per_piece
-        decimal outgoing_fee_per_piece
         int default_warehouse_id FK
     }
 
@@ -74,18 +62,13 @@ erDiagram
         uuid user_id FK
         string lot_number
         bigint product_id FK
-        string product_name
         int quantity
         date received_at
         date expiry_date
         bigint receipt_line_id FK
         int location_id FK
-        string location_name
         int warehouse_id FK
-        string warehouse_name
         int status_id FK
-        string status_name
-        string status_color
     }
 
     INVENTORY_TRANSACTIONS {
@@ -95,10 +78,7 @@ erDiagram
         string transaction_type
         int quantity_delta
         int quantity_after
-        bigint reference_id
-        string reference_type
         string operation_id
-        string note
         timestamptz created_at
     }
 
@@ -106,7 +86,7 @@ erDiagram
         bigint id PK
         uuid user_id FK
         bigint product_id FK
-        date date
+        date sale_date
         int quantity
     }
 
@@ -114,11 +94,9 @@ erDiagram
         bigint id PK
         uuid user_id FK
         bigint product_id FK
-        date date
+        date target_date
         int target_qty
     }
-
-    %% ─── 入荷 ───────────────────────────────────────────────
 
     RECEIPTS {
         bigint id PK
@@ -130,12 +108,11 @@ erDiagram
         string supplier_name
         int warehouse_id FK
         string warehouse_name
-        string external_ref_no
         string source_system
+        string external_ref_no
         bigint order_history_id FK
         date expected_date
         timestamptz received_at
-        string note
         timestamptz created_at
     }
 
@@ -152,12 +129,8 @@ erDiagram
         int location_id FK
         string location_name
         string status
-        string resolution
-        string note
         timestamptz created_at
     }
-
-    %% ─── 出荷 ───────────────────────────────────────────────
 
     SHIPMENTS {
         bigint id PK
@@ -171,12 +144,10 @@ erDiagram
         string carrier_name
         int warehouse_id FK
         string warehouse_name
-        string external_ref_no
         string source_system
+        string external_ref_no
         date scheduled_date
         timestamptz shipped_at
-        string on_hold_reason
-        string note
         timestamptz created_at
     }
 
@@ -191,30 +162,20 @@ erDiagram
         string lot_number
         date expiry_date
         int location_id FK
-        string location_name
         int warehouse_id FK
-        string warehouse_name
-        timestamptz allocated_at
         int shipped_qty
         int returned_qty
         string status
-        string lot_status_name
-        string lot_status_color
         decimal unit_price
-        string note
         timestamptz created_at
     }
-
-    %% ─── 発注履歴 ───────────────────────────────────────────
 
     ORDER_HISTORY {
         bigint id PK
         uuid user_id FK
         timestamptz created_at
-        text items
+        string items
     }
-
-    %% ─── マスタ ─────────────────────────────────────────────
 
     SUPPLIERS {
         int id PK
@@ -223,8 +184,6 @@ erDiagram
         string contact_name
         string phone
         string email
-        string address
-        string note
     }
 
     DELIVERY_DESTINATIONS {
@@ -234,7 +193,6 @@ erDiagram
         string contact_name
         string phone
         string address
-        string note
     }
 
     CARRIERS {
@@ -243,7 +201,6 @@ erDiagram
         string name
         string contact_name
         string phone
-        string note
     }
 
     INVENTORY_STATUSES {
@@ -251,7 +208,6 @@ erDiagram
         uuid user_id FK
         string name
         string color
-        string note
     }
 
     WAREHOUSES {
@@ -259,7 +215,6 @@ erDiagram
         uuid user_id FK
         string name
         string address
-        string note
     }
 
     LOCATIONS {
@@ -267,10 +222,7 @@ erDiagram
         uuid user_id FK
         int warehouse_id FK
         string name
-        string note
     }
-
-    %% ─── 棚卸し ─────────────────────────────────────────────
 
     CYCLE_COUNT_SESSIONS {
         bigint id PK
@@ -278,7 +230,6 @@ erDiagram
         string status
         int warehouse_id FK
         string warehouse_name
-        string notes
         timestamptz created_at
         timestamptz applied_at
     }
@@ -291,8 +242,6 @@ erDiagram
         int actual_qty
         timestamptz created_at
     }
-
-    %% ─── リレーション ────────────────────────────────────────
 
     AUTH_USERS ||--o{ TENANT_MEMBERS : "owner_id"
     AUTH_USERS ||--o{ TENANT_MEMBERS : "member_id"
@@ -345,6 +294,14 @@ erDiagram
 
 ## 2. 在庫ドメインの詳細
 
+| カラム | 備考 |
+|--------|------|
+| `inventory.current_stock` | 出荷可能な実在庫 |
+| `inventory.allocated_qty` | 引当済みで未出荷の数量 |
+| `lots.expiry_date` | FEFO 引当の基準（賞味期限昇順で選択） |
+| `inventory_transactions.operation_id` | UNIQUE 制約（二重処理防止） |
+| `inventory_transactions.transaction_type` | incoming / cancel_incoming / outgoing / cancel_outgoing / allocate / deallocate / cycle_count / adjustment / return |
+
 ```mermaid
 erDiagram
 
@@ -359,8 +316,8 @@ erDiagram
 
     INVENTORY {
         bigint product_id PK
-        int current_stock "出荷可能な実在庫"
-        int allocated_qty "引当済み未出荷数"
+        int current_stock
+        int allocated_qty
         date updated_at
     }
 
@@ -368,8 +325,8 @@ erDiagram
         bigint id PK
         string lot_number
         bigint product_id FK
-        int quantity "このロットの残数"
-        date expiry_date "FEFO 引当の基準"
+        int quantity
+        date expiry_date
         int location_id FK
         int warehouse_id FK
         int status_id FK
@@ -379,16 +336,16 @@ erDiagram
         bigint id PK
         bigint product_id FK
         bigint lot_id FK
-        string transaction_type "incoming/outgoing/allocate/adjustment/cycle_count/return"
+        string transaction_type
         int quantity_delta
         int quantity_after
-        string operation_id "UNIQUE（二重処理防止）"
+        string operation_id
         timestamptz created_at
     }
 
     INVENTORY_STATUSES {
         int id PK
-        string name "例：検品待ち、返品品"
+        string name
         string color
     }
 
@@ -403,20 +360,29 @@ erDiagram
 
 ## 3. 入荷ドメインの詳細
 
+| カラム | 備考 |
+|--------|------|
+| `receipts.status` | expected / receiving / received / discrepancy / cancelled |
+| `receipts.receipt_type` | planned / adhoc / return / transfer |
+| `receipts.source_system` | manual / csv / api / order |
+| `receipt_lines.status` | pending / received / discrepancy / cancelled |
+| `receipt_lines.supplier_name` 等 | 作成時にマスタからスナップショット保存 |
+| `lots.receipt_line_id` | 入荷明細との紐付け |
+
 ```mermaid
 erDiagram
 
     RECEIPTS {
         bigint id PK
-        string receipt_no "RCV-000001 形式"
-        string receipt_type "planned/adhoc/return/transfer"
-        string status "expected → receiving → received"
+        string receipt_no
+        string receipt_type
+        string status
         int supplier_id FK
-        string supplier_name "スナップショット"
+        string supplier_name
         int warehouse_id FK
-        string warehouse_name "スナップショット"
-        string source_system "manual/csv/api/order"
-        string external_ref_no "ERP連携用"
+        string warehouse_name
+        string source_system
+        string external_ref_no
         bigint order_history_id FK
         date expected_date
         timestamptz received_at
@@ -426,21 +392,21 @@ erDiagram
         bigint id PK
         bigint receipt_id FK
         bigint product_id FK
-        string product_name "スナップショット"
+        string product_name
         int expected_qty
         int received_qty
         string lot_number
         date expiry_date
         int location_id FK
-        string location_name "スナップショット"
-        string status "pending/received/discrepancy/cancelled"
+        string location_name
+        string status
     }
 
     LOTS {
         bigint id PK
         bigint product_id FK
         int quantity
-        bigint receipt_line_id FK "入荷明細との紐付け"
+        bigint receipt_line_id FK
         date expiry_date
         int location_id FK
         int warehouse_id FK
@@ -463,21 +429,30 @@ erDiagram
 
 ## 4. 出荷ドメインの詳細
 
+| カラム | 備考 |
+|--------|------|
+| `shipments.status` | requested / allocated / shortage / picking / picked / shipped / cancelled / on_hold |
+| `shipments.shipment_type` | normal / sample / internal_use / disposal / transfer / return_reship |
+| `shipment_lines.status` | requested / allocated / shipped / cancelled |
+| `shipment_lines.unit_price` | 出荷確定時に products.price からスナップショット |
+| `shipment_lines.lot_status_name/color` | 引当時に inventory_statuses からスナップショット |
+| `shipment_lines.lot_number / expiry_date` | 引当時に lots からスナップショット |
+
 ```mermaid
 erDiagram
 
     SHIPMENTS {
         bigint id PK
-        string shipment_no "SHP-000001 形式"
-        string shipment_type "normal/sample/internal_use/disposal/transfer/return_reship"
-        string status "requested → allocated → shipped"
+        string shipment_no
+        string shipment_type
+        string status
         int destination_id FK
-        string destination_name "スナップショット"
+        string destination_name
         int carrier_id FK
-        string carrier_name "スナップショット"
+        string carrier_name
         int warehouse_id FK
-        string source_system "manual/csv/api/order"
-        string external_ref_no "ERP連携用"
+        string source_system
+        string external_ref_no
         date scheduled_date
         timestamptz shipped_at
     }
@@ -486,19 +461,17 @@ erDiagram
         bigint id PK
         bigint shipment_id FK
         bigint product_id FK
-        string product_name "スナップショット"
-        int quantity "出荷予定数"
-        bigint lot_id FK "引当ロット"
-        string lot_number "スナップショット"
-        date expiry_date "スナップショット"
-        string location_name "スナップショット"
-        string warehouse_name "スナップショット"
+        string product_name
+        int quantity
+        bigint lot_id FK
+        string lot_number
+        date expiry_date
         int shipped_qty
         int returned_qty
-        string status "requested/allocated/shipped/cancelled"
-        string lot_status_name "スナップショット"
-        string lot_status_color "スナップショット"
-        decimal unit_price "スナップショット（products.price）"
+        string status
+        string lot_status_name
+        string lot_status_color
+        decimal unit_price
     }
 
     DELIVERY_DESTINATIONS {
@@ -533,6 +506,14 @@ erDiagram
 
 ## 5. マルチテナント・権限ドメイン
 
+| 項目 | 備考 |
+|------|------|
+| `tenant_members` | owner_id のユーザーのデータを member_id のユーザーが共有 |
+| `get_owner_id()` | RLS 関数。サブユーザーの場合はオーナーの UUID を返す |
+| `user_profiles.role` | admin / office / warehouse / viewer |
+| `role_permissions.sections` | 許可セクションキーの配列（orders, incoming, inventory 等） |
+| `user_profiles.warehouse_id` | デフォルト倉庫。管理者がユーザーマスタで設定 |
+
 ```mermaid
 erDiagram
 
@@ -543,25 +524,25 @@ erDiagram
 
     TENANT_MEMBERS {
         int id PK
-        uuid owner_id FK "テナントオーナー"
-        uuid member_id FK "サブユーザー"
+        uuid owner_id FK
+        uuid member_id FK
     }
 
     USER_PROFILES {
         int id PK
-        uuid user_id FK "テナントオーナーの UUID"
-        uuid auth_user_id FK "Supabase Auth UUID"
+        uuid user_id FK
+        uuid auth_user_id FK
         string name
-        string role "admin/office/warehouse/viewer"
-        int warehouse_id FK "デフォルト倉庫"
+        string role
+        int warehouse_id FK
         boolean is_active
         string login_id
     }
 
     ROLE_PERMISSIONS {
         int id PK
-        uuid user_id FK "テナントオーナーの UUID"
-        string role "ロール名"
+        uuid user_id FK
+        string role
         array sections
     }
 
@@ -618,7 +599,7 @@ erDiagram
 | `shipments` | UNIQUE | `(shipment_no, user_id)` |
 | `sales` | UNIQUE | `(product_id, date)` |
 | `inventory` | PRIMARY KEY | `product_id`（商品 1 つにつき 1 レコード） |
-| `inventory_transactions` | UNIQUE (部分) | `operation_id` ≠ NULL の場合のみ一意（二重処理防止） |
+| `inventory_transactions` | UNIQUE (部分) | `operation_id` が NULL でない場合のみ一意（二重処理防止） |
 | `warehouses` | UNIQUE | `(user_id, name)` |
 | `locations` | UNIQUE | `(user_id, warehouse_id, name)` |
 | `tenant_members` | UNIQUE | `member_id`（サブユーザーは 1 テナントのみ所属） |
