@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, X } from 'lucide-react';
 import { placeOrder } from '@/lib/actions';
 import type { OrderItem } from '@/lib/actions';
@@ -23,7 +24,7 @@ interface OrderLine {
 export default function OrderBoard({ recommendations }: Props) {
   const { t, tf, localDate, lang } = useT();
   const unitLabels = getUnitLabels(lang);
-  const [done, setDone] = useState(false);
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [expectedDate, setExpectedDate] = useState(() => localDate());
@@ -82,24 +83,8 @@ export default function OrderBoard({ recommendations }: Props) {
       }));
       const result = await placeOrder(items);
       if (result && 'error' in result) setError(result.error);
-      else setDone(true);
+      else router.push('/incoming/schedule');
     });
-  }
-
-  if (done) {
-    return (
-      <div className="text-center py-16">
-        <div className="text-5xl mb-4">✅</div>
-        <p className="text-xl font-bold text-slate-800">{t('order.placed')}</p>
-        <p className="text-slate-500 mt-2 mb-6">{t('order.reviewInHistory')}</p>
-        <button
-          onClick={() => { setDone(false); setLines([]); }}
-          className="px-4 py-2 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition-colors"
-        >
-          {t('order.back')}
-        </button>
-      </div>
-    );
   }
 
   const hasPrice = lines.some((l) => {
