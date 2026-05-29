@@ -19,18 +19,10 @@ export default async function HistoryPage() {
       .map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
   );
 
-  function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat('ja-JP', {
-      timeZone: tz,
-      year: 'numeric', month: 'numeric', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    }).format(new Date(iso));
-  }
-
   return (
     <div>
       <h1 className="text-xl font-bold text-slate-800 mb-4 print:hidden">{t('history.title', lang)}</h1>
-      <OrderHistoryList orders={orders} unitMap={unitMap} formatDate={formatDate} />
+      <OrderHistoryList orders={orders} unitMap={unitMap} tz={tz} />
     </div>
   );
 }

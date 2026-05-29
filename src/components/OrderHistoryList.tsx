@@ -11,7 +11,7 @@ import type { OrderItem } from '@/lib/actions';
 interface Props {
   orders: OrderHistoryItem[];
   unitMap: Record<number, UnitConfig>;
-  formatDate: (iso: string) => string;
+  tz: string;
 }
 
 function parseItems(raw: unknown): OrderItem[] {
@@ -23,9 +23,17 @@ function parseItems(raw: unknown): OrderItem[] {
   }
 }
 
-export default function OrderHistoryList({ orders, unitMap, formatDate }: Props) {
+export default function OrderHistoryList({ orders, unitMap, tz }: Props) {
   const { t, lang } = useT();
   const [printTarget, setPrintTarget] = useState<number | null>(null);
+
+  function formatDate(iso: string): string {
+    return new Intl.DateTimeFormat('ja-JP', {
+      timeZone: tz,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+  }
 
   if (orders.length === 0) {
     return (
