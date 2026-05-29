@@ -16,6 +16,7 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { useT } from './LanguageProvider';
 import type { LucideIcon } from 'lucide-react';
@@ -91,6 +92,14 @@ export default function Sidebar({ allowedSections }: { allowedSections?: string[
         { href: '/master/warehouses', label: t('nav.warehouseMaster'), exact: false },
         { href: '/master/locations', label: t('nav.locationMaster'), exact: false },
         { href: '/master/users', label: t('nav.userMaster'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'ai', label: t('nav.aiGroup'), icon: Sparkles,
+      items: [
+        { href: '/ai/forecast', label: t('nav.aiForecast'), exact: false },
+        { href: '/ai/anomaly', label: t('nav.aiAnomaly'), exact: false },
+        { href: '/ai/chat', label: t('nav.aiChat'), exact: false },
       ],
     },
   ];

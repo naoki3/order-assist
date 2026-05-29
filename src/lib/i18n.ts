@@ -21,6 +21,10 @@ export const translations = {
     'nav.salesReport': '売上レポート',
     'nav.salesEntry': '売上確認',
     'nav.products': '商品',
+    'nav.aiGroup': 'AI',
+    'nav.aiForecast': '需要予測',
+    'nav.aiAnomaly': '異常検知',
+    'nav.aiChat': 'チャット検索',
     'nav.settings': '設定',
     'nav.logout': 'ログアウト',
 
@@ -687,6 +691,10 @@ export const translations = {
     'nav.salesReport': 'Sales Report',
     'nav.salesEntry': 'Sales Confirmation',
     'nav.products': 'Products',
+    'nav.aiGroup': 'AI',
+    'nav.aiForecast': 'Demand Forecast',
+    'nav.aiAnomaly': 'Anomaly Detection',
+    'nav.aiChat': 'Chat Search',
     'nav.settings': 'Settings',
     'nav.logout': 'Logout',
 
