@@ -60,9 +60,8 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
     byDate.set(item.expectedDate, group);
   }
 
-  let receiptIndex = 1;
   for (const [expectedDate, group] of byDate) {
-    const receiptNo = `RCV-${dateTag}-${String(receiptIndex++).padStart(3, '0')}`;
+    const receiptNo = `RCV-${dateTag}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
     const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
       receipt_no:       receiptNo,
       source_system:    'order',
