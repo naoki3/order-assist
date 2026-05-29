@@ -50,27 +50,39 @@ export async function placeOrder(items: OrderItem[]): Promise<ActionResult> {
   }
 
   const localToday = await getLocalDate();
+  const dateTag = localToday.replace(/-/g, '');
+
+  // Group items by expected_date so same-day items share one receipt
+  const byDate = new Map<string, OrderItem[]>();
   for (const item of nonZero) {
-    const receiptNo = `RCV-${localToday.replace(/-/g, '')}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+    const group = byDate.get(item.expectedDate) ?? [];
+    group.push(item);
+    byDate.set(item.expectedDate, group);
+  }
+
+  let receiptIndex = 1;
+  for (const [expectedDate, group] of byDate) {
+    const receiptNo = `RCV-${dateTag}-${String(receiptIndex++).padStart(3, '0')}`;
     const { data: receipt, error: rErr } = await supabase.from('receipts').insert({
-      receipt_no:      receiptNo,
-      source_system:   'order',
+      receipt_no:       receiptNo,
+      source_system:    'order',
       order_history_id: orderData.id,
-      expected_date:   item.expectedDate,
-      user_id:         ownerId,
+      expected_date:    expectedDate,
+      user_id:          ownerId,
     }).select('id').single();
     if (rErr || !receipt) {
       return { error: `Order placed but failed to create receipt: ${rErr?.message ?? 'unknown'}` };
     }
-    const { error: lErr } = await supabase.from('receipt_lines').insert({
+    const lines = group.map((item) => ({
       receipt_id:   receipt.id,
       product_id:   item.productId,
       product_name: item.productName,
       expected_qty: item.quantity,
       user_id:      ownerId,
-    });
+    }));
+    const { error: lErr } = await supabase.from('receipt_lines').insert(lines);
     if (lErr) {
-      return { error: `Order placed but failed to register receipt line: ${lErr.message}` };
+      return { error: `Order placed but failed to register receipt lines: ${lErr.message}` };
     }
   }
 
