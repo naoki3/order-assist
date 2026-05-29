@@ -30,7 +30,7 @@ export default async function InventoryDetailPage({ params }: { params: Promise<
   const [{ data: productData }, { data: inventoryData }, { data: lotsData }, { data: locationsData }, { data: warehousesData }, { data: statusesData }] = await Promise.all([
     supabase.from('products').select('*').eq('id', productId).maybeSingle(),
     supabase.from('inventory').select('*').eq('product_id', productId).maybeSingle(),
-    supabase.from('lots').select('*').eq('product_id', productId)
+    supabase.from('lots').select('*').eq('product_id', productId).gt('quantity', 0)
       .order('expiry_date', { ascending: true, nullsFirst: false })
       .order('received_at', { ascending: false }),
     supabase.from('locations').select('id, name, warehouse_id').order('name'),
