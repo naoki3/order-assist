@@ -13,6 +13,7 @@ interface InventoryRow {
 export async function GET(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey || apiKey !== process.env.ERP_API_KEY) {
+    console.error(`[ERP inventory] Unauthorized: received key=${apiKey ? '(present)' : '(missing)'}, expected=${process.env.ERP_API_KEY ? '(set)' : '(NOT SET)'}`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -21,18 +22,27 @@ export async function GET(req: NextRequest) {
   const email = url.searchParams.get('email');
   const sourceSystem = url.searchParams.get('source_system') ?? 'ERP';
 
+  console.log(`[ERP inventory] request email=${email} sourceUserId=${sourceUserId}`);
+
   let userId: string;
 
   if (sourceUserId && email) {
-    const resolved = await resolvePerformedBy({
-      source_system: sourceSystem,
-      source_user_id: sourceUserId,
-      email,
-    });
-    if (!resolved) {
-      return NextResponse.json({ error: `Cannot resolve WMS user for email: ${email}` }, { status: 422 });
+    try {
+      const resolved = await resolvePerformedBy({
+        source_system: sourceSystem,
+        source_user_id: sourceUserId,
+        email,
+      });
+      if (!resolved) {
+        console.error(`[ERP inventory] user not found for email=${email}`);
+        return NextResponse.json({ error: `Cannot resolve WMS user for email: ${email}` }, { status: 422 });
+      }
+      console.log(`[ERP inventory] resolved wms_user_id=${resolved.wms_user_id}`);
+      userId = resolved.wms_user_id;
+    } catch (e) {
+      console.error('[ERP inventory] resolvePerformedBy error:', e instanceof Error ? e.message : String(e));
+      return NextResponse.json({ error: 'Failed to resolve user' }, { status: 500 });
     }
-    userId = resolved.wms_user_id;
   } else {
     const systemUserId = process.env.ERP_SYSTEM_USER_ID;
     if (!systemUserId) {
@@ -62,5 +72,6 @@ export async function GET(req: NextRequest) {
     updated_at: row.updated_at,
   }));
 
+  console.log(`[ERP inventory] returning ${items.length} items for userId=${userId}`);
   return NextResponse.json(items);
 }
