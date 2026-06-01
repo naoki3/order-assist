@@ -3,8 +3,11 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function proxy(request: NextRequest) {
-  // ERP integration routes use x-api-key auth — skip session check
-  if (request.nextUrl.pathname.startsWith('/api/erp/')) {
+  // ERP integration routes and webhook routes use their own auth — skip session check
+  if (
+    request.nextUrl.pathname.startsWith('/api/erp/') ||
+    request.nextUrl.pathname.startsWith('/api/webhooks/')
+  ) {
     return NextResponse.next();
   }
 
