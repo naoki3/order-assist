@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/actions/auth';
 import {
@@ -8,117 +9,321 @@ import {
   ClipboardList,
   Package,
   TrendingUp,
-  BarChart2,
   Truck,
-  History,
   LogOut,
+  Settings,
+  SendHorizonal,
+  Database,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
+import { useT } from './LanguageProvider';
+import type { LucideIcon } from 'lucide-react';
+import { useState } from 'react';
 
-const links = [
-  { href: '/',          label: 'Order Review',   icon: ClipboardList,   exact: true },
-  { href: '/dashboard', label: 'Dashboard',       icon: LayoutDashboard, exact: false },
-  { href: '/sales',     label: 'Sales Entry',     icon: TrendingUp,      exact: true  },
-  { href: '/sales/report', label: 'Sales Report', icon: BarChart2,       exact: false },
-  { href: '/products',  label: 'Products',        icon: Package,         exact: false },
-  { href: '/incoming',  label: 'Incoming Stock',  icon: Truck,           exact: false },
-  { href: '/history',   label: 'Order History',   icon: History,         exact: false },
-];
+type SubItem = { href: string; label: string; exact: boolean };
+type NavGroup = { type: 'group'; key: string; label: string; icon: LucideIcon; items: SubItem[] };
+type NavLink = { type: 'link'; href: string; label: string; icon: LucideIcon; exact: boolean };
+type NavItem = NavGroup | NavLink;
 
-function isActive(href: string, pathname: string, exact: boolean) {
+function matchesPath(href: string, pathname: string, exact: boolean) {
   return exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
 }
 
-export default function Sidebar() {
+function groupIsActive(group: NavGroup, pathname: string) {
+  return group.items.some((item) => matchesPath(item.href, pathname, item.exact));
+}
+
+export default function Sidebar({ allowedSections }: { allowedSections?: string[] }) {
   const pathname = usePathname();
+  const { t } = useT();
+  const allowed = allowedSections ?? null;
+
+  const navItems: NavItem[] = [
+    { type: 'link', href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, exact: false },
+    {
+      type: 'group', key: 'orders', label: t('nav.ordersGroup'), icon: ClipboardList,
+      items: [
+        { href: '/', label: t('nav.orderReview'), exact: true },
+        { href: '/history', label: t('nav.orderHistory'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'incoming', label: t('nav.incomingGroup'), icon: Truck,
+      items: [
+        { href: '/incoming/schedule', label: t('nav.incomingSchedule'), exact: false },
+        { href: '/incoming', label: t('nav.incomingStock'), exact: true },
+        { href: '/incoming/history', label: t('nav.incomingHistory'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'inventory', label: t('nav.inventoryGroup'), icon: Package,
+      items: [
+        { href: '/inventory', label: t('nav.inventory'), exact: true },
+        { href: '/inventory/expiry', label: t('nav.inventoryExpiry'), exact: false },
+        { href: '/inventory/cycle-count', label: t('nav.inventoryCycleCount'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'shipping', label: t('nav.shippingGroup'), icon: SendHorizonal,
+      items: [
+        { href: '/shipping/schedule', label: t('nav.shippingSchedule'), exact: false },
+        { href: '/shipping/confirm', label: t('nav.shippingConfirm'), exact: false },
+        { href: '/shipping/history', label: t('nav.shippingHistory'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'sales', label: t('nav.salesGroup'), icon: TrendingUp,
+      items: [
+        { href: '/report/daily', label: t('nav.dailyReport'), exact: false },
+        { href: '/sales/report', label: t('nav.salesReport'), exact: false },
+        { href: '/sales', label: t('nav.salesEntry'), exact: true },
+      ],
+    },
+    {
+      type: 'group', key: 'master', label: t('nav.masterGroup'), icon: Database,
+      items: [
+        { href: '/products', label: t('nav.productMaster'), exact: false },
+        { href: '/master/suppliers', label: t('nav.supplierMaster'), exact: false },
+        { href: '/master/destinations', label: t('nav.destinationMaster'), exact: false },
+        { href: '/master/carriers', label: t('nav.carrierMaster'), exact: false },
+        { href: '/master/inventory-statuses', label: t('nav.inventoryStatusMaster'), exact: false },
+        { href: '/master/warehouses', label: t('nav.warehouseMaster'), exact: false },
+        { href: '/master/locations', label: t('nav.locationMaster'), exact: false },
+        { href: '/master/users', label: t('nav.userMaster'), exact: false },
+      ],
+    },
+    {
+      type: 'group', key: 'ai', label: t('nav.aiGroup'), icon: Sparkles,
+      items: [
+        { href: '/ai/forecast', label: t('nav.aiForecast'), exact: false },
+        { href: '/ai/anomaly', label: t('nav.aiAnomaly'), exact: false },
+        { href: '/ai/chat', label: t('nav.aiChat'), exact: false },
+      ],
+    },
+  ];
+
+  const visibleNavItems = allowed
+    ? navItems.filter((item) => item.type === 'link' || allowed.includes(item.key))
+    : navItems;
+
+  const activeGroupKey = visibleNavItems.find(
+    (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
+  )?.key ?? null;
+
+  // Extra groups the user has manually opened (active group is always open)
+  const [extraOpenGroups, setExtraOpenGroups] = useState<Set<string>>(new Set());
+
+  function isOpen(key: string) {
+    return key === activeGroupKey || extraOpenGroups.has(key);
+  }
+
+  function toggleGroup(key: string) {
+    if (key === activeGroupKey) return;
+    setExtraOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  // For mobile: find the active group (if any)
+  const activeGroup = visibleNavItems.find(
+    (item): item is NavGroup => item.type === 'group' && groupIsActive(item, pathname)
+  ) ?? null;
 
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
+      <aside className="hidden md:flex print:hidden flex-col w-56 h-screen bg-white border-r border-slate-200 fixed top-0 left-0 z-20">
         {/* Logo */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-green-700 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">OA</span>
-            </div>
-            <div>
-              <p className="font-bold text-sm text-slate-800 leading-tight">Order Assist</p>
-              <p className="text-xs text-slate-400 leading-tight">発注アシスト</p>
-            </div>
+            <Image src="/logo-small.png" alt="OrderAssist" width={32} height={32} className="shrink-0" />
+            <p className="text-sm font-extrabold leading-tight bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
+              OrderAssist
+            </p>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {links.map(({ href, label, icon: Icon, exact }) => {
-            const active = isActive(href, pathname, exact);
+          {visibleNavItems.map((item) => {
+            if (item.type === 'link') {
+              const active = matchesPath(item.href, pathname, item.exact);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    active
+                      ? 'bg-green-700 text-white font-medium'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon size={16} className="shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            }
+
+            const Icon = item.icon;
+            const active = groupIsActive(item, pathname);
+            const open = isOpen(item.key);
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  active
-                    ? 'bg-green-700 text-white font-medium'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <Icon size={16} className="shrink-0" />
-                {label}
-              </Link>
+              <div key={item.key} className="space-y-0.5">
+                <button
+                  onClick={() => toggleGroup(item.key)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium w-full transition-colors hover:bg-slate-100 ${
+                    active ? 'text-green-800' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon size={16} className="shrink-0" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {open
+                    ? <ChevronDown size={14} className="shrink-0 text-slate-400" />
+                    : <ChevronRight size={14} className="shrink-0 text-slate-400" />
+                  }
+                </button>
+                {open && (
+                  <div className="ml-4 space-y-0.5">
+                    {item.items.map((sub) => {
+                      const subActive = matchesPath(sub.href, pathname, sub.exact);
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className={`flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-sm transition-colors border-l-2 ${
+                            subActive
+                              ? 'border-green-700 bg-green-50 text-green-700 font-medium'
+                              : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="p-2 border-t border-slate-100">
+        {/* Settings + Logout */}
+        <div className="p-2 border-t border-slate-100 space-y-0.5">
+          <Link
+            href="/settings"
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              pathname === '/settings'
+                ? 'bg-green-700 text-white font-medium'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Settings size={16} className="shrink-0" />
+            {t('nav.settings')}
+          </Link>
           <form action={logout}>
             <button
               type="submit"
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 w-full transition-colors"
             >
               <LogOut size={16} className="shrink-0" />
-              Logout
+              {t('nav.logout')}
             </button>
           </form>
         </div>
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex md:hidden flex-col bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+      <header className="flex md:hidden print:hidden flex-col bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-green-700 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold">OA</span>
-            </div>
-            <span className="font-bold text-sm text-slate-800">Order Assist</span>
+            <Image src="/logo-small.png" alt="OrderAssist" width={24} height={24} className="shrink-0" />
+            <span className="text-sm font-extrabold bg-gradient-to-r from-teal-400 to-cyan-600 bg-clip-text text-transparent tracking-tight">
+              OrderAssist
+            </span>
           </div>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 hover:bg-slate-100 rounded-md transition-colors"
+          <div className="flex items-center gap-1">
+            <Link
+              href="/settings"
+              className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              aria-label={t('nav.settings')}
             >
-              Logout
-            </button>
-          </form>
+              <Settings size={16} />
+            </Link>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 hover:bg-slate-100 rounded-md transition-colors"
+              >
+                {t('nav.logout')}
+              </button>
+            </form>
+          </div>
         </div>
+
+        {/* Mobile primary nav */}
         <nav className="flex gap-0.5 text-sm overflow-x-auto px-3 pb-2 scrollbar-none">
-          {links.map(({ href, label, exact }) => {
-            const active = isActive(href, pathname, exact);
+          {visibleNavItems.map((item) => {
+            if (item.type === 'link') {
+              const active = matchesPath(item.href, pathname, item.exact);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 transition-colors text-sm ${
+                    active
+                      ? 'bg-green-50 text-green-700 font-semibold'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
+            const active = groupIsActive(item, pathname);
             return (
               <Link
-                key={href}
-                href={href}
+                key={item.key}
+                href={item.items[0].href}
                 className={`px-3 py-1.5 rounded-md whitespace-nowrap shrink-0 transition-colors text-sm ${
                   active
                     ? 'bg-green-50 text-green-700 font-semibold'
                     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                 }`}
               >
-                {label}
+                {item.label}
               </Link>
             );
           })}
         </nav>
+
+        {/* Mobile sub-nav (shown when inside a group) */}
+        {activeGroup && (
+          <nav className="flex gap-0.5 text-xs overflow-x-auto px-3 pb-2 scrollbar-none border-t border-slate-100 pt-1.5">
+            {activeGroup.items.map((sub) => {
+              const subActive = matchesPath(sub.href, pathname, sub.exact);
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  className={`px-3 py-1 rounded-md whitespace-nowrap shrink-0 transition-colors ${
+                    subActive
+                      ? 'bg-green-700 text-white font-semibold'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
+                >
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </header>
     </>
   );

@@ -2,24 +2,66 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import type { ActionResult } from '@/lib/actions';
+import { createAdminClient } from '@/lib/supabase-admin';
+import type { ActionResult, SignupResult } from '@/lib/actions';
 
 export async function login(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const email = String(formData.get('email') ?? '').trim();
+  const identifier = String(formData.get('identifier') ?? '').trim();
   const password = String(formData.get('password') ?? '');
 
-  if (!email || !password) return { error: 'Email and password are required' };
+  if (!identifier || !password) return { error: 'ログインIDとパスワードを入力してください' };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) return { error: error.message };
+  if (identifier.includes('@')) {
+    // Standard email login (tenant owner)
+    const { error } = await supabase.auth.signInWithPassword({ email: identifier, password });
+    if (error) return { error: 'メールアドレスまたはパスワードが正しくありません' };
+  } else {
+    // Login ID (sub-user)
+    const adminClient = createAdminClient();
+    const { data: profile } = await adminClient
+      .from('user_profiles')
+      .select('auth_user_id')
+      .eq('login_id', identifier.toLowerCase())
+      .not('auth_user_id', 'is', null)
+      .maybeSingle();
 
-  redirect('/');
+    if (!profile?.auth_user_id) return { error: 'ログインIDが見つかりません' };
+
+    const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(profile.auth_user_id);
+    if (!authUser?.email) return { error: 'アカウントが見つかりません' };
+
+    const { error } = await supabase.auth.signInWithPassword({ email: authUser.email, password });
+    if (error) return { error: 'ログインIDまたはパスワードが正しくありません' };
+  }
+
+  redirect('/dashboard');
 }
 
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect('/login');
+}
+
+export async function signup(_prev: SignupResult, formData: FormData): Promise<SignupResult> {
+  const email = String(formData.get('email') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+
+  if (!email || !password) return { error: 'Email and password are required' };
+  if (password !== confirm) return { error: 'Passwords do not match' };
+  if (password.length < 8) return { error: 'Password must be at least 8 characters' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) return { error: error.message };
+
+  // Email confirmation disabled → session is available immediately
+  if (data.session) redirect('/');
+
+  // Email confirmation required → tell the user to check their inbox
+  return { needsConfirmation: true };
 }

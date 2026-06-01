@@ -1,51 +1,28 @@
 import { createClient } from '@/lib/supabase';
+import { getLang, getTz } from '@/lib/lang';
+import { t } from '@/lib/i18n';
 import type { OrderHistoryItem } from '@/lib/db';
-import type { OrderItem } from '@/lib/actions';
+import type { UnitConfig } from '@/lib/units';
+import OrderHistoryList from '@/components/OrderHistoryList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HistoryPage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('order_history')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const [supabase, lang, tz] = await Promise.all([createClient(), getLang(), getTz()]);
+  const [{ data }, { data: productsData }] = await Promise.all([
+    supabase.from('order_history').select('*').order('created_at', { ascending: false }).limit(50),
+    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet'),
+  ]);
   const orders = (data ?? []) as OrderHistoryItem[];
-
-  function formatDate(iso: string): string {
-    const d = new Date(iso);
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  }
+  const unitMap: Record<number, UnitConfig> = Object.fromEntries(
+    ((productsData ?? []) as { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null }[])
+      .map((p) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">Order History</h1>
-
-      {orders.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          <p>No order history</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {orders.map((order) => {
-            const items = JSON.parse(order.items) as OrderItem[];
-            return (
-              <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4">
-                <p className="text-xs text-slate-400 mb-2">{formatDate(order.created_at)}</p>
-                <div className="space-y-1">
-                  {items.map((item) => (
-                    <div key={item.productId} className="flex justify-between text-sm">
-                      <span className="text-slate-700">{item.productName}</span>
-                      <span className="font-semibold text-slate-800">{item.quantity} units</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <h1 className="text-xl font-bold text-slate-800 mb-4 print:hidden">{t('history.title', lang)}</h1>
+      <OrderHistoryList orders={orders} unitMap={unitMap} tz={tz} />
     </div>
   );
 }

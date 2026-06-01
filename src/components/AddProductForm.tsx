@@ -1,25 +1,44 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { addProduct } from '@/lib/actions';
+import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
 
-export default function AddProductForm() {
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
+
+export default function AddProductForm({ warehouses = [], onAdded }: { warehouses?: WarehouseOption[]; onAdded?: () => void }) {
+  const { t, currencySymbol } = useT();
   const [state, action] = useActionState(addProduct, null);
+  const { successMsg, errorMsg } = useActionFeedback(state, t('common.added'));
+  const [formKey, setFormKey] = useState(0);
+  const [warehouseId, setWarehouseId] = useState('');
+  const selectedWarehouse = warehouses.find((w) => w.id === Number(warehouseId));
+
+  useEffect(() => {
+    if (state && 'success' in state) {
+      const timer = setTimeout(() => { setFormKey((k) => k + 1); setWarehouseId(''); onAdded?.(); }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [state, onAdded]);
 
   return (
     <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4">
-      <h2 className="text-sm font-semibold text-slate-600 mb-3">Add New Product</h2>
-      <form action={action} className="space-y-3">
+      <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('products.addTitle')}</h2>
+      <form key={formKey} action={action} className="space-y-3">
         <input
           type="text"
           name="name"
           required
-          placeholder="Product name"
+          placeholder={t('products.namePlaceholder')}
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
-            Lead time
+            {t('products.leadTime')}
             <input
               type="number"
               name="lead_time_days"
@@ -29,10 +48,10 @@ export default function AddProductForm() {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Safety stock
+            {t('products.safetyStock')}
             <input
               type="number"
               name="safety_stock_days"
@@ -42,28 +61,107 @@ export default function AddProductForm() {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Unit price
+            {t('products.unitPrice')}
             <input
               type="number"
               name="price"
               min={0}
               step="0.01"
-              placeholder="Optional"
+              placeholder={t('products.optional')}
               className="w-24 border border-slate-300 rounded px-2 py-1 text-center"
             />
           </label>
         </div>
-        {state?.error && (
-          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{state.error}</p>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <label className="flex items-center gap-1 text-slate-600">
+            {t('products.shelfLife')}
+            <select
+              name="expiry_type"
+              className="border border-slate-300 rounded px-2 py-1 text-sm"
+            >
+              <option value="">{t('products.expiryTypeNone')}</option>
+              <option value="賞味期限">{t('products.expiryTypeBest')}</option>
+              <option value="消費期限">{t('products.expiryTypeUse')}</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-1 text-slate-600">
+            {t('products.shelfLifeDays')}
+            <input
+              type="number"
+              name="shelf_life_days"
+              min={1}
+              placeholder={t('products.optional')}
+              className="w-20 border border-slate-300 rounded px-2 py-1 text-center"
+            />
+            {t('products.days')}
+          </label>
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')} {currencySymbol}/{t('units.piece')}</span></p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.incomingFee')}
+              <input type="number" name="incoming_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.storageFee')}
+              <input type="number" name="storage_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.outgoingFee')}
+              <input type="number" name="outgoing_fee_per_piece" min={0} step="any" placeholder="—" className="w-20 border border-slate-300 rounded px-2 py-1 text-center" />
+            </label>
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.piecesPerBall')}
+              <input type="number" name="pieces_per_ball" min={1} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitPieces')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.ballsPerCase')}
+              <input type="number" name="balls_per_case" min={1} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitBalls')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.casesPerPallet')}
+              <input type="number" name="cases_per_pallet" min={1} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitCases')}
+            </label>
+          </div>
+        </div>
+        {warehouses.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 mt-1">
+            <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.defaultWarehouse')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+            <input type="hidden" name="default_warehouse_id" value={warehouseId} readOnly />
+            <input type="hidden" name="default_warehouse_name" value={selectedWarehouse?.name ?? ''} readOnly />
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">{t('products.noDefaultWarehouse')}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
+        {errorMsg && (
+          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{errorMsg}</p>
+        )}
+        {successMsg && (
+          <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{successMsg}</p>
         )}
         <button
           type="submit"
           className="w-full py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors font-medium"
         >
-          Add Product
+          {t('products.addButton')}
         </button>
       </form>
     </div>

@@ -1,7 +1,11 @@
 import { getRecommendations } from '@/lib/calculator';
+import { getLang, getTz } from '@/lib/lang';
+import { toLocalDateStr } from '@/lib/tz';
+import { t, translations } from '@/lib/i18n';
 import { createClient } from '@/lib/supabase';
 import type { Recommendation } from '@/lib/calculator';
 import DashboardCharts from '@/components/DashboardCharts';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,23 +24,120 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const recommendations = await getRecommendations();
-
-  // Sales trend: last 7 days aggregated by date
-  const today = new Date();
-  const dates: string[] = [];
-  for (let i = 7; i >= 1; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+function buildLastNDates(tz: string, n: number): string[] {
+  const todayStr = toLocalDateStr(tz);
+  const result: string[] = [];
+  for (let i = n; i >= 1; i--) {
+    const d = new Date(todayStr + 'T00:00:00');
+    d.setDate(d.getDate() - i);
+    result.push(toLocalDateStr(tz, d));
   }
+  return result;
+}
 
-  const { data: salesData } = await supabase
-    .from('sales')
-    .select('date, quantity')
-    .in('date', dates);
+async function getSalesTrend(tz: string): Promise<{ date: string; quantity: number }[]> {
+  const dates = buildLastNDates(tz, 7);
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('shipments')
+    .select('shipped_at, shipment_lines(quantity)')
+    .not('shipped_at', 'is', null)
+    .gte('shipped_at', minDate + 'T00:00:00')
+    .lte('shipped_at', maxDate + 'T23:59:59');
+  const byDate: Record<string, number> = {};
+  for (const row of (data ?? []) as { shipped_at: string; shipment_lines: { quantity: number }[] }[]) {
+    if (!row.shipped_at) continue;
+    const d = toLocalDateStr(tz, new Date(row.shipped_at));
+    const total = (row.shipment_lines ?? []).reduce((s, l) => s + l.quantity, 0);
+    byDate[d] = (byDate[d] ?? 0) + total;
+  }
+  return Object.entries(byDate).map(([date, quantity]) => ({ date, quantity }));
+}
+
+async function getTodayIncoming(tz: string): Promise<{ id: number; product_name: string; quantity: number }[]> {
+  const today = toLocalDateStr(tz);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('receipt_lines')
+    .select('id, product_name, expected_qty, receipts!inner(expected_date, status)')
+    .eq('receipts.expected_date', today)
+    .eq('receipts.status', 'expected')
+    .eq('status', 'pending')
+    .order('id');
+  return ((data ?? []) as { id: number; product_name: string; expected_qty: number }[]).map(r => ({
+    id: r.id,
+    product_name: r.product_name,
+    quantity: r.expected_qty,
+  }));
+}
+
+async function getTodayReceived(tz: string): Promise<{ product_name: string; quantity: number }[]> {
+  const today = toLocalDateStr(tz);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('receipt_lines')
+    .select('product_name, expected_qty, receipts!inner(received_at)')
+    .gte('receipts.received_at', today + 'T00:00:00')
+    .lte('receipts.received_at', today + 'T23:59:59')
+    .eq('status', 'received');
+  return ((data ?? []) as { product_name: string; expected_qty: number }[]).map(r => ({
+    product_name: r.product_name,
+    quantity: r.expected_qty,
+  }));
+}
+
+async function getTodayShipped(tz: string): Promise<{ product_name: string; quantity: number }[]> {
+  const today = toLocalDateStr(tz);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('shipment_lines')
+    .select('product_name, quantity, shipments!inner(shipped_at)')
+    .gte('shipments.shipped_at', today + 'T00:00:00')
+    .lte('shipments.shipped_at', today + 'T23:59:59')
+    .eq('status', 'shipped');
+  return (data ?? []) as { product_name: string; quantity: number }[];
+}
+
+async function getExpiryAlerts(tz: string): Promise<{ expiredCount: number; within7: { lot_number: string; product_name: string; expiry_date: string; daysLeft: number }[] }> {
+  const today = toLocalDateStr(tz);
+  const in7 = new Date(today + 'T12:00:00Z');
+  in7.setUTCDate(in7.getUTCDate() + 7);
+  const in7Str = in7.toISOString().slice(0, 10);
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('lots')
+    .select('lot_number, product_name, expiry_date')
+    .not('expiry_date', 'is', null)
+    .gt('quantity', 0)
+    .lte('expiry_date', in7Str)
+    .order('expiry_date', { ascending: true });
+
+  const lots = (data ?? []) as { lot_number: string; product_name: string; expiry_date: string }[];
+  const expiredCount = lots.filter((l) => l.expiry_date < today).length;
+  const within7 = lots.map((l) => {
+    const a = new Date(today + 'T12:00:00Z');
+    const b = new Date(l.expiry_date + 'T12:00:00Z');
+    return { ...l, daysLeft: Math.round((b.getTime() - a.getTime()) / 86400000) };
+  });
+  return { expiredCount, within7 };
+}
+
+export default async function DashboardPage() {
+  const [lang, tz] = await Promise.all([getLang(), getTz()]);
+  const dates = buildLastNDates(tz, 7);
+
+  const [recommendations, salesData, todayIncoming, todayReceived, todayShipped, expiryAlerts] = await Promise.all([
+    getRecommendations(new Date(), lang),
+    getSalesTrend(tz),
+    getTodayIncoming(tz),
+    getTodayReceived(tz),
+    getTodayShipped(tz),
+    getExpiryAlerts(tz),
+  ]);
+  const dict = translations[lang];
 
   const totalByDate: Record<string, number> = {};
   for (const d of dates) totalByDate[d] = 0;
@@ -45,7 +146,6 @@ export default async function DashboardPage() {
   }
   const salesTrend = dates.map((d) => ({ date: formatDate(d), total: totalByDate[d] }));
 
-  // Dashboard calculations
   const stockoutRisk = recommendations.filter((r) => {
     const days = daysRemaining(r);
     return days !== null && days < r.product.lead_time_days;
@@ -63,8 +163,8 @@ export default async function DashboardPage() {
     .slice(0, 5)
     .map((r) => ({ name: r.product.name, avgDemand: r.avgDemand7d }));
 
-  const hasAnyPrice = recommendations.some((r) => r.product.price != null);
-  const totalOrderValue = hasAnyPrice
+  const hasAnyOrderedPrice = recommendations.some((r) => r.orderQty > 0 && r.product.price != null);
+  const totalOrderValue = hasAnyOrderedPrice
     ? recommendations.reduce(
         (sum, r) => sum + (r.product.price != null ? r.orderQty * r.product.price : 0),
         0
@@ -74,9 +174,9 @@ export default async function DashboardPage() {
   if (recommendations.length === 0) {
     return (
       <div>
-        <h1 className="text-xl font-bold text-slate-800 mb-1">Dashboard</h1>
+        <h1 className="text-xl font-bold text-slate-800 mb-1">{t('dashboard.title', lang)}</h1>
         <div className="text-center py-16 text-slate-400">
-          <p>No products registered yet</p>
+          <p>{t('dashboard.noProducts', lang)}</p>
         </div>
       </div>
     );
@@ -85,82 +185,139 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-slate-800 mb-0.5">Dashboard</h1>
-        <p className="text-sm text-slate-500">Today&apos;s snapshot</p>
+        <h1 className="text-xl font-bold text-slate-800 mb-0.5">{t('dashboard.title', lang)}</h1>
+        <p className="text-sm text-slate-500">{t('dashboard.snapshot', lang)}</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className={`rounded-xl border p-4 ${stockoutRisk.length > 0 ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
-          <p className="text-xs text-slate-500">Stockout Risk</p>
+          <p className="text-xs text-slate-500">{t('dashboard.stockoutRisk', lang)}</p>
           <p className={`text-3xl font-bold mt-1 ${stockoutRisk.length > 0 ? 'text-red-600' : 'text-slate-300'}`}>
             {stockoutRisk.length}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">products</p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.products', lang)}</p>
         </div>
         <div className={`rounded-xl border p-4 ${overstockRisk.length > 0 ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
-          <p className="text-xs text-slate-500">Overstock</p>
+          <p className="text-xs text-slate-500">{t('dashboard.overstock', lang)}</p>
           <p className={`text-3xl font-bold mt-1 ${overstockRisk.length > 0 ? 'text-amber-600' : 'text-slate-300'}`}>
             {overstockRisk.length}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">products</p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.products', lang)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500">Products</p>
+          <p className="text-xs text-slate-500">{t('dashboard.products', lang)}</p>
           <p className="text-3xl font-bold text-slate-700 mt-1">{recommendations.length}</p>
-          <p className="text-xs text-slate-400 mt-0.5">total</p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.total', lang)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500">Order Value</p>
+          <p className="text-xs text-slate-500">{t('dashboard.orderValue', lang)}</p>
           <p className="text-3xl font-bold text-slate-700 mt-1">
             {totalOrderValue !== null
               ? totalOrderValue.toLocaleString(undefined, { maximumFractionDigits: 0 })
               : '—'}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">today&apos;s estimate</p>
+          <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.todayEstimate', lang)}</p>
         </div>
       </div>
+
+      {/* Expiry alert widget */}
+      {(expiryAlerts.expiredCount > 0 || expiryAlerts.within7.length > 0) && (
+        <div className={`rounded-xl border p-4 ${expiryAlerts.expiredCount > 0 ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-slate-600">{t('dashboard.expiryAlert', lang)}</p>
+            <Link href="/inventory/expiry" className="text-xs text-green-700 hover:underline font-medium">詳細 →</Link>
+          </div>
+          <div className="flex gap-4">
+            {expiryAlerts.expiredCount > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-red-600">{expiryAlerts.expiredCount}</p>
+                <p className="text-xs text-red-500">{t('dashboard.expiryExpired', lang)}</p>
+              </div>
+            )}
+            {expiryAlerts.within7.filter(l => l.daysLeft >= 0).length > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{expiryAlerts.within7.filter(l => l.daysLeft >= 0).length}</p>
+                <p className="text-xs text-amber-600">{t('dashboard.expiryWarning', lang)}</p>
+              </div>
+            )}
+          </div>
+          {expiryAlerts.within7.length > 0 && (
+            <div className="mt-2 space-y-0.5">
+              {expiryAlerts.within7.slice(0, 5).map((l, i) => (
+                <p key={i} className="text-xs text-slate-600">
+                  {l.product_name} <span className="font-mono text-slate-400">{l.lot_number}</span>
+                  {' '}<span className={l.daysLeft < 0 ? 'text-red-600 font-semibold' : 'text-amber-600'}>
+                    {l.daysLeft < 0 ? `${Math.abs(l.daysLeft)}日超過` : `残${l.daysLeft}日`}
+                  </span>
+                </p>
+              ))}
+              {expiryAlerts.within7.length > 5 && (
+                <p className="text-xs text-slate-400">他 {expiryAlerts.within7.length - 5} 件...</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Charts (client component) */}
       <DashboardCharts salesTrend={salesTrend} bestSellers={bestSellers} />
 
       {/* Stock status progress bars */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-600 mb-3">Stock Status</h2>
-        <div className="space-y-3">
-          {recommendations.map((r) => {
-            const pct = stockPct(r);
-            const barColor =
-              pct < 50 ? 'bg-red-500' : pct < 100 ? 'bg-amber-400' : 'bg-green-500';
-            return (
-              <div key={r.product.id}>
-                <div className="flex justify-between text-xs text-slate-600 mb-1">
-                  <span className="font-medium truncate mr-2">{r.product.name}</span>
-                  <span className="shrink-0 text-slate-400">
-                    {r.currentStock} / {r.requiredStock} units
-                  </span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${barColor} rounded-full`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+      {(() => {
+        const lowStock = recommendations.filter((r) => stockPct(r) < 100);
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('dashboard.stockStatus', lang)}</h2>
+            {lowStock.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('dashboard.allSufficient', lang)}</p>
+            ) : (
+              <div className="space-y-3">
+                {lowStock.map((r) => {
+                  const pct = stockPct(r);
+                  const barColor = pct < 50 ? 'bg-red-500' : 'bg-amber-400';
+                  const days = daysRemaining(r);
+                  return (
+                    <div key={r.product.id}>
+                      <div className="flex justify-between text-xs text-slate-600 mb-1">
+                        <span className="font-medium truncate mr-2">{r.product.name}</span>
+                        <span className="shrink-0 text-slate-400">
+                          {r.currentStock} / {r.requiredStock} {t('dashboard.units', lang)}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${barColor} rounded-full`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      {days !== null && (
+                        <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                          {(dict['dashboard.stockoutFormula'] as (s: number, d: string, day: string, l: number) => string)(
+                            r.currentStock,
+                            r.avgDemand7d.toFixed(1),
+                            days.toFixed(1),
+                            r.product.lead_time_days
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-        <div className="flex gap-4 mt-3 text-xs text-slate-400">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Sufficient</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Low</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Critical</span>
-        </div>
-      </div>
+            )}
+            <div className="flex gap-4 mt-3 text-xs text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> {t('dashboard.low', lang)}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> {t('dashboard.critical', lang)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stockout risk detail */}
       {stockoutRisk.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-red-600 mb-2">Stockout Risk</h2>
+          <h2 className="text-sm font-semibold text-red-600 mb-2">{t('dashboard.stockoutRisk', lang)}</h2>
           <div className="space-y-2">
             {stockoutRisk.map((r) => {
               const days = daysRemaining(r)!;
@@ -168,7 +325,15 @@ export default async function DashboardPage() {
                 <div key={r.product.id} className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="font-semibold text-slate-800">{r.product.name}</p>
                   <p className="text-xs text-red-600 mt-0.5">
-                    {days.toFixed(1)} days of stock remaining — lead time is {r.product.lead_time_days} days
+                    {(dict['dashboard.daysRemaining'] as (d: string, l: number) => string)(days.toFixed(1), r.product.lead_time_days)}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 font-mono">
+                    {(dict['dashboard.stockoutFormula'] as (s: number, d: string, day: string, l: number) => string)(
+                      r.currentStock,
+                      r.avgDemand7d.toFixed(1),
+                      days.toFixed(1),
+                      r.product.lead_time_days
+                    )}
                   </p>
                 </div>
               );
@@ -180,7 +345,7 @@ export default async function DashboardPage() {
       {/* Overstock detail */}
       {overstockRisk.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-amber-600 mb-2">Overstock</h2>
+          <h2 className="text-sm font-semibold text-amber-600 mb-2">{t('dashboard.overstock', lang)}</h2>
           <div className="space-y-2">
             {overstockRisk.map((r) => {
               const days = daysRemaining(r)!;
@@ -188,7 +353,7 @@ export default async function DashboardPage() {
                 <div key={r.product.id} className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                   <p className="font-semibold text-slate-800">{r.product.name}</p>
                   <p className="text-xs text-amber-600 mt-0.5">
-                    {days.toFixed(1)} days of stock — recommended {r.product.lead_time_days + r.product.safety_stock_days} days
+                    {(dict['dashboard.overstockDays'] as (d: string, r: number) => string)(days.toFixed(1), r.product.lead_time_days + r.product.safety_stock_days)}
                   </p>
                 </div>
               );
@@ -196,6 +361,63 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Today's incoming */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayIncoming', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayIncoming.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayIncoming', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayIncoming.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-slate-500">{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Today's received (actual) */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayReceived', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayReceived.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayReceived', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayReceived.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-green-700 font-semibold">+{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Today's shipped (actual) */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{t('dashboard.todayShipped', lang)}</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          {todayShipped.length === 0 ? (
+            <p className="text-sm text-slate-400">{t('dashboard.noTodayShipped', lang)}</p>
+          ) : (
+            <div className="space-y-2">
+              {todayShipped.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 font-medium">{item.product_name}</span>
+                  <span className="text-blue-700 font-semibold">-{item.quantity} {t('dashboard.incomingUnits', lang)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

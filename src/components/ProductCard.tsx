@@ -1,18 +1,35 @@
 'use client';
 
-import { useActionState } from 'react';
-import { updateProduct, deleteProduct, updateStock } from '@/lib/actions';
+import { useActionState, useState } from 'react';
+import { updateProduct, deleteProduct } from '@/lib/actions';
 import type { Product } from '@/lib/db';
+import { useT } from './LanguageProvider';
+import { useActionFeedback } from '@/hooks/useActionFeedback';
+import { formatQty } from '@/lib/units';
+import FeeRateInput from './FeeRateInput';
+
+interface WarehouseOption {
+  id: number;
+  name: string;
+}
 
 interface Props {
   product: Product;
   currentStock: number;
+  warehouses?: WarehouseOption[];
 }
 
-export default function ProductCard({ product, currentStock }: Props) {
+export default function ProductCard({ product, currentStock, warehouses = [] }: Props) {
+  const { t, lang } = useT();
   const [updateState, updateAction] = useActionState(updateProduct, null);
-  const [stockState, stockAction] = useActionState(updateStock, null);
   const [deleteState, deleteAction] = useActionState(deleteProduct, null);
+  const [warehouseId, setWarehouseId] = useState(String(product.default_warehouse_id ?? ''));
+  const selectedWarehouse = warehouses.find((w) => w.id === Number(warehouseId));
+
+  const { successMsg: updateSuccess, errorMsg: updateError } = useActionFeedback(updateState, t('common.updated'));
+  const { errorMsg: deleteError } = useActionFeedback(deleteState, t('common.deleted'));
+
+  const expiryLocked = currentStock > 0;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -26,18 +43,18 @@ export default function ProductCard({ product, currentStock }: Props) {
             defaultValue={product.name}
             required
             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            placeholder="Product name"
+            placeholder={t('products.namePlaceholder')}
           />
           <button
             type="submit"
             className="px-3 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors"
           >
-            Save
+            {t('products.save')}
           </button>
         </div>
         <div className="flex flex-wrap gap-3 text-sm">
           <label className="flex items-center gap-1 text-slate-600">
-            Lead time
+            {t('products.leadTime')}
             <input
               type="number"
               name="lead_time_days"
@@ -47,10 +64,10 @@ export default function ProductCard({ product, currentStock }: Props) {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Safety stock
+            {t('products.safetyStock')}
             <input
               type="number"
               name="safety_stock_days"
@@ -60,46 +77,111 @@ export default function ProductCard({ product, currentStock }: Props) {
               required
               className="w-14 border border-slate-300 rounded px-2 py-1 text-center"
             />
-            days
+            {t('products.days')}
           </label>
           <label className="flex items-center gap-1 text-slate-600">
-            Unit price
+            {t('products.unitPrice')}
             <input
               type="number"
               name="price"
               defaultValue={product.price ?? ''}
               min={0}
               step="0.01"
-              placeholder="Optional"
+              placeholder={t('products.optional')}
               className="w-24 border border-slate-300 rounded px-2 py-1 text-center"
             />
           </label>
         </div>
-        {updateState?.error && (
-          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateState.error}</p>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <label className={`flex items-center gap-1 ${expiryLocked ? 'text-slate-400' : 'text-slate-600'}`}>
+            {t('products.shelfLife')}
+            <select
+              name="expiry_type"
+              defaultValue={product.expiry_type ?? ''}
+              disabled={expiryLocked}
+              className="border border-slate-300 rounded px-2 py-1 text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
+            >
+              <option value="">{t('products.expiryTypeNone')}</option>
+              <option value="賞味期限">{t('products.expiryTypeBest')}</option>
+              <option value="消費期限">{t('products.expiryTypeUse')}</option>
+            </select>
+          </label>
+          <label className={`flex items-center gap-1 ${expiryLocked ? 'text-slate-400' : 'text-slate-600'}`}>
+            {t('products.shelfLifeDays')}
+            <input
+              type="number"
+              name="shelf_life_days"
+              defaultValue={product.shelf_life_days ?? ''}
+              min={1}
+              disabled={expiryLocked}
+              placeholder={t('products.optional')}
+              className="w-20 border border-slate-300 rounded px-2 py-1 text-center disabled:bg-slate-100 disabled:cursor-not-allowed"
+            />
+            {t('products.days')}
+          </label>
+          {expiryLocked && (
+            <span className="text-xs text-slate-400 self-center">{t('products.expiryLocked')}</span>
+          )}
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.feeConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <FeeRateInput name="incoming_fee_per_piece" unitConfig={product} defaultPerPiece={product.incoming_fee_per_piece} label={t('products.incomingFee')} />
+            <FeeRateInput name="storage_fee_per_piece" unitConfig={product} defaultPerPiece={product.storage_fee_per_piece} label={t('products.storageFee')} />
+            <FeeRateInput name="outgoing_fee_per_piece" unitConfig={product} defaultPerPiece={product.outgoing_fee_per_piece} label={t('products.outgoingFee')} />
+          </div>
+        </div>
+        <div className="border-t border-slate-100 pt-3 mt-1">
+          <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.unitConfig')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.piecesPerBall')}
+              <input type="number" name="pieces_per_ball" min={1} defaultValue={product.pieces_per_ball ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitPieces')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.ballsPerCase')}
+              <input type="number" name="balls_per_case" min={1} defaultValue={product.balls_per_case ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitBalls')}
+            </label>
+            <label className="flex items-center gap-1 text-slate-600">
+              {t('products.casesPerPallet')}
+              <input type="number" name="cases_per_pallet" min={1} defaultValue={product.cases_per_pallet ?? ''} placeholder="—" className="w-16 border border-slate-300 rounded px-2 py-1 text-center" />
+              {t('products.unitCases')}
+            </label>
+          </div>
+        </div>
+        {warehouses.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 mt-1">
+            <p className="text-xs font-semibold text-slate-500 mb-2">{t('products.defaultWarehouse')} <span className="font-normal text-slate-400">{t('products.optionalParens')}</span></p>
+            <input type="hidden" name="default_warehouse_id" value={warehouseId} readOnly />
+            <input type="hidden" name="default_warehouse_name" value={selectedWarehouse?.name ?? ''} readOnly />
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">{t('products.noDefaultWarehouse')}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        )}
+        {updateError && (
+          <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{updateError}</p>
+        )}
+        {updateSuccess && (
+          <p className="text-green-600 text-sm bg-green-50 rounded-lg px-3 py-2">{updateSuccess}</p>
         )}
       </form>
 
       {/* Stock update + Delete */}
       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-        <form action={stockAction} className="flex items-center gap-2 flex-1">
-          <input type="hidden" name="product_id" value={product.id} />
-          <span className="text-sm text-slate-500">Current stock:</span>
-          <input
-            type="number"
-            name="current_stock"
-            defaultValue={currentStock}
-            min={0}
-            className="w-20 border border-slate-300 rounded px-2 py-1 text-sm text-center"
-          />
-          <span className="text-sm text-slate-500">units</span>
-          <button
-            type="submit"
-            className="px-3 py-1 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200 transition-colors"
-          >
-            Update
-          </button>
-        </form>
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-sm text-slate-500">{t('products.currentStock')}</span>
+          <span className="text-sm text-slate-800 font-medium">
+            {product.pieces_per_ball ? formatQty(currentStock, product, lang) : `${currentStock} ${t('products.units')}`}
+          </span>
+        </div>
 
         <form action={deleteAction}>
           <input type="hidden" name="id" value={product.id} />
@@ -107,20 +189,13 @@ export default function ProductCard({ product, currentStock }: Props) {
             type="submit"
             className="px-3 py-1 text-red-500 text-sm rounded-lg hover:bg-red-50 transition-colors"
           >
-            Delete
+            {t('products.delete')}
           </button>
         </form>
       </div>
 
-      {stockState?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">
-          {stockState.error}
-        </p>
-      )}
-      {deleteState?.error && (
-        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">
-          {deleteState.error}
-        </p>
+      {deleteError && (
+        <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2 mt-2">{deleteError}</p>
       )}
     </div>
   );
