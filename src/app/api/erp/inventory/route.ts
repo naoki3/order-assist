@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 
+interface InventoryRow {
+  product_id: number;
+  current_stock: number;
+  allocated_qty: number | null;
+  updated_at: string;
+  products: { id: number; name: string; user_id: string } | null;
+}
+
 export async function GET(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey || apiKey !== process.env.ERP_API_KEY) {
@@ -24,15 +32,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch inventory', detail: error.message }, { status: 500 });
   }
 
-  const items = (data ?? []).map((row: {
-    product_id: number;
-    current_stock: number;
-    allocated_qty: number | null;
-    updated_at: string;
-    products: { id: number; name: string; user_id: string };
-  }) => ({
+  const items = ((data ?? []) as unknown as InventoryRow[]).map((row) => ({
     product_id: row.product_id,
-    product_name: row.products.name,
+    product_name: row.products?.name ?? '',
     current_stock: row.current_stock,
     allocated_qty: row.allocated_qty ?? 0,
     available_qty: row.current_stock - (row.allocated_qty ?? 0),

@@ -16,6 +16,14 @@ interface ShipmentPayload {
   lines: ShipmentLine[];
 }
 
+interface ShipmentLineInsert {
+  shipment_id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  user_id: string;
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey || apiKey !== process.env.ERP_API_KEY) {
@@ -29,8 +37,8 @@ export async function POST(req: NextRequest) {
 
   let body: ShipmentPayload;
   try {
-    body = await req.json();
-  } catch {
+    body = await req.json() as ShipmentPayload;
+  } catch (_e) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
@@ -40,7 +48,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Resolve destination_id if destination_name provided
   let destinationId: number | null = null;
   let destinationName = body.destination_name ?? null;
   if (body.destination_name) {
@@ -52,12 +59,11 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
     if (dest) {
-      destinationId = dest.id;
-      destinationName = dest.name;
+      destinationId = (dest as { id: number; name: string }).id;
+      destinationName = (dest as { id: number; name: string }).name;
     }
   }
 
-  // Resolve warehouse_id if warehouse_name provided
   let warehouseId: number | null = null;
   let warehouseName = body.warehouse_name ?? null;
   if (body.warehouse_name) {
@@ -69,15 +75,13 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
     if (warehouse) {
-      warehouseId = warehouse.id;
-      warehouseName = warehouse.name;
+      warehouseId = (warehouse as { id: number; name: string }).id;
+      warehouseName = (warehouse as { id: number; name: string }).name;
     }
   }
 
-  // Generate shipment_no
   const shipmentNo = `ERP-SHP-${body.external_ref_no}-${Date.now()}`;
 
-  // Create shipment header
   const { data: shipment, error: shipmentError } = await supabase
     .from('shipments')
     .insert({
@@ -102,8 +106,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create shipment', detail: shipmentError?.message }, { status: 500 });
   }
 
-  // Resolve products and create shipment lines
-  const lineInserts = [];
+  const s = shipment as { id: number; shipment_no: string };
+  const lineInserts: ShipmentLineInsert[] = [];
+
   for (const line of body.lines) {
     let productId = line.product_id ?? null;
     let productName = line.product_name;
@@ -117,13 +122,13 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .single();
       if (product) {
-        productId = product.id;
-        productName = product.name;
+        productId = (product as { id: number; name: string }).id;
+        productName = (product as { id: number; name: string }).name;
       }
     }
 
     if (!productId) {
-      await supabase.from('shipments').delete().eq('id', shipment.id);
+      await supabase.from('shipments').delete().eq('id', s.id);
       return NextResponse.json(
         { error: `Product not found in WMS: ${line.product_name}` },
         { status: 422 }
@@ -131,7 +136,7 @@ export async function POST(req: NextRequest) {
     }
 
     lineInserts.push({
-      shipment_id: shipment.id,
+      shipment_id: s.id,
       product_id: productId,
       product_name: productName,
       quantity: line.quantity,
@@ -145,14 +150,14 @@ export async function POST(req: NextRequest) {
     .select('id');
 
   if (linesError) {
-    await supabase.from('shipments').delete().eq('id', shipment.id);
+    await supabase.from('shipments').delete().eq('id', s.id);
     console.error('[ERP shipments] lines insert error:', linesError);
     return NextResponse.json({ error: 'Failed to create shipment lines', detail: linesError.message }, { status: 500 });
   }
 
   return NextResponse.json({
-    shipment_id: shipment.id,
-    shipment_no: shipment.shipment_no,
-    line_ids: lines?.map((l) => l.id) ?? [],
+    shipment_id: s.id,
+    shipment_no: s.shipment_no,
+    line_ids: (lines as { id: number }[] ?? []).map((l) => l.id),
   });
 }

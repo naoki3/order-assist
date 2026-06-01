@@ -18,6 +18,16 @@ interface ReceiptPayload {
   lines: ReceiptLine[];
 }
 
+interface ReceiptLineInsert {
+  receipt_id: number;
+  product_id: number;
+  product_name: string;
+  expected_qty: number;
+  lot_number: string | null;
+  expiry_date: string | null;
+  user_id: string;
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey || apiKey !== process.env.ERP_API_KEY) {
@@ -31,8 +41,8 @@ export async function POST(req: NextRequest) {
 
   let body: ReceiptPayload;
   try {
-    body = await req.json();
-  } catch {
+    body = await req.json() as ReceiptPayload;
+  } catch (_e) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
@@ -42,7 +52,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // Resolve supplier_id if supplier_name provided
   let supplierId: number | null = null;
   let supplierName = body.supplier_name ?? null;
   if (body.supplier_name) {
@@ -54,12 +63,11 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
     if (supplier) {
-      supplierId = supplier.id;
-      supplierName = supplier.name;
+      supplierId = (supplier as { id: number; name: string }).id;
+      supplierName = (supplier as { id: number; name: string }).name;
     }
   }
 
-  // Resolve warehouse_id if warehouse_name provided
   let warehouseId: number | null = null;
   let warehouseName = body.warehouse_name ?? null;
   if (body.warehouse_name) {
@@ -71,15 +79,13 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
     if (warehouse) {
-      warehouseId = warehouse.id;
-      warehouseName = warehouse.name;
+      warehouseId = (warehouse as { id: number; name: string }).id;
+      warehouseName = (warehouse as { id: number; name: string }).name;
     }
   }
 
-  // Generate receipt_no
   const receiptNo = `ERP-RCV-${body.external_ref_no}-${Date.now()}`;
 
-  // Create receipt header
   const { data: receipt, error: receiptError } = await supabase
     .from('receipts')
     .insert({
@@ -104,8 +110,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create receipt', detail: receiptError?.message }, { status: 500 });
   }
 
-  // Resolve products and create receipt lines
-  const lineInserts = [];
+  const r = receipt as { id: number; receipt_no: string };
+  const lineInserts: ReceiptLineInsert[] = [];
+
   for (const line of body.lines) {
     let productId = line.product_id ?? null;
     let productName = line.product_name;
@@ -119,14 +126,13 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .single();
       if (product) {
-        productId = product.id;
-        productName = product.name;
+        productId = (product as { id: number; name: string }).id;
+        productName = (product as { id: number; name: string }).name;
       }
     }
 
     if (!productId) {
-      // Clean up the receipt we just created
-      await supabase.from('receipts').delete().eq('id', receipt.id);
+      await supabase.from('receipts').delete().eq('id', r.id);
       return NextResponse.json(
         { error: `Product not found in WMS: ${line.product_name}` },
         { status: 422 }
@@ -134,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     lineInserts.push({
-      receipt_id: receipt.id,
+      receipt_id: r.id,
       product_id: productId,
       product_name: productName,
       expected_qty: line.expected_qty,
@@ -150,14 +156,14 @@ export async function POST(req: NextRequest) {
     .select('id');
 
   if (linesError) {
-    await supabase.from('receipts').delete().eq('id', receipt.id);
+    await supabase.from('receipts').delete().eq('id', r.id);
     console.error('[ERP receipts] lines insert error:', linesError);
     return NextResponse.json({ error: 'Failed to create receipt lines', detail: linesError.message }, { status: 500 });
   }
 
   return NextResponse.json({
-    receipt_id: receipt.id,
-    receipt_no: receipt.receipt_no,
-    line_ids: lines?.map((l) => l.id) ?? [],
+    receipt_id: r.id,
+    receipt_no: r.receipt_no,
+    line_ids: (lines as { id: number }[] ?? []).map((l) => l.id),
   });
 }
