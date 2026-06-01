@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
+import { resolvePerformedBy, logErpAudit, PerformedBy } from '@/lib/erp-user-resolver';
 
 interface ReceiptLine {
   product_id?: number;
@@ -16,6 +17,7 @@ interface ReceiptPayload {
   expected_date: string;
   note?: string;
   lines: ReceiptLine[];
+  performed_by?: PerformedBy;
 }
 
 interface ReceiptLineInsert {
@@ -34,11 +36,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const systemUserId = process.env.ERP_SYSTEM_USER_ID;
-  if (!systemUserId) {
-    return NextResponse.json({ error: 'ERP_SYSTEM_USER_ID not configured' }, { status: 500 });
-  }
-
   let body: ReceiptPayload;
   try {
     body = await req.json() as ReceiptPayload;
@@ -50,6 +47,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields: external_ref_no, expected_date, lines' }, { status: 400 });
   }
 
+  let userId: string;
+  let resolvedEmail: string | null = null;
+
+  if (body.performed_by) {
+    const resolved = await resolvePerformedBy(body.performed_by);
+    if (!resolved) {
+      return NextResponse.json(
+        { error: `Cannot resolve WMS user for email: ${body.performed_by.email}` },
+        { status: 422 }
+      );
+    }
+    userId = resolved.wms_user_id;
+    resolvedEmail = resolved.email;
+  } else {
+    const systemUserId = process.env.ERP_SYSTEM_USER_ID;
+    if (!systemUserId) {
+      return NextResponse.json({ error: 'ERP_SYSTEM_USER_ID not configured and performed_by not provided' }, { status: 500 });
+    }
+    userId = systemUserId;
+  }
+
   const supabase = createAdminClient();
 
   let supplierId: number | null = null;
@@ -58,7 +76,7 @@ export async function POST(req: NextRequest) {
     const { data: supplier } = await supabase
       .from('suppliers')
       .select('id, name')
-      .eq('user_id', systemUserId)
+      .eq('user_id', userId)
       .ilike('name', body.supplier_name)
       .limit(1)
       .single();
@@ -74,7 +92,7 @@ export async function POST(req: NextRequest) {
     const { data: warehouse } = await supabase
       .from('warehouses')
       .select('id, name')
-      .eq('user_id', systemUserId)
+      .eq('user_id', userId)
       .ilike('name', body.warehouse_name)
       .limit(1)
       .single();
@@ -100,7 +118,7 @@ export async function POST(req: NextRequest) {
       source_system: 'api',
       expected_date: body.expected_date,
       note: body.note ?? null,
-      user_id: systemUserId,
+      user_id: userId,
     })
     .select('id, receipt_no')
     .single();
@@ -121,7 +139,7 @@ export async function POST(req: NextRequest) {
       const { data: product } = await supabase
         .from('products')
         .select('id, name')
-        .eq('user_id', systemUserId)
+        .eq('user_id', userId)
         .ilike('name', line.product_name)
         .limit(1)
         .single();
@@ -146,7 +164,7 @@ export async function POST(req: NextRequest) {
       expected_qty: line.expected_qty,
       lot_number: line.lot_number ?? null,
       expiry_date: line.expiry_date ?? null,
-      user_id: systemUserId,
+      user_id: userId,
     });
   }
 
@@ -159,6 +177,19 @@ export async function POST(req: NextRequest) {
     await supabase.from('receipts').delete().eq('id', r.id);
     console.error('[ERP receipts] lines insert error:', linesError);
     return NextResponse.json({ error: 'Failed to create receipt lines', detail: linesError.message }, { status: 500 });
+  }
+
+  if (body.performed_by) {
+    await logErpAudit({
+      source_system: body.performed_by.source_system,
+      source_user_id: body.performed_by.source_user_id,
+      wms_user_id: userId,
+      email: resolvedEmail,
+      action: 'create_receipt',
+      entity_type: 'receipt',
+      entity_id: r.id,
+      details: { receipt_no: r.receipt_no, external_ref_no: body.external_ref_no },
+    });
   }
 
   return NextResponse.json({
