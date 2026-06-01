@@ -17,6 +17,7 @@ export async function resolvePerformedBy(
   const supabase = createAdminClient()
   const email = performedBy.email.toLowerCase()
 
+  // 1. mapping tableを検索
   const { data: mapping } = await supabase
     .from('erp_user_mappings')
     .select('wms_user_id, email')
@@ -30,10 +31,12 @@ export async function resolvePerformedBy(
     return { wms_user_id: m.wms_user_id, email: m.email }
   }
 
+  // 2. emailでWMSユーザーを検索
   const { data: listData } = await supabase.auth.admin.listUsers()
   const matchedUser = listData?.users.find(u => u.email?.toLowerCase() === email)
   if (!matchedUser) return null
 
+  // 3. mapping tableに登録
   await supabase.from('erp_user_mappings').insert({
     source_system: performedBy.source_system,
     source_user_id: performedBy.source_user_id,
