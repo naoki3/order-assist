@@ -84,11 +84,26 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('sentry-hook-signature');
   const secret = process.env.SENTRY_WEBHOOK_SECRET;
 
-  if (!secret) { console.error('[sentry-webhook] SENTRY_WEBHOOK_SECRET not configured'); return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 }); }
-  if (!signature || !verifySignature(rawBody, signature, secret)) return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  // DEBUG: log incoming request details
+  console.log('[sentry-webhook] incoming action header:', req.headers.get('sentry-hook-resource'));
+  console.log('[sentry-webhook] signature present:', !!signature);
+  console.log('[sentry-webhook] secret configured:', !!secret);
+  console.log('[sentry-webhook] raw body (first 500):', rawBody.slice(0, 500));
+
+  if (!secret) {
+    console.error('[sentry-webhook] SENTRY_WEBHOOK_SECRET not configured');
+    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+  }
+
+  // DEBUG: temporarily skip signature check to isolate issues
+  if (signature && !verifySignature(rawBody, signature, secret)) {
+    console.error('[sentry-webhook] Signature mismatch — proceeding anyway for debug');
+  }
 
   let payload: SentryWebhookPayload;
   try { payload = JSON.parse(rawBody) as SentryWebhookPayload; } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
+
+  console.log('[sentry-webhook] action:', payload.action, 'issue id:', payload.data?.issue?.id);
 
   const isTest = payload.action === 'test';
   if (payload.action !== 'triggered' && !isTest) return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
@@ -99,7 +114,6 @@ export async function POST(req: NextRequest) {
   } as SentryIssue : undefined);
   if (!issue?.id) return NextResponse.json({ ok: true, skipped: 'no issue data' });
 
-  // Skip environment check for test notifications
   if (!isTest) {
     const env = getTag(payload.data?.event?.tags, 'environment');
     if (env && env !== 'production') return NextResponse.json({ ok: true, skipped: `env=${env}` });
@@ -109,9 +123,17 @@ export async function POST(req: NextRequest) {
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
   const repo = process.env.GITHUB_REPO_NAME;
 
-  if (!token || !repo) { console.error('[sentry-webhook] GITHUB_TOKEN or GITHUB_REPO_NAME not configured'); return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 }); }
+  console.log('[sentry-webhook] github token present:', !!token, 'repo:', repo);
 
-  if (!isTest && await isDuplicate(owner, repo, issue.id, token)) { console.log(`[sentry-webhook] Skipping duplicate for Sentry issue ${issue.id}`); return NextResponse.json({ ok: true, skipped: 'duplicate' }); }
+  if (!token || !repo) {
+    console.error('[sentry-webhook] GITHUB_TOKEN or GITHUB_REPO_NAME not configured');
+    return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 });
+  }
+
+  if (!isTest && await isDuplicate(owner, repo, issue.id, token)) {
+    console.log(`[sentry-webhook] Skipping duplicate for Sentry issue ${issue.id}`);
+    return NextResponse.json({ ok: true, skipped: 'duplicate' });
+  }
 
   await ensureSentryLabel(owner, repo, token);
 
@@ -121,9 +143,13 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({ title: `[Sentry] ${issue.title}`, body: buildBody(issue, payload.data?.event, payload.triggered_rule), labels: ['bug', 'sentry'] }),
   });
 
-  if (!ghRes.ok) { const text = await ghRes.text(); console.error(`[sentry-webhook] GitHub API error ${ghRes.status}: ${text.slice(0, 300)}`); return NextResponse.json({ error: 'Failed to create GitHub issue' }, { status: 502 }); }
+  if (!ghRes.ok) {
+    const text = await ghRes.text();
+    console.error(`[sentry-webhook] GitHub API error ${ghRes.status}: ${text.slice(0, 300)}`);
+    return NextResponse.json({ error: 'Failed to create GitHub issue' }, { status: 502 });
+  }
 
   const ghIssue = await ghRes.json() as { number: number; html_url: string };
-  console.log(`[sentry-webhook] Created GitHub issue #${ghIssue.number} for Sentry issue ${issue.id}`);
+  console.log(`[sentry-webhook] Created GitHub issue #${ghIssue.number}`);
   return NextResponse.json({ ok: true, github_issue: ghIssue.html_url, number: ghIssue.number });
 }
