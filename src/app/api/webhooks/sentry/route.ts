@@ -90,13 +90,20 @@ export async function POST(req: NextRequest) {
   let payload: SentryWebhookPayload;
   try { payload = JSON.parse(rawBody) as SentryWebhookPayload; } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  if (payload.action !== 'triggered') return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
+  const isTest = payload.action === 'test';
+  if (payload.action !== 'triggered' && !isTest) return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
 
-  const issue = payload.data?.issue;
+  const issue = payload.data?.issue ?? (isTest ? {
+    id: `test-${Date.now()}`, shortId: 'TEST-1', title: '[Test] Sentry Webhook Test',
+    level: 'error', status: 'unresolved',
+  } as SentryIssue : undefined);
   if (!issue?.id) return NextResponse.json({ ok: true, skipped: 'no issue data' });
 
-  const env = getTag(payload.data?.event?.tags, 'environment');
-  if (env && env !== 'production') return NextResponse.json({ ok: true, skipped: `env=${env}` });
+  // Skip environment check for test notifications
+  if (!isTest) {
+    const env = getTag(payload.data?.event?.tags, 'environment');
+    if (env && env !== 'production') return NextResponse.json({ ok: true, skipped: `env=${env}` });
+  }
 
   const token = process.env.GITHUB_TOKEN;
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
@@ -104,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   if (!token || !repo) { console.error('[sentry-webhook] GITHUB_TOKEN or GITHUB_REPO_NAME not configured'); return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 }); }
 
-  if (await isDuplicate(owner, repo, issue.id, token)) { console.log(`[sentry-webhook] Skipping duplicate for Sentry issue ${issue.id}`); return NextResponse.json({ ok: true, skipped: 'duplicate' }); }
+  if (!isTest && await isDuplicate(owner, repo, issue.id, token)) { console.log(`[sentry-webhook] Skipping duplicate for Sentry issue ${issue.id}`); return NextResponse.json({ ok: true, skipped: 'duplicate' }); }
 
   await ensureSentryLabel(owner, repo, token);
 
