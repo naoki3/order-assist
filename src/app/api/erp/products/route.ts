@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { resolvePerformedBy, PerformedBy } from '@/lib/erp-user-resolver';
 
+interface ProductRow {
+  id: number;
+  name: string;
+  price: number | null;
+  lead_time_days: number;
+  safety_stock_days: number;
+}
+
 interface ProductBody {
   name: string;
   price?: number;
@@ -40,6 +48,50 @@ function requireApiKey(req: NextRequest): NextResponse | null {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   return null;
+}
+
+export async function GET(req: NextRequest) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
+
+  const url = new URL(req.url);
+  const sourceUserId = url.searchParams.get('source_user_id');
+  const email = url.searchParams.get('email');
+  const sourceSystem = url.searchParams.get('source_system') ?? 'ERP';
+
+  let userId: string;
+  if (sourceUserId && email) {
+    const resolved = await resolvePerformedBy({ source_system: sourceSystem, source_user_id: sourceUserId, email });
+    if (!resolved) return NextResponse.json({ error: `Cannot resolve WMS user for email: ${email}` }, { status: 422 });
+    userId = resolved.wms_user_id;
+  } else {
+    const systemUserId = process.env.ERP_SYSTEM_USER_ID;
+    if (!systemUserId) return NextResponse.json({ error: 'ERP_SYSTEM_USER_ID not configured and performed_by not provided' }, { status: 500 });
+    userId = systemUserId;
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, price, lead_time_days, safety_stock_days')
+    .eq('user_id', userId)
+    .order('name');
+
+  if (error) {
+    console.error('[ERP products] list error:', error);
+    return NextResponse.json({ error: 'Failed to fetch products', detail: error.message }, { status: 500 });
+  }
+
+  const products = ((data ?? []) as unknown as ProductRow[]).map((p) => ({
+    product_id: p.id,
+    name: p.name,
+    price: p.price,
+    lead_time_days: p.lead_time_days,
+    safety_stock_days: p.safety_stock_days,
+  }));
+
+  console.log(`[ERP products] list ok count=${products.length} userId=${userId}`);
+  return NextResponse.json(products);
 }
 
 export async function POST(req: NextRequest) {
