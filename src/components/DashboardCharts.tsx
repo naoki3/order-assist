@@ -11,6 +11,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { useT } from './LanguageProvider';
 
 interface SalesTrendPoint {
   date: string;
@@ -28,11 +29,13 @@ interface Props {
 }
 
 export default function DashboardCharts({ salesTrend, bestSellers }: Props) {
+  const { t, tf } = useT();
+
   return (
     <div className="space-y-4">
       {salesTrend.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-600 mb-3">7-Day Sales Trend (Total)</h2>
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('chart.salesTrend')}</h2>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={salesTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -45,7 +48,7 @@ export default function DashboardCharts({ salesTrend, bestSellers }: Props) {
               <Line
                 type="monotone"
                 dataKey="total"
-                name="units sold"
+                name={t('chart.unitsSold')}
                 stroke="#3b82f6"
                 strokeWidth={2}
                 dot={{ r: 3, fill: '#3b82f6' }}
@@ -58,7 +61,7 @@ export default function DashboardCharts({ salesTrend, bestSellers }: Props) {
 
       {bestSellers.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-600 mb-3">Best Sellers (avg units/day)</h2>
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">{t('chart.bestSellers')}</h2>
           <ResponsiveContainer width="100%" height={bestSellers.length * 44 + 16}>
             <BarChart
               data={bestSellers}
@@ -79,7 +82,10 @@ export default function DashboardCharts({ salesTrend, bestSellers }: Props) {
               />
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                formatter={(v) => [typeof v === 'number' ? `${v.toFixed(1)} units/day` : v, 'avg demand']}
+                formatter={(v) => [
+                  typeof v === 'number' ? tf<string>('chart.unitsPerDay', v.toFixed(1)) : v,
+                  t('chart.avgDemand'),
+                ]}
               />
               <Bar dataKey="avgDemand" fill="#6366f1" radius={[0, 4, 4, 0]} />
             </BarChart>

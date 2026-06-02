@@ -1,5 +1,6 @@
 import { createClient } from './supabase';
 import type { Product } from './db';
+import type { Lang } from './i18n';
 import {
   buildDateRange,
   calcAverageDemand,
@@ -17,33 +18,48 @@ export interface Recommendation {
   reason: string;
 }
 
-export async function getRecommendations(today: Date = new Date()): Promise<Recommendation[]> {
+export async function getRecommendations(today: Date = new Date(), lang: Lang = 'ja'): Promise<Recommendation[]> {
   const supabase = await createClient();
   const { data: products } = await supabase.from('products').select('*').order('id');
   if (!products || products.length === 0) return [];
 
   const dates = buildDateRange(today);
-  const results: Recommendation[] = [];
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
 
-  for (const product of products as Product[]) {
-    const { data: salesData } = await supabase
-      .from('sales')
-      .select('date, quantity')
-      .eq('product_id', product.id)
-      .in('date', dates)
-      .order('date');
+  const [{ data: allOutgoing }, { data: allInventory }] = await Promise.all([
+    supabase
+      .from('shipment_lines')
+      .select('product_id, quantity, shipments!inner(shipped_at)')
+      .eq('status', 'shipped')
+      .not('shipments.shipped_at', 'is', null)
+      .gte('shipments.shipped_at', minDate + 'T00:00:00')
+      .lte('shipments.shipped_at', maxDate + 'T23:59:59'),
+    supabase
+      .from('inventory')
+      .select('product_id, current_stock'),
+  ]);
 
-    const sales = salesData ?? [];
-    const salesByDate = Object.fromEntries(sales.map((s) => [s.date, s.quantity]));
+  const salesByProduct: Record<number, Record<string, number>> = {};
+  for (const s of (allOutgoing ?? []) as { product_id: number; quantity: number; shipments: { shipped_at: string } | { shipped_at: string }[] }[]) {
+    const ship = Array.isArray(s.shipments) ? s.shipments[0] : s.shipments;
+    if (!ship?.shipped_at) continue;
+    const dateStr = (ship.shipped_at as string).slice(0, 10);
+    if (!salesByProduct[s.product_id]) salesByProduct[s.product_id] = {};
+    salesByProduct[s.product_id][dateStr] = (salesByProduct[s.product_id][dateStr] ?? 0) + s.quantity;
+  }
+
+  const stockByProduct: Record<number, number> = {};
+  for (const inv of allInventory ?? []) {
+    stockByProduct[inv.product_id] = inv.current_stock;
+  }
+
+  return (products as Product[]).map((product) => {
+    const salesByDate = salesByProduct[product.id] ?? {};
     const quantities = dates.map((d) => salesByDate[d] ?? 0);
 
     const avgDemand7d = calcAverageDemand(quantities);
-    const { data: inv } = await supabase
-      .from('inventory')
-      .select('current_stock')
-      .eq('product_id', product.id)
-      .single();
-    const currentStock = inv?.current_stock ?? 0;
+    const currentStock = stockByProduct[product.id] ?? 0;
 
     const requiredStock = calcRequiredStock(
       avgDemand7d,
@@ -56,11 +72,10 @@ export async function getRecommendations(today: Date = new Date()): Promise<Reco
       orderQty,
       quantities,
       product.lead_time_days,
-      product.safety_stock_days
+      product.safety_stock_days,
+      lang
     );
 
-    results.push({ product, avgDemand7d, currentStock, requiredStock, orderQty, reason });
-  }
-
-  return results;
+    return { product, avgDemand7d, currentStock, requiredStock, orderQty, reason };
+  });
 }

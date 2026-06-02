@@ -1,33 +1,27 @@
 import { createClient } from '@/lib/supabase';
-import ProductCard from '@/components/ProductCard';
-import AddProductForm from '@/components/AddProductForm';
+import { getLang } from '@/lib/lang';
+import { t } from '@/lib/i18n';
 import type { Product, Inventory } from '@/lib/db';
+import ProductListClient from '@/components/ProductListClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
-  const supabase = await createClient();
-  const { data: productsData } = await supabase.from('products').select('*').order('id');
+  const [supabase, lang] = await Promise.all([createClient(), getLang()]);
+  const [{ data: productsData }, { data: inventoriesData }, { data: warehousesData }] = await Promise.all([
+    supabase.from('products').select('*').order('id').limit(1000),
+    supabase.from('inventory').select('*').limit(1000),
+    supabase.from('warehouses').select('id, name').order('name').limit(500),
+  ]);
   const products = (productsData ?? []) as Product[];
-
-  const { data: inventoriesData } = await supabase.from('inventory').select('*');
   const inventories = (inventoriesData ?? []) as Inventory[];
+  const warehouses = (warehousesData ?? []) as { id: number; name: string }[];
   const stockMap = Object.fromEntries(inventories.map((i) => [i.product_id, i.current_stock]));
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-4">Products</h1>
-
-      <div className="space-y-3 mb-6">
-        {products.length === 0 && (
-          <p className="text-slate-400 text-sm">No products yet. Add one below.</p>
-        )}
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} currentStock={stockMap[p.id] ?? 0} />
-        ))}
-      </div>
-
-      <AddProductForm />
+      <h1 className="text-xl font-bold text-slate-800 mb-4">{t('products.title', lang)}</h1>
+      <ProductListClient products={products} stockMap={stockMap} warehouses={warehouses} />
     </div>
   );
 }

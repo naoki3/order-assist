@@ -1,70 +1,86 @@
 import { createClient } from '@/lib/supabase';
-import ReceiveForm from '@/components/ReceiveForm';
-import type { IncomingStock } from '@/lib/db';
+import { getLang } from '@/lib/lang';
+import { translations } from '@/lib/i18n';
+import IncomingConfirmList from '@/components/IncomingConfirmList';
+import ReceivedHistoryList from '@/components/ReceivedHistoryList';
+import type { ReceiptWithLines } from '@/lib/db';
+import type { UnitConfig } from '@/lib/units';
+import { cookies } from 'next/headers';
+import { toLocalDateStr, DEFAULT_TZ } from '@/lib/tz';
 
 export const dynamic = 'force-dynamic';
 
+const RECENT_DATES = 20;
+
 export default async function IncomingPage() {
-  const supabase = await createClient();
+  const [supabase, lang, cookieStore] = await Promise.all([createClient(), getLang(), cookies()]);
+  const dict = translations[lang];
+  const today = toLocalDateStr(cookieStore.get('tz')?.value ?? DEFAULT_TZ);
 
-  const { data: pendingData } = await supabase
-    .from('incoming_stock')
-    .select('*')
-    .is('received_at', null)
-    .order('expected_date')
-    .order('id');
-  const pending = (pendingData ?? []) as IncomingStock[];
+  // Fetch distinct received dates first (lightweight), then load receipts for the most recent 20 dates
+  const [{ data: pendingData }, { data: datesData }, { data: productsData }, { data: locationsData }, { data: statusesData }] = await Promise.all([
+    supabase.from('receipts')
+      .select('*, receipt_lines(*)')
+      .eq('status', 'expected')
+      .order('expected_date', { ascending: true })
+      .order('id'),
+    supabase.from('receipts')
+      .select('received_at')
+      .eq('status', 'received')
+      .order('received_at', { ascending: false }),
+    supabase.from('products').select('id, pieces_per_ball, balls_per_case, cases_per_pallet, expiry_type'),
+    supabase.from('locations').select('id, name, warehouse_id').order('name'),
+    supabase.from('inventory_statuses').select('id, name, color').order('name'),
+  ]);
 
-  const { data: receivedData } = await supabase
-    .from('incoming_stock')
-    .select('*')
-    .not('received_at', 'is', null)
-    .order('received_at', { ascending: false })
-    .limit(20);
-  const received = (receivedData ?? []) as IncomingStock[];
+  type DateRow = { received_at: string | null };
+  const recentDates = [...new Set(
+    (datesData ?? []).map((r: DateRow) => r.received_at?.split('T')[0]).filter((d): d is string => !!d)
+  )].slice(0, RECENT_DATES);
+
+  let received: ReceiptWithLines[] = [];
+  if (recentDates.length > 0) {
+    const fromDate = recentDates[recentDates.length - 1];
+    const toNext = new Date(recentDates[0]);
+    toNext.setDate(toNext.getDate() + 1);
+    const { data: receivedData } = await supabase
+      .from('receipts')
+      .select('*, receipt_lines(*)')
+      .eq('status', 'received')
+      .gte('received_at', fromDate)
+      .lt('received_at', toNext.toISOString().split('T')[0])
+      .order('received_at', { ascending: false });
+    received = (receivedData ?? []) as ReceiptWithLines[];
+  }
+
+  const pending = (pendingData ?? []) as ReceiptWithLines[];
+
+  type ProductRow = { id: number; pieces_per_ball: number | null; balls_per_case: number | null; cases_per_pallet: number | null; expiry_type: string | null };
+  const unitMap: Record<number, UnitConfig> = Object.fromEntries(
+    (productsData ?? []).map((p: ProductRow) => [p.id, { pieces_per_ball: p.pieces_per_ball, balls_per_case: p.balls_per_case, cases_per_pallet: p.cases_per_pallet }])
+  );
+  const expiryTypeMap: Record<number, string | null> = Object.fromEntries(
+    (productsData ?? []).map((p: ProductRow) => [p.id, p.expiry_type ?? null])
+  );
+  const locations = (locationsData ?? []) as { id: number; name: string; warehouse_id: number | null }[];
+  const statuses = (statusesData ?? []) as { id: number; name: string; color: string }[];
 
   return (
-    <div>
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Incoming Stock</h1>
-      <p className="text-sm text-slate-500 mb-4">Marking as received automatically adds to inventory</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800 mb-1">{dict['incoming.title']}</h1>
+        <p className="text-sm text-slate-500">{dict['incoming.subtitle']}</p>
+      </div>
 
-      <h2 className="text-sm font-semibold text-slate-600 mb-2">Awaiting Delivery</h2>
-      {pending.length === 0 ? (
-        <p className="text-slate-400 text-sm mb-6">No items awaiting delivery</p>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {pending.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-800">{item.product_name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {item.quantity} units · Expected {item.expected_date}
-                </p>
-              </div>
-              <ReceiveForm id={item.id} />
-            </div>
-          ))}
-        </div>
-      )}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.awaiting']}</h2>
+        <IncomingConfirmList receipts={pending} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} expiryTypeMap={expiryTypeMap} today={today} locations={locations} statuses={statuses} />
+      </div>
 
-      {received.length > 0 && (
-        <>
-          <h2 className="text-sm font-semibold text-slate-600 mb-2">Received (Last 20)</h2>
-          <div className="space-y-2">
-            {received.map((item) => (
-              <div key={item.id} className="bg-slate-50 rounded-xl border border-slate-100 p-4 flex items-center justify-between gap-3 opacity-70">
-                <div>
-                  <p className="font-semibold text-slate-700">{item.product_name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {item.quantity} units · Received {item.received_at?.slice(0, 10)}
-                  </p>
-                </div>
-                <span className="text-xs text-green-600 font-medium">Received</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-600 mb-2">{dict['incoming.received']}</h2>
+        <ReceivedHistoryList receipts={received} emptyText={dict['incoming.noAwaiting'] as string} unitMap={unitMap} />
+      </div>
     </div>
   );
 }
