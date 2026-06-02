@@ -70,42 +70,53 @@ function buildBody(issue: SentryIssue, event: SentryEvent | undefined, rule: str
   const exc = event?.exception?.values?.[0];
   const frames = exc?.stacktrace?.frames?.slice(-5).reverse() ?? [];
 
-  const rows: [string, string, string][] = [
-    ['Environment', '環境', env],
-    ['Level', 'レベル', issue.level],
-    ['Status', 'ステータス', issue.status],
-    ['Event Count', '発生回数', issue.count ?? '—'],
-    ['Affected Users', '影響ユーザー数', String(issue.userCount ?? '—')],
-    ['First Seen', '初回検知', issue.firstSeen ? new Date(issue.firstSeen).toISOString() : '—'],
-    ['Last Seen', '最終検知', issue.lastSeen ? new Date(issue.lastSeen).toISOString() : '—'],
-    ...(issue.culprit ? [['Culprit', '発生箇所', `\`${issue.culprit}\``] as [string, string, string]] : []),
-    ...(rule ? [['Alert Rule', 'アラートルール', rule] as [string, string, string]] : []),
-  ];
+  // --- Summary section ---
+  const summaryLines: string[] = [];
+  summaryLines.push(`**本番環境でエラーが発生しました。** (An error occurred in production.)`)
+  summaryLines.push('');
+  if (exc) {
+    summaryLines.push(`- **エラー:** \`${exc.type}: ${exc.value}\``);
+  }
+  if (issue.culprit) {
+    summaryLines.push(`- **発生箇所 / Location:** \`${issue.culprit}\``);
+  }
+  summaryLines.push(`- **環境 / Environment:** ${env}`);
+  summaryLines.push(`- **レベル / Level:** ${issue.level}`);
+  if (rule) {
+    summaryLines.push(`- **アラートルール / Alert Rule:** ${rule}`);
+  }
+  summaryLines.push('');
+  summaryLines.push(`| 発生回数 / Count | 影響ユーザー / Users | 初回検知 / First Seen | 最終検知 / Last Seen |`);
+  summaryLines.push(`|---|---|---|---|`);
+  summaryLines.push(
+    `| ${issue.count ?? '—'} | ${issue.userCount ?? '—'} ` +
+    `| ${issue.firstSeen ? new Date(issue.firstSeen).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '—'} ` +
+    `| ${issue.lastSeen ? new Date(issue.lastSeen).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '—'} |`
+  );
 
-  const table = [
-    '| Field / 項目 | Value / 値 |',
-    '|---|---|',
-    ...rows.map(([en, ja, v]) => `| **${en} / ${ja}** | ${v} |`),
-  ].join('\n');
-
+  // --- Stack trace section ---
   const stackLines = frames.map(f => {
     const loc = `${f.filename ?? '?'}:${f.lineno ?? '?'} in \`${f.function ?? '?'}\``;
     return f.context_line ? `  ${loc}\n    ${f.context_line.trim()}` : `  ${loc}`;
   });
   const stackSection = exc && stackLines.length > 0
-    ? ['', '## Stack Trace / スタックトレース', '', '```', `${exc.type}: ${exc.value}`, '', stackLines.join('\n'), '```'].join('\n')
+    ? ['', '## スタックトレース / Stack Trace', '', '```', `${exc.type}: ${exc.value}`, '', stackLines.join('\n'), '```'].join('\n')
+    : '';
+
+  // --- Footer ---
+  const sentryLink = issue.permalink
+    ? `\n[🔗 Sentryで詳細を確認 / View in Sentry](${issue.permalink})\n`
     : '';
 
   return [
-    `## Sentry Issue: ${issue.shortId ?? issue.id}`,
+    `## 何が起きたか / What Happened`,
     '',
-    table,
-    '',
-    ...(issue.permalink ? [`**Sentry Link / リンク:** ${issue.permalink}`, ''] : []),
+    summaryLines.join('\n'),
+    sentryLink,
     stackSection,
     '',
     '---',
-    `*Auto-generated from Sentry alert / Sentryアラートから自動作成。 Sentry Issue ID: \`${issue.id}\`*`,
+    `*Sentryアラートから自動作成 / Auto-generated from Sentry alert. ID: \`${issue.id}\`*`,
   ].join('\n');
 }
 
