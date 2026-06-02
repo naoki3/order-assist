@@ -13,7 +13,7 @@ interface InventoryRow {
 export async function GET(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey || apiKey !== process.env.ERP_API_KEY) {
-    console.error(`[ERP inventory] Unauthorized: received key=${apiKey ? '(present)' : '(missing)'}, expected=${process.env.ERP_API_KEY ? '(set)' : '(NOT SET)'}`);
+    console.error(`[ERP inventory] Unauthorized: key=${apiKey ? '(present)' : '(missing)'} ERP_API_KEY=${process.env.ERP_API_KEY ? '(set)' : '(NOT SET)'}`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -22,30 +22,31 @@ export async function GET(req: NextRequest) {
   const email = url.searchParams.get('email');
   const sourceSystem = url.searchParams.get('source_system') ?? 'ERP';
 
-  console.log(`[ERP inventory] request email=${email} sourceUserId=${sourceUserId}`);
-
   let userId: string;
 
   if (sourceUserId && email) {
+    console.log(`[ERP inventory] resolving user email=${email} sourceUserId=${sourceUserId}`);
+    let resolved;
     try {
-      const resolved = await resolvePerformedBy({
+      resolved = await resolvePerformedBy({
         source_system: sourceSystem,
         source_user_id: sourceUserId,
         email,
       });
-      if (!resolved) {
-        console.error(`[ERP inventory] user not found for email=${email}`);
-        return NextResponse.json({ error: `Cannot resolve WMS user for email: ${email}` }, { status: 422 });
-      }
-      console.log(`[ERP inventory] resolved wms_user_id=${resolved.wms_user_id}`);
-      userId = resolved.wms_user_id;
     } catch (e) {
-      console.error('[ERP inventory] resolvePerformedBy error:', e instanceof Error ? e.message : String(e));
-      return NextResponse.json({ error: 'Failed to resolve user' }, { status: 500 });
+      console.error('[ERP inventory] resolvePerformedBy threw:', e instanceof Error ? e.message : String(e));
+      return NextResponse.json({ error: 'User resolution failed' }, { status: 500 });
     }
+    if (!resolved) {
+      console.error(`[ERP inventory] Cannot resolve WMS user for email=${email}`);
+      return NextResponse.json({ error: `Cannot resolve WMS user for email: ${email}` }, { status: 422 });
+    }
+    console.log(`[ERP inventory] resolved wms_user_id=${resolved.wms_user_id}`);
+    userId = resolved.wms_user_id;
   } else {
     const systemUserId = process.env.ERP_SYSTEM_USER_ID;
     if (!systemUserId) {
+      console.error('[ERP inventory] ERP_SYSTEM_USER_ID not configured and performed_by not provided');
       return NextResponse.json({ error: 'ERP_SYSTEM_USER_ID not configured and performed_by not provided' }, { status: 500 });
     }
     userId = systemUserId;
@@ -72,6 +73,6 @@ export async function GET(req: NextRequest) {
     updated_at: row.updated_at,
   }));
 
-  console.log(`[ERP inventory] returning ${items.length} items for userId=${userId}`);
+  console.log(`[ERP inventory] ok count=${items.length} userId=${userId}`);
   return NextResponse.json(items);
 }
