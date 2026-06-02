@@ -50,7 +50,6 @@ interface SentryWebhookPayload {
   event?: SentryEvent;
 }
 
-// Lifecycle state changes we don't need to file as new issues
 const SKIP_ACTIONS = new Set(['resolved', 'assigned', 'ignored', 'archived', 'unresolved']);
 
 function verifySignature(body: string, rawSig: string, secret: string): boolean {
@@ -70,18 +69,44 @@ function buildBody(issue: SentryIssue, event: SentryEvent | undefined, rule: str
   const env = getTag(event?.tags, 'environment') ?? event?.environment ?? 'production';
   const exc = event?.exception?.values?.[0];
   const frames = exc?.stacktrace?.frames?.slice(-5).reverse() ?? [];
-  const rows: [string, string][] = [
-    ['Environment', env], ['Level', issue.level], ['Status', issue.status],
-    ['Event Count', issue.count ?? '—'], ['Affected Users', String(issue.userCount ?? '—')],
-    ['First Seen', issue.firstSeen ? new Date(issue.firstSeen).toISOString() : '—'],
-    ['Last Seen', issue.lastSeen ? new Date(issue.lastSeen).toISOString() : '—'],
-    ...(issue.culprit ? [['Culprit', `\`${issue.culprit}\``] as [string, string]] : []),
-    ...(rule ? [['Alert Rule', rule] as [string, string]] : []),
+
+  const rows: [string, string, string][] = [
+    ['Environment', '環境', env],
+    ['Level', 'レベル', issue.level],
+    ['Status', 'ステータス', issue.status],
+    ['Event Count', '発生回数', issue.count ?? '—'],
+    ['Affected Users', '影響ユーザー数', String(issue.userCount ?? '—')],
+    ['First Seen', '初回検知', issue.firstSeen ? new Date(issue.firstSeen).toISOString() : '—'],
+    ['Last Seen', '最終検知', issue.lastSeen ? new Date(issue.lastSeen).toISOString() : '—'],
+    ...(issue.culprit ? [['Culprit', '発生箇所', `\`${issue.culprit}\``] as [string, string, string]] : []),
+    ...(rule ? [['Alert Rule', 'アラートルール', rule] as [string, string, string]] : []),
   ];
-  const table = ['| Field | Value |', '|-------|-------|', ...rows.map(([k, v]) => `| **${k}** | ${v} |`)].join('\n');
-  const stackLines = frames.map(f => { const loc = `${f.filename ?? '?'}:${f.lineno ?? '?'} in \`${f.function ?? '?'}\``; return f.context_line ? `  ${loc}\n    ${f.context_line.trim()}` : `  ${loc}`; });
-  const stackSection = exc && stackLines.length > 0 ? ['', '## Stack Trace', '', '```', `${exc.type}: ${exc.value}`, '', stackLines.join('\n'), '```'].join('\n') : '';
-  return [`## Sentry Issue: ${issue.shortId ?? issue.id}`, '', table, '', ...(issue.permalink ? [`**Sentry Link:** ${issue.permalink}`, ''] : []), stackSection, '', '---', `*Auto-generated from Sentry alert. Sentry Issue ID: \`${issue.id}\`*`].join('\n');
+
+  const table = [
+    '| Field / 項目 | Value / 値 |',
+    '|---|---|',
+    ...rows.map(([en, ja, v]) => `| **${en} / ${ja}** | ${v} |`),
+  ].join('\n');
+
+  const stackLines = frames.map(f => {
+    const loc = `${f.filename ?? '?'}:${f.lineno ?? '?'} in \`${f.function ?? '?'}\``;
+    return f.context_line ? `  ${loc}\n    ${f.context_line.trim()}` : `  ${loc}`;
+  });
+  const stackSection = exc && stackLines.length > 0
+    ? ['', '## Stack Trace / スタックトレース', '', '```', `${exc.type}: ${exc.value}`, '', stackLines.join('\n'), '```'].join('\n')
+    : '';
+
+  return [
+    `## Sentry Issue: ${issue.shortId ?? issue.id}`,
+    '',
+    table,
+    '',
+    ...(issue.permalink ? [`**Sentry Link / リンク:** ${issue.permalink}`, ''] : []),
+    stackSection,
+    '',
+    '---',
+    `*Auto-generated from Sentry alert / Sentryアラートから自動作成。 Sentry Issue ID: \`${issue.id}\`*`,
+  ].join('\n');
 }
 
 async function ensureSentryLabel(owner: string, repo: string, token: string): Promise<void> {
@@ -164,11 +189,9 @@ export async function POST(req: NextRequest) {
     } else if (event?.id) {
       issue = { id: event.id, shortId: event.id, title: event.title ?? 'Sentry Error', culprit: event.culprit, level: event.level ?? 'error', status: 'unresolved' };
     } else {
-      // Test notification with no real event data
       issue = { id: `alert-${Date.now()}`, shortId: 'TEST', title: 'Alert Test Notification', level: 'error', status: 'unresolved' };
     }
   } else {
-    // Webhooks plugin flat format (no action field)
     if (!payload.id && !payload.message) {
       return NextResponse.json({ ok: true, skipped: 'no issue data' });
     }
