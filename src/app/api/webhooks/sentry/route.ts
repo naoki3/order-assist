@@ -29,9 +29,20 @@ interface SentryEvent {
 }
 
 interface SentryWebhookPayload {
-  action: string;
+  // Internal Integration fields
+  action?: string;
   data?: { issue?: SentryIssue; event?: SentryEvent };
   triggered_rule?: string;
+  // Webhooks plugin fields (action is absent, data is at top level)
+  id?: string;
+  project?: string;
+  project_name?: string;
+  culprit?: string;
+  message?: string;
+  level?: string;
+  url?: string;
+  triggering_rules?: string[];
+  event?: SentryEvent;
 }
 
 function verifySignature(body: string, rawSig: string, secret: string): boolean {
@@ -84,39 +95,70 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('sentry-hook-signature');
   const secret = process.env.SENTRY_WEBHOOK_SECRET;
 
-  // DEBUG: log incoming request details
-  console.log('[sentry-webhook] incoming action header:', req.headers.get('sentry-hook-resource'));
+  console.log('[sentry-webhook] resource header:', req.headers.get('sentry-hook-resource'));
   console.log('[sentry-webhook] signature present:', !!signature);
   console.log('[sentry-webhook] secret configured:', !!secret);
   console.log('[sentry-webhook] raw body (first 500):', rawBody.slice(0, 500));
 
-  if (!secret) {
-    console.error('[sentry-webhook] SENTRY_WEBHOOK_SECRET not configured');
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
-  }
-
-  // DEBUG: temporarily skip signature check to isolate issues
-  if (signature && !verifySignature(rawBody, signature, secret)) {
+  // Skip signature check if no secret configured (Webhooks plugin without secret)
+  if (secret && signature && !verifySignature(rawBody, signature, secret)) {
     console.error('[sentry-webhook] Signature mismatch — proceeding anyway for debug');
   }
 
   let payload: SentryWebhookPayload;
   try { payload = JSON.parse(rawBody) as SentryWebhookPayload; } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  console.log('[sentry-webhook] action:', payload.action, 'issue id:', payload.data?.issue?.id);
-
+  const isInternalIntegration = payload.action !== undefined;
   const isTest = payload.action === 'test';
-  if (payload.action !== 'triggered' && !isTest) return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
 
-  const issue = payload.data?.issue ?? (isTest ? {
-    id: `test-${Date.now()}`, shortId: 'TEST-1', title: '[Test] Sentry Webhook Test',
-    level: 'error', status: 'unresolved',
-  } as SentryIssue : undefined);
+  console.log('[sentry-webhook] format:', isInternalIntegration ? 'internal-integration' : 'webhooks-plugin');
+  console.log('[sentry-webhook] action:', payload.action, 'top-level id:', payload.id);
+
+  // Internal Integration: filter by action
+  if (isInternalIntegration && payload.action !== 'triggered' && !isTest) {
+    return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
+  }
+
+  // Build issue object from whichever format was received
+  let issue: SentryIssue | undefined;
+  let event: SentryEvent | undefined;
+  let rule: string | undefined;
+
+  if (isInternalIntegration) {
+    issue = payload.data?.issue ?? (isTest ? {
+      id: `test-${Date.now()}`, shortId: 'TEST-1', title: '[Test] Sentry Webhook Test',
+      level: 'error', status: 'unresolved',
+    } as SentryIssue : undefined);
+    event = payload.data?.event;
+    rule = payload.triggered_rule;
+  } else {
+    // Webhooks plugin: issue data is at the top level
+    if (!payload.id && !payload.message) {
+      console.log('[sentry-webhook] skipped: no issue data in webhooks plugin payload');
+      return NextResponse.json({ ok: true, skipped: 'no issue data' });
+    }
+    issue = {
+      id: payload.id ?? `webhook-${Date.now()}`,
+      shortId: payload.id,
+      title: payload.message ?? 'Sentry Issue',
+      culprit: payload.culprit,
+      level: payload.level ?? 'error',
+      status: 'unresolved',
+      permalink: payload.url,
+    };
+    event = payload.event;
+    rule = payload.triggering_rules?.[0];
+  }
+
   if (!issue?.id) return NextResponse.json({ ok: true, skipped: 'no issue data' });
 
+  // Skip non-production unless it's a test
   if (!isTest) {
-    const env = getTag(payload.data?.event?.tags, 'environment');
-    if (env && env !== 'production') return NextResponse.json({ ok: true, skipped: `env=${env}` });
+    const env = getTag(event?.tags, 'environment');
+    if (env && env !== 'production') {
+      console.log(`[sentry-webhook] skipped env=${env}`);
+      return NextResponse.json({ ok: true, skipped: `env=${env}` });
+    }
   }
 
   const token = process.env.GITHUB_TOKEN;
@@ -130,7 +172,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 });
   }
 
-  if (!isTest && await isDuplicate(owner, repo, issue.id, token)) {
+  if (await isDuplicate(owner, repo, issue.id, token)) {
     console.log(`[sentry-webhook] Skipping duplicate for Sentry issue ${issue.id}`);
     return NextResponse.json({ ok: true, skipped: 'duplicate' });
   }
@@ -140,7 +182,7 @@ export async function POST(req: NextRequest) {
   const ghRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: `[Sentry] ${issue.title}`, body: buildBody(issue, payload.data?.event, payload.triggered_rule), labels: ['bug', 'sentry'] }),
+    body: JSON.stringify({ title: `[Sentry] ${issue.title}`, body: buildBody(issue, event, rule), labels: ['bug', 'sentry'] }),
   });
 
   if (!ghRes.ok) {
@@ -150,6 +192,6 @@ export async function POST(req: NextRequest) {
   }
 
   const ghIssue = await ghRes.json() as { number: number; html_url: string };
-  console.log(`[sentry-webhook] Created GitHub issue #${ghIssue.number}`);
+  console.log(`[sentry-webhook] Created GitHub issue #${ghIssue.number}: ${ghIssue.html_url}`);
   return NextResponse.json({ ok: true, github_issue: ghIssue.html_url, number: ghIssue.number });
 }
