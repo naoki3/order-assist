@@ -29,11 +29,9 @@ interface SentryEvent {
 }
 
 interface SentryWebhookPayload {
-  // Internal Integration fields
   action?: string;
   data?: { issue?: SentryIssue; event?: SentryEvent };
   triggered_rule?: string;
-  // Webhooks plugin fields (action is absent, data is at top level)
   id?: string;
   project?: string;
   project_name?: string;
@@ -90,6 +88,35 @@ async function isDuplicate(owner: string, repo: string, issueId: string, token: 
   return data.total_count > 0;
 }
 
+export async function GET() {
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPO_NAME;
+  const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
+  const secret = process.env.SENTRY_WEBHOOK_SECRET;
+
+  let githubStatus = 'not checked';
+  if (token && repo) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      });
+      githubStatus = res.ok ? 'ok' : `error ${res.status}: ${(await res.text()).slice(0, 100)}`;
+    } catch (e) {
+      githubStatus = `fetch error: ${String(e)}`;
+    }
+  }
+
+  return NextResponse.json({
+    env: {
+      GITHUB_TOKEN: !!token,
+      GITHUB_REPO_NAME: repo ?? null,
+      GITHUB_REPO_OWNER: owner,
+      SENTRY_WEBHOOK_SECRET: !!secret,
+    },
+    github_api: githubStatus,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get('sentry-hook-signature');
@@ -98,9 +125,8 @@ export async function POST(req: NextRequest) {
   console.log('[sentry-webhook] resource header:', req.headers.get('sentry-hook-resource'));
   console.log('[sentry-webhook] signature present:', !!signature);
   console.log('[sentry-webhook] secret configured:', !!secret);
-  console.log('[sentry-webhook] raw body (first 500):', rawBody.slice(0, 500));
+  console.log('[sentry-webhook] raw body:', rawBody.slice(0, 1000));
 
-  // Skip signature check if no secret configured (Webhooks plugin without secret)
   if (secret && signature && !verifySignature(rawBody, signature, secret)) {
     console.error('[sentry-webhook] Signature mismatch — proceeding anyway for debug');
   }
@@ -112,14 +138,13 @@ export async function POST(req: NextRequest) {
   const isTest = payload.action === 'test';
 
   console.log('[sentry-webhook] format:', isInternalIntegration ? 'internal-integration' : 'webhooks-plugin');
-  console.log('[sentry-webhook] action:', payload.action, 'top-level id:', payload.id);
+  console.log('[sentry-webhook] action:', payload.action, 'top-level id:', payload.id, 'message:', payload.message?.slice(0, 100));
 
-  // Internal Integration: filter by action
   if (isInternalIntegration && payload.action !== 'triggered' && !isTest) {
+    console.log('[sentry-webhook] skipped action:', payload.action);
     return NextResponse.json({ ok: true, skipped: `action=${payload.action}` });
   }
 
-  // Build issue object from whichever format was received
   let issue: SentryIssue | undefined;
   let event: SentryEvent | undefined;
   let rule: string | undefined;
@@ -132,9 +157,8 @@ export async function POST(req: NextRequest) {
     event = payload.data?.event;
     rule = payload.triggered_rule;
   } else {
-    // Webhooks plugin: issue data is at the top level
     if (!payload.id && !payload.message) {
-      console.log('[sentry-webhook] skipped: no issue data in webhooks plugin payload');
+      console.log('[sentry-webhook] skipped: no id or message in webhooks-plugin payload');
       return NextResponse.json({ ok: true, skipped: 'no issue data' });
     }
     issue = {
@@ -152,7 +176,6 @@ export async function POST(req: NextRequest) {
 
   if (!issue?.id) return NextResponse.json({ ok: true, skipped: 'no issue data' });
 
-  // Skip non-production unless it's a test
   if (!isTest) {
     const env = getTag(event?.tags, 'environment');
     if (env && env !== 'production') {
@@ -165,7 +188,7 @@ export async function POST(req: NextRequest) {
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
   const repo = process.env.GITHUB_REPO_NAME;
 
-  console.log('[sentry-webhook] github token present:', !!token, 'repo:', repo);
+  console.log('[sentry-webhook] github token present:', !!token, 'owner:', owner, 'repo:', repo);
 
   if (!token || !repo) {
     console.error('[sentry-webhook] GITHUB_TOKEN or GITHUB_REPO_NAME not configured');
@@ -188,7 +211,7 @@ export async function POST(req: NextRequest) {
   if (!ghRes.ok) {
     const text = await ghRes.text();
     console.error(`[sentry-webhook] GitHub API error ${ghRes.status}: ${text.slice(0, 300)}`);
-    return NextResponse.json({ error: 'Failed to create GitHub issue' }, { status: 502 });
+    return NextResponse.json({ error: 'Failed to create GitHub issue', status: ghRes.status, details: text.slice(0, 300) }, { status: 502 });
   }
 
   const ghIssue = await ghRes.json() as { number: number; html_url: string };
