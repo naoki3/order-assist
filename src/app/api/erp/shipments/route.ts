@@ -153,6 +153,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     shipment_id: shipment.id,
     shipment_no: shipment.shipment_no,
-    line_ids: lines?.map((l) => l.id) ?? [],
+    line_ids: lines?.map((l: { id: number }) => l.id) ?? [],
   });
 }

@@ -158,6 +158,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     receipt_id: receipt.id,
     receipt_no: receipt.receipt_no,
-    line_ids: lines?.map((l) => l.id) ?? [],
+    line_ids: lines?.map((l: { id: number }) => l.id) ?? [],
   });
 }
