@@ -17,6 +17,10 @@ interface SentryIssue {
 }
 
 interface SentryEvent {
+  id?: string;
+  title?: string;
+  culprit?: string;
+  level?: string;
   environment?: string;
   tags?: [string, string][];
   exception?: {
@@ -30,7 +34,11 @@ interface SentryEvent {
 
 interface SentryWebhookPayload {
   action?: string;
-  data?: { issue?: SentryIssue; event?: SentryEvent };
+  data?: {
+    issue?: SentryIssue;
+    event?: SentryEvent;
+    triggered_rule?: string;
+  };
   triggered_rule?: string;
   // Webhooks plugin flat format
   id?: string;
@@ -44,7 +52,7 @@ interface SentryWebhookPayload {
   event?: SentryEvent;
 }
 
-// Actions we explicitly ignore (issue state changes we don't need to file)
+// Actions that mean the issue was resolved/changed — not worth filing a new GitHub issue
 const SKIP_ACTIONS = new Set(['resolved', 'assigned', 'ignored', 'archived', 'unresolved']);
 
 function verifySignature(body: string, rawSig: string, secret: string): boolean {
@@ -61,7 +69,7 @@ function getTag(tags: [string, string][] | undefined, key: string): string | nul
 }
 
 function buildBody(issue: SentryIssue, event: SentryEvent | undefined, rule: string | undefined): string {
-  const env = getTag(event?.tags, 'environment') ?? 'production';
+  const env = getTag(event?.tags, 'environment') ?? event?.environment ?? 'production';
   const exc = event?.exception?.values?.[0];
   const frames = exc?.stacktrace?.frames?.slice(-5).reverse() ?? [];
   const rows: [string, string][] = [
@@ -124,10 +132,11 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get('sentry-hook-signature');
+  const resource = req.headers.get('sentry-hook-resource');
   const secret = process.env.SENTRY_WEBHOOK_SECRET;
 
-  console.log('[sw] resource:', req.headers.get('sentry-hook-resource'), 'sig:', !!signature, 'secret:', !!secret);
-  console.log('[sw] body:', rawBody.slice(0, 800));
+  console.log('[sw] resource:', resource, 'sig:', !!signature);
+  console.log('[sw] body:', rawBody.slice(0, 1000));
 
   if (secret && signature && !verifySignature(rawBody, signature, secret)) {
     console.error('[sw] signature mismatch — proceeding for debug');
@@ -140,30 +149,41 @@ export async function POST(req: NextRequest) {
   const isTest = action === 'test';
   const isInternalIntegration = action !== undefined;
 
-  console.log('[sw] action:', action, 'isTest:', isTest, 'id:', payload.id ?? payload.data?.issue?.id);
+  console.log('[sw] action:', action, 'data keys:', Object.keys(payload.data ?? {}).join(','));
 
-  // Skip lifecycle actions (resolved, assigned, etc.) — only file on new issues
+  // Skip lifecycle state changes
   if (isInternalIntegration && SKIP_ACTIONS.has(action ?? '')) {
-    console.log('[sw] skipped lifecycle action:', action);
     return NextResponse.json({ ok: true, skipped: `action=${action}` });
   }
 
-  // Build issue from whichever payload format Sentry used
   let issue: SentryIssue | undefined;
   let event: SentryEvent | undefined;
   let rule: string | undefined;
 
   if (isInternalIntegration) {
-    issue = payload.data?.issue ?? (isTest ? {
-      id: `test-${Date.now()}`, shortId: 'TEST-1', title: '[Test] Sentry Webhook Test',
-      level: 'error', status: 'unresolved',
-    } as SentryIssue : undefined);
     event = payload.data?.event;
-    rule = payload.triggered_rule;
+    rule = payload.data?.triggered_rule ?? payload.triggered_rule;
+
+    if (payload.data?.issue) {
+      // issue resource: has full issue object
+      issue = payload.data.issue;
+    } else if (event?.id) {
+      // event_alert resource: build issue from event data
+      issue = {
+        id: event.id,
+        shortId: event.id,
+        title: event.title ?? 'Sentry Error',
+        culprit: event.culprit,
+        level: event.level ?? 'error',
+        status: 'unresolved',
+      };
+    } else if (isTest) {
+      // test notification with no real data
+      issue = { id: `test-${Date.now()}`, shortId: 'TEST-1', title: '[Test] Sentry Webhook Test', level: 'error', status: 'unresolved' };
+    }
   } else {
-    // Webhooks plugin flat format (no action field)
+    // Webhooks plugin flat format
     if (!payload.id && !payload.message) {
-      console.log('[sw] skipped: no issue data in flat payload');
       return NextResponse.json({ ok: true, skipped: 'no issue data' });
     }
     issue = {
@@ -179,16 +199,15 @@ export async function POST(req: NextRequest) {
     rule = payload.triggering_rules?.[0];
   }
 
+  console.log('[sw] issue id:', issue?.id, 'title:', issue?.title?.slice(0, 80));
+
   if (!issue?.id) {
-    console.log('[sw] skipped: no issue id');
     return NextResponse.json({ ok: true, skipped: 'no issue data' });
   }
 
-  // Skip non-production events (but always process test)
   if (!isTest) {
-    const env = getTag(event?.tags, 'environment');
+    const env = getTag(event?.tags, 'environment') ?? event?.environment;
     if (env && env !== 'production') {
-      console.log('[sw] skipped env:', env);
       return NextResponse.json({ ok: true, skipped: `env=${env}` });
     }
   }
@@ -197,14 +216,14 @@ export async function POST(req: NextRequest) {
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
   const repo = process.env.GITHUB_REPO_NAME;
 
-  console.log('[sw] token:', !!token, 'owner:', owner, 'repo:', repo, 'issueId:', issue.id);
+  console.log('[sw] token:', !!token, 'repo:', `${owner}/${repo}`);
 
   if (!token || !repo) {
     return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 });
   }
 
   if (await isDuplicate(owner, repo, issue.id, token)) {
-    console.log('[sw] skipped duplicate:', issue.id);
+    console.log('[sw] duplicate:', issue.id);
     return NextResponse.json({ ok: true, skipped: 'duplicate' });
   }
 
@@ -223,6 +242,6 @@ export async function POST(req: NextRequest) {
   }
 
   const ghIssue = await ghRes.json() as { number: number; html_url: string };
-  console.log('[sw] created issue #', ghIssue.number, ghIssue.html_url);
+  console.log('[sw] created #', ghIssue.number, ghIssue.html_url);
   return NextResponse.json({ ok: true, github_issue: ghIssue.html_url, number: ghIssue.number });
 }
