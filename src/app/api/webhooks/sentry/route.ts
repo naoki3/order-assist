@@ -42,7 +42,6 @@ interface SentryWebhookPayload {
   triggered_rule?: string;
   id?: string;
   project?: string;
-  project_name?: string;
   culprit?: string;
   message?: string;
   level?: string;
@@ -51,6 +50,7 @@ interface SentryWebhookPayload {
   event?: SentryEvent;
 }
 
+// Lifecycle state changes we don't need to file as new issues
 const SKIP_ACTIONS = new Set(['resolved', 'assigned', 'ignored', 'archived', 'unresolved']);
 
 function verifySignature(body: string, rawSig: string, secret: string): boolean {
@@ -87,71 +87,57 @@ function buildBody(issue: SentryIssue, event: SentryEvent | undefined, rule: str
 async function ensureSentryLabel(owner: string, repo: string, token: string): Promise<void> {
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
   const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/labels/sentry`, { headers });
-  if (res.status === 404) { await fetch(`https://api.github.com/repos/${owner}/${repo}/labels`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'sentry', color: '362d59', description: 'Auto-filed from Sentry alert' }) }); }
+  if (res.status === 404) {
+    await fetch(`https://api.github.com/repos/${owner}/${repo}/labels`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'sentry', color: '362d59', description: 'Auto-filed from Sentry alert' }),
+    });
+  }
 }
 
 async function isDuplicate(owner: string, repo: string, issueId: string, token: string): Promise<boolean> {
   const q = encodeURIComponent(`repo:${owner}/${repo} "Sentry Issue ID: \`${issueId}\`" in:body is:issue`);
-  const res = await fetch(`https://api.github.com/search/issues?q=${q}&per_page=1`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+  const res = await fetch(`https://api.github.com/search/issues?q=${q}&per_page=1`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+  });
   if (!res.ok) return false;
   const data = await res.json() as { total_count: number };
   return data.total_count > 0;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO_NAME;
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
   const secret = process.env.SENTRY_WEBHOOK_SECRET;
-  const isCreateTest = req.nextUrl.searchParams.get('test') === '1';
 
   let githubStatus = 'not checked';
-  let createdIssue: { number: number; html_url: string } | null = null;
-
   if (token && repo) {
     try {
-      const readRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
       });
-      githubStatus = readRes.ok ? 'read:ok' : `read error ${readRes.status}`;
-
-      if (isCreateTest && readRes.ok) {
-        await ensureSentryLabel(owner, repo, token);
-        const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '[Sentry] Manual test issue', body: 'Created via GET ?test=1 to verify GitHub write access.\n\n---\n*Auto-generated from Sentry alert. Sentry Issue ID: `manual-test`*', labels: ['sentry'] }),
-        });
-        if (createRes.ok) {
-          createdIssue = await createRes.json() as { number: number; html_url: string };
-          githubStatus = 'write:ok';
-        } else {
-          githubStatus = `write error ${createRes.status}: ${(await createRes.text()).slice(0, 200)}`;
-        }
-      }
+      githubStatus = res.ok ? 'ok' : `error ${res.status}: ${(await res.text()).slice(0, 100)}`;
     } catch (e) {
-      githubStatus = `error: ${String(e)}`;
+      githubStatus = `fetch error: ${String(e)}`;
     }
   }
 
   return NextResponse.json({
     env: { GITHUB_TOKEN: !!token, GITHUB_REPO_NAME: repo ?? null, GITHUB_REPO_OWNER: owner, SENTRY_WEBHOOK_SECRET: !!secret },
     github_api: githubStatus,
-    ...(createdIssue ? { created_issue: createdIssue } : {}),
   });
 }
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get('sentry-hook-signature');
-  const resource = req.headers.get('sentry-hook-resource');
   const secret = process.env.SENTRY_WEBHOOK_SECRET;
 
-  console.log('[sw] resource:', resource, 'sig:', !!signature);
-  console.log('[sw] body:', rawBody.slice(0, 800));
-
   if (secret && signature && !verifySignature(rawBody, signature, secret)) {
-    console.error('[sw] signature mismatch — proceeding for debug');
+    console.error('[sentry-webhook] signature mismatch');
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
   let payload: SentryWebhookPayload;
@@ -160,8 +146,6 @@ export async function POST(req: NextRequest) {
   const action = payload.action;
   const isTest = action === 'test';
   const isInternalIntegration = action !== undefined;
-
-  console.log('[sw] action:', action, 'data:', JSON.stringify(payload.data ?? {}).slice(0, 300));
 
   if (isInternalIntegration && SKIP_ACTIONS.has(action ?? '')) {
     return NextResponse.json({ ok: true, skipped: `action=${action}` });
@@ -180,24 +164,34 @@ export async function POST(req: NextRequest) {
     } else if (event?.id) {
       issue = { id: event.id, shortId: event.id, title: event.title ?? 'Sentry Error', culprit: event.culprit, level: event.level ?? 'error', status: 'unresolved' };
     } else {
-      // No real data (e.g. test notification) — use a timestamped mock
-      issue = { id: `alert-${Date.now()}`, shortId: 'TEST', title: `[Sentry] Alert Test Notification`, level: 'error', status: 'unresolved' };
+      // Test notification with no real event data
+      issue = { id: `alert-${Date.now()}`, shortId: 'TEST', title: 'Alert Test Notification', level: 'error', status: 'unresolved' };
     }
   } else {
+    // Webhooks plugin flat format (no action field)
     if (!payload.id && !payload.message) {
       return NextResponse.json({ ok: true, skipped: 'no issue data' });
     }
-    issue = { id: payload.id ?? `webhook-${Date.now()}`, shortId: payload.id, title: payload.message ?? 'Sentry Issue', culprit: payload.culprit, level: payload.level ?? 'error', status: 'unresolved', permalink: payload.url };
+    issue = {
+      id: payload.id ?? `webhook-${Date.now()}`,
+      shortId: payload.id,
+      title: payload.message ?? 'Sentry Issue',
+      culprit: payload.culprit,
+      level: payload.level ?? 'error',
+      status: 'unresolved',
+      permalink: payload.url,
+    };
     event = payload.event;
     rule = payload.triggering_rules?.[0];
   }
 
-  console.log('[sw] issue id:', issue.id, 'title:', issue.title?.slice(0, 80));
+  if (!issue?.id) {
+    return NextResponse.json({ ok: true, skipped: 'no issue data' });
+  }
 
   if (!isTest) {
     const env = getTag(event?.tags, 'environment') ?? event?.environment;
     if (env && env !== 'production') {
-      console.log('[sw] skipped env:', env);
       return NextResponse.json({ ok: true, skipped: `env=${env}` });
     }
   }
@@ -206,14 +200,11 @@ export async function POST(req: NextRequest) {
   const owner = process.env.GITHUB_REPO_OWNER ?? 'naoki3';
   const repo = process.env.GITHUB_REPO_NAME;
 
-  console.log('[sw] token:', !!token, 'repo:', `${owner}/${repo}`);
-
   if (!token || !repo) {
     return NextResponse.json({ error: 'GitHub credentials not configured' }, { status: 500 });
   }
 
   if (await isDuplicate(owner, repo, issue.id, token)) {
-    console.log('[sw] duplicate:', issue.id);
     return NextResponse.json({ ok: true, skipped: 'duplicate' });
   }
 
@@ -222,16 +213,20 @@ export async function POST(req: NextRequest) {
   const ghRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: `[Sentry] ${issue.title}`, body: buildBody(issue, event, rule), labels: ['bug', 'sentry'] }),
+    body: JSON.stringify({
+      title: `[Sentry] ${issue.title}`,
+      body: buildBody(issue, event, rule),
+      labels: ['bug', 'sentry'],
+    }),
   });
 
   if (!ghRes.ok) {
     const text = await ghRes.text();
-    console.error('[sw] GitHub error', ghRes.status, text.slice(0, 300));
+    console.error('[sentry-webhook] GitHub API error', ghRes.status, text.slice(0, 300));
     return NextResponse.json({ error: 'Failed to create GitHub issue', status: ghRes.status, details: text.slice(0, 300) }, { status: 502 });
   }
 
   const ghIssue = await ghRes.json() as { number: number; html_url: string };
-  console.log('[sw] created #', ghIssue.number, ghIssue.html_url);
+  console.log('[sentry-webhook] created issue #', ghIssue.number);
   return NextResponse.json({ ok: true, github_issue: ghIssue.html_url, number: ghIssue.number });
 }
