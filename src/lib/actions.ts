@@ -30,15 +30,38 @@ async function notifyErpCallback(
   const erpBase = process.env.ERP_BASE_URL;
   const erpKey  = process.env.ERP_CALLBACK_KEY;
   if (!erpBase || !erpKey) return;
-  try {
-    await fetch(`${erpBase}/api/wms/webhook`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': erpKey },
-      body:    JSON.stringify({ event, external_ref_no, wms_id, status: event === 'receipt_completed' ? 'received' : 'shipped' }),
-    });
-  } catch {
-    // best-effort — ERP callback failure must not block WMS flow
+
+  const payload = JSON.stringify({ event, external_ref_no, wms_id, status: event === 'receipt_completed' ? 'received' : 'shipped' });
+  let lastError = '';
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1000 * 2 ** (attempt - 1))); // 1s, 2s
+    try {
+      const res = await fetch(`${erpBase}/api/wms/webhook`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': erpKey },
+        body:    payload,
+      });
+      if (res.ok) return;
+      lastError = `HTTP ${res.status}`;
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+    }
   }
+
+  // 全リトライ失敗 → wms_sync_log に記録して運用者が確認できるようにする
+  try {
+    const supabase = createAdminClient();
+    await supabase.from('wms_sync_log').insert({
+      direction:       'callback',
+      entity_type:     event === 'receipt_completed' ? 'purchase_order' : 'sales_order',
+      wms_entity_type: event === 'receipt_completed' ? 'receipt' : 'shipment',
+      wms_id,
+      status:          'error',
+      error_message:   `ERP callback failed after 3 attempts: ${lastError}`,
+      payload:         { event, external_ref_no, wms_id },
+    });
+  } catch { /* ログ失敗は無視 */ }
 }
 
 // ─── Order ───────────────────────────────────────────────────────────────────
