@@ -22,6 +22,25 @@ async function getOwnerId(supabase: Awaited<ReturnType<typeof createClient>>): P
 export type ActionResult = { error: string } | { success: string } | null;
 export type SignupResult = { error: string } | { needsConfirmation: true } | null;
 
+async function notifyErpCallback(
+  event: 'receipt_completed' | 'shipment_shipped',
+  external_ref_no: string,
+  wms_id: number,
+) {
+  const erpBase = process.env.ERP_BASE_URL;
+  const erpKey  = process.env.ERP_CALLBACK_KEY;
+  if (!erpBase || !erpKey) return;
+  try {
+    await fetch(`${erpBase}/api/wms/webhook`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': erpKey },
+      body:    JSON.stringify({ event, external_ref_no, wms_id, status: event === 'receipt_completed' ? 'received' : 'shipped' }),
+    });
+  } catch {
+    // best-effort — ERP callback failure must not block WMS flow
+  }
+}
+
 // ─── Order ───────────────────────────────────────────────────────────────────
 
 export interface OrderItem {
@@ -168,6 +187,24 @@ export async function receiveBulkIncoming(_prev: ActionResult, formData: FormDat
 
   if (errors.length > 0) return { error: errors.join(' / ') };
 
+  // Notify ERP if this receipt came from an ERP purchase order
+  const { data: lineForReceipt } = await supabase
+    .from('receipt_lines')
+    .select('receipt_id')
+    .in('id', ids)
+    .limit(1)
+    .single();
+  if (lineForReceipt?.receipt_id) {
+    const { data: receipt } = await supabase
+      .from('receipts')
+      .select('id, external_ref_no')
+      .eq('id', lineForReceipt.receipt_id)
+      .single();
+    if (receipt?.external_ref_no) {
+      await notifyErpCallback('receipt_completed', receipt.external_ref_no, receipt.id);
+    }
+  }
+
   revalidatePath('/incoming');
   revalidatePath('/inventory');
   revalidatePath('/');
@@ -190,6 +227,17 @@ export async function confirmBulkShipment(_prev: ActionResult, formData: FormDat
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
   if (result?.error) return { error: result.error };
+
+  // Notify ERP for each shipment that came from an ERP sales order
+  const { data: shipments } = await supabase
+    .from('shipments')
+    .select('id, external_ref_no')
+    .in('id', ids);
+  await Promise.all(
+    (shipments ?? [])
+      .filter(s => s.external_ref_no)
+      .map(s => notifyErpCallback('shipment_shipped', s.external_ref_no!, s.id))
+  );
 
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
@@ -1111,6 +1159,16 @@ export async function confirmShipment(
   if (error) return { error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;
   if (result?.error) return { error: result.error };
+
+  // Notify ERP if this shipment came from an ERP sales order
+  const { data: shipment } = await supabase
+    .from('shipments')
+    .select('id, external_ref_no')
+    .eq('id', id)
+    .single();
+  if (shipment?.external_ref_no) {
+    await notifyErpCallback('shipment_shipped', shipment.external_ref_no, shipment.id);
+  }
 
   revalidatePath('/shipping/confirm');
   revalidatePath('/shipping/schedule');
