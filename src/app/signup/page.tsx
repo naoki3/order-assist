@@ -2,12 +2,31 @@
 
 import { useActionState, useState } from 'react';
 import { signup } from '@/app/actions/auth';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 import type { SignupResult } from '@/lib/actions';
 
 export default function SignupPage() {
   const [state, action, pending] = useActionState<SignupResult, FormData>(signup, null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  if (!REGISTRATION_ENABLED) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%)' }}>
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-green-700 rounded-2xl mb-4 shadow-lg">
+            <span className="text-white text-2xl font-bold">OA</span>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 mt-4">
+            <div className="text-4xl mb-3">🔒</div>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">新規登録は受付停止中です</h2>
+            <p className="text-sm text-slate-500">現在、新規アカウントの登録は受け付けていません。アカウントをお持ちの方はログインしてください。</p>
+            <a href="/login" className="block mt-4 text-sm text-green-700 font-medium hover:underline">ログインページへ</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (state && 'needsConfirmation' in state) {
     return (

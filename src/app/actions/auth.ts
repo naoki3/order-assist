@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { createAdminClient } from '@/lib/supabase-admin';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 import type { ActionResult, SignupResult } from '@/lib/actions';
 
 export async function login(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -46,6 +47,8 @@ export async function logout() {
 }
 
 export async function signup(_prev: SignupResult, formData: FormData): Promise<SignupResult> {
+  if (!REGISTRATION_ENABLED) return { error: '現在、新規登録は受け付けていません' };
+
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const confirm = String(formData.get('confirm') ?? '');
