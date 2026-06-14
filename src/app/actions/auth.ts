@@ -4,9 +4,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { REGISTRATION_ENABLED } from '@/lib/registration';
+import { LOGIN_LOCKDOWN } from '@/lib/login-lockdown';
 import type { ActionResult, SignupResult } from '@/lib/actions';
 
 export async function login(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  // Global maintenance lockdown: block every login regardless of credentials.
+  if (LOGIN_LOCKDOWN) return { error: '現在メンテナンス中のため、ログインを一時停止しています。' };
+
   const identifier = String(formData.get('identifier') ?? '').trim();
   const password = String(formData.get('password') ?? '');
 
