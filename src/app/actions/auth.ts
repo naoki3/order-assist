@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { createAdminClient } from '@/lib/supabase-admin';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 import type { ActionResult, SignupResult } from '@/lib/actions';
 
 export async function login(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -12,11 +13,13 @@ export async function login(_prev: ActionResult, formData: FormData): Promise<Ac
   if (!identifier || !password) return { error: 'ログインIDとパスワードを入力してください' };
 
   const supabase = await createClient();
+  let authUserId: string;
 
   if (identifier.includes('@')) {
     // Standard email login (tenant owner)
-    const { error } = await supabase.auth.signInWithPassword({ email: identifier, password });
-    if (error) return { error: 'メールアドレスまたはパスワードが正しくありません' };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: identifier, password });
+    if (error || !data.user) return { error: 'メールアドレスまたはパスワードが正しくありません' };
+    authUserId = data.user.id;
   } else {
     // Login ID (sub-user)
     const adminClient = createAdminClient();
@@ -32,8 +35,24 @@ export async function login(_prev: ActionResult, formData: FormData): Promise<Ac
     const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(profile.auth_user_id);
     if (!authUser?.email) return { error: 'アカウントが見つかりません' };
 
-    const { error } = await supabase.auth.signInWithPassword({ email: authUser.email, password });
-    if (error) return { error: 'ログインIDまたはパスワードが正しくありません' };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: authUser.email, password });
+    if (error || !data.user) return { error: 'ログインIDまたはパスワードが正しくありません' };
+    authUserId = data.user.id;
+  }
+
+  // Soft-delete / disable flag: a profile flagged is_active = false cannot log in.
+  // Keyed by auth_user_id so it covers both sub-users and (self-profiled) owners.
+  const adminClient = createAdminClient();
+  const { data: flagged } = await adminClient
+    .from('user_profiles')
+    .select('is_active')
+    .eq('auth_user_id', authUserId)
+    .eq('is_active', false)
+    .maybeSingle();
+
+  if (flagged) {
+    await supabase.auth.signOut();
+    return { error: 'このアカウントは無効化されています。管理者にお問い合わせください。' };
   }
 
   redirect('/dashboard');
@@ -46,6 +65,8 @@ export async function logout() {
 }
 
 export async function signup(_prev: SignupResult, formData: FormData): Promise<SignupResult> {
+  if (!REGISTRATION_ENABLED) return { error: '現在、新規登録は受け付けていません' };
+
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const confirm = String(formData.get('confirm') ?? '');

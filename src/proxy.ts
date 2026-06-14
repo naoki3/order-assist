@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 
 export async function proxy(request: NextRequest) {
   // ERP integration routes and webhook routes use their own auth — skip session check
@@ -9,6 +10,12 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/api/webhooks/')
   ) {
     return NextResponse.next();
+  }
+
+  // Registration is gated by a feature flag. When closed, the sign-up route is
+  // not reachable — send visitors to the login page instead.
+  if (!REGISTRATION_ENABLED && request.nextUrl.pathname.startsWith('/signup')) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   let response = NextResponse.next({ request });

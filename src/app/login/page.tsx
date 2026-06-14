@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { login } from '@/app/actions/auth';
 import { LOGO_BASE64 } from '@/lib/logoBase64';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 import { useActionFeedback } from '@/hooks/useActionFeedback';
 
 export default function LoginPage() {
@@ -84,12 +85,14 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-4">
-          アカウントをお持ちでない方は{' '}
-          <a href="/signup" className="text-green-700 font-medium hover:underline">
-            新規登録
-          </a>
-        </p>
+        {REGISTRATION_ENABLED && (
+          <p className="text-center text-sm text-slate-500 mt-4">
+            アカウントをお持ちでない方は{' '}
+            <a href="/signup" className="text-green-700 font-medium hover:underline">
+              新規登録
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );

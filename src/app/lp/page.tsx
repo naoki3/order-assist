@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { REGISTRATION_ENABLED } from '@/lib/registration';
 
 export default function LandingPage() {
+  // When registration is closed, route the sign-up CTAs to login instead.
+  const signupHref = REGISTRATION_ENABLED ? '/signup' : '/login';
   return (
     <div className="min-h-screen bg-white text-slate-800">
 
@@ -17,7 +20,7 @@ export default function LandingPage() {
             <Link href="/login" className="text-sm text-slate-500 hover:text-slate-800 transition-colors">
               ログイン
             </Link>
-            <Link href="/signup" className="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg hover:bg-green-800 transition-colors font-medium">
+            <Link href={signupHref} className="text-sm bg-green-700 text-white px-4 py-1.5 rounded-lg hover:bg-green-800 transition-colors font-medium">
               無料で始める
             </Link>
           </div>
@@ -38,7 +41,7 @@ export default function LandingPage() {
             過去7日間の売上を自動分析し、今日発注すべき数量を提案。在庫切れ・過剰在庫を防ぎ、発注業務をシンプルにします。
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/signup" className="px-8 py-3.5 bg-green-700 text-white font-bold rounded-xl hover:bg-green-800 transition-colors shadow-sm text-base">
+            <Link href={signupHref} className="px-8 py-3.5 bg-green-700 text-white font-bold rounded-xl hover:bg-green-800 transition-colors shadow-sm text-base">
               無料で始める
             </Link>
             <Link href="/login" className="px-8 py-3.5 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors text-base">
@@ -144,7 +147,7 @@ export default function LandingPage() {
           <p className="text-green-200 mb-8 text-sm leading-relaxed">
             無料でアカウントを作成して、すぐに使い始めることができます。
           </p>
-          <Link href="/signup" className="inline-block px-10 py-4 bg-white text-green-800 font-bold rounded-xl hover:bg-green-50 transition-colors shadow-lg text-base">
+          <Link href={signupHref} className="inline-block px-10 py-4 bg-white text-green-800 font-bold rounded-xl hover:bg-green-50 transition-colors shadow-lg text-base">
             無料で始める →
           </Link>
         </div>
